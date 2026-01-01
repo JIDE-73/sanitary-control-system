@@ -1,0 +1,137 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #f2f2f2;
+  --foreground: #383838;
+  --card: #ffffff;
+  --card-foreground: #383838;
+  --popover: #ffffff;
+  --popover-foreground: #383838;
+  --primary: #9f2240;
+  --primary-foreground: #f2f2f2;
+  --secondary: #ba945c;
+  --secondary-foreground: #383838;
+  --muted: #e3cfa7;
+  --muted-foreground: #383838;
+  --accent: #e3cfa7;
+  --accent-foreground: #383838;
+  --destructive: #750d2f;
+  --destructive-foreground: #f2f2f2;
+  --border: #e3cfa7;
+  --input: #e3cfa7;
+  --ring: #9f2240;
+  --chart-1: #9f2240;
+  --chart-2: #ba945c;
+  --chart-3: #e3cfa7;
+  --chart-4: #750d2f;
+  --chart-5: #383838;
+  --radius: 0.5rem;
+  --sidebar: #f2f2f2;
+  --sidebar-foreground: #383838;
+  --sidebar-primary: #9f2240;
+  --sidebar-primary-foreground: #f2f2f2;
+  --sidebar-accent: #e3cfa7;
+  --sidebar-accent-foreground: #383838;
+  --sidebar-border: #e3cfa7;
+  --sidebar-ring: #9f2240;
+  --success: #ba945c;
+  --success-foreground: #383838;
+  --warning: #e3cfa7;
+  --warning-foreground: #383838;
+}
+
+.dark {
+  --background: #383838;
+  --foreground: #f2f2f2;
+  --card: color-mix(in srgb, #383838 85%, #f2f2f2 15%);
+  --card-foreground: #f2f2f2;
+  --popover: color-mix(in srgb, #383838 80%, #f2f2f2 20%);
+  --popover-foreground: #f2f2f2;
+  --primary: #e3cfa7;
+  --primary-foreground: #383838;
+  --secondary: #ba945c;
+  --secondary-foreground: #383838;
+  --muted: color-mix(in srgb, #383838 70%, #f2f2f2 30%);
+  --muted-foreground: #f2f2f2;
+  --accent: #9f2240;
+  --accent-foreground: #f2f2f2;
+  --destructive: #750d2f;
+  --destructive-foreground: #f2f2f2;
+  --border: color-mix(in srgb, #383838 65%, #f2f2f2 35%);
+  --input: color-mix(in srgb, #383838 65%, #f2f2f2 35%);
+  --ring: #9f2240;
+  --chart-1: #e3cfa7;
+  --chart-2: #ba945c;
+  --chart-3: #9f2240;
+  --chart-4: #750d2f;
+  --chart-5: #f2f2f2;
+  --sidebar: color-mix(in srgb, #383838 90%, #f2f2f2 10%);
+  --sidebar-foreground: #f2f2f2;
+  --sidebar-primary: #9f2240;
+  --sidebar-primary-foreground: #f2f2f2;
+  --sidebar-accent: #ba945c;
+  --sidebar-accent-foreground: #383838;
+  --sidebar-border: color-mix(in srgb, #383838 70%, #f2f2f2 30%);
+  --sidebar-ring: #9f2240;
+  --success: #ba945c;
+  --success-foreground: #383838;
+  --warning: #e3cfa7;
+  --warning-foreground: #383838;
+}
+
+@theme inline {
+  --font-sans: "Geist", "Geist Fallback";
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
