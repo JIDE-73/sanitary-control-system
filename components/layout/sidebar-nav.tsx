@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 import {
   Users,
   Stethoscope,
@@ -15,8 +15,8 @@ import {
   Bell,
   ChevronDown,
   Shield,
-} from "lucide-react"
-import { useState } from "react"
+} from "lucide-react";
+import { useState } from "react";
 
 const navigation = [
   {
@@ -77,28 +77,39 @@ const navigation = [
       { name: "Historial", href: "/certificados" },
     ],
   },
-]
+];
 
 const bottomNavigation = [
   { name: "Notificaciones", href: "/notificaciones", icon: Bell },
   { name: "Configuración", href: "/configuracion", icon: Settings },
-]
+];
 
-export function SidebarNav() {
-  const pathname = usePathname()
-  const [openMenus, setOpenMenus] = useState<string[]>([])
+interface SidebarNavProps {
+  isOpen: boolean;
+}
+
+export function SidebarNav({ isOpen }: SidebarNavProps) {
+  const pathname = usePathname();
+  const [openMenus, setOpenMenus] = useState<string[]>([]);
 
   const toggleMenu = (name: string) => {
-    setOpenMenus((prev) => (prev.includes(name) ? prev.filter((m) => m !== name) : [...prev, name]))
-  }
+    setOpenMenus((prev) =>
+      prev.includes(name) ? prev.filter((m) => m !== name) : [...prev, name]
+    );
+  };
 
   const isActive = (href: string) => {
-    if (href === "/") return pathname === "/"
-    return pathname.startsWith(href)
-  }
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href);
+  };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar text-sidebar-foreground">
+    <aside
+      className={cn(
+        "fixed left-0 top-0 z-60 h-screen w-64 transform bg-sidebar text-sidebar-foreground shadow-lg transition-transform duration-200",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
@@ -107,7 +118,9 @@ export function SidebarNav() {
           </div>
           <div>
             <h1 className="text-sm font-semibold">SICS</h1>
-            <p className="text-xs text-sidebar-foreground/70">Control Sanitario</p>
+            <p className="text-xs text-sidebar-foreground/70">
+              Control Sanitario
+            </p>
           </div>
         </div>
 
@@ -122,8 +135,8 @@ export function SidebarNav() {
                     className={cn(
                       "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       isActive(item.href)
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground z-20"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -131,7 +144,10 @@ export function SidebarNav() {
                       {item.name}
                     </div>
                     <ChevronDown
-                      className={cn("h-4 w-4 transition-transform", openMenus.includes(item.name) && "rotate-180")}
+                      className={cn(
+                        "h-4 w-4 transition-transform",
+                        openMenus.includes(item.name) && "rotate-180"
+                      )}
                     />
                   </button>
                   {openMenus.includes(item.name) && (
@@ -144,7 +160,7 @@ export function SidebarNav() {
                             "block rounded-lg px-3 py-2 text-sm transition-colors",
                             pathname === subitem.href
                               ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                           )}
                         >
                           {subitem.name}
@@ -160,7 +176,7 @@ export function SidebarNav() {
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                     isActive(item.href)
                       ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                   )}
                 >
                   <item.icon className="h-5 w-5" />
@@ -181,7 +197,7 @@ export function SidebarNav() {
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive(item.href)
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
               )}
             >
               <item.icon className="h-5 w-5" />
@@ -191,5 +207,5 @@ export function SidebarNav() {
         </div>
       </div>
     </aside>
-  )
+  );
 }
