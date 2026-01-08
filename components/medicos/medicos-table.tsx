@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Eye, Edit,IdCard, CheckCircle, XCircle } from "lucide-react";
+import { Eye, Edit, IdCard, CheckCircle, XCircle } from "lucide-react";
 import type { Medico } from "@/lib/types";
 
 interface MedicosTableProps {
@@ -122,7 +122,7 @@ export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-xl">
+                      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
                         <DialogHeader>
                           <DialogTitle>
                             Dr(a). {medico.nombres} {medico.apellidoPaterno}{" "}
