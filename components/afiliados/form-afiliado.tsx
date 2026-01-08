@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,8 @@ export function FormAfiliado({
   onSubmit,
 }: FormAfiliadoProps) {
   const router = useRouter();
+  const isEdit = Boolean(afiliado?.id);
+  const [submitting, setSubmitting] = useState(false);
 
   const normalizeGenero = (value?: string): GeneroBackend => {
     if (value === "LGBTQ+") return "LGBTQ+";
@@ -49,6 +51,7 @@ export function FormAfiliado({
 
   const buildDireccion = (afiliadoData?: Afiliado) => {
     if (!afiliadoData) return "";
+    if (afiliadoData.direccion) return afiliadoData.direccion;
     return [
       afiliadoData.calle,
       afiliadoData.colonia,
@@ -60,25 +63,39 @@ export function FormAfiliado({
       .join(", ");
   };
 
-  const initialData: AffiliatePayload = {
-    curp: afiliado?.curp ?? "",
-    nombre: afiliado?.nombres ?? "",
-    apellido_paterno: afiliado?.apellidoPaterno ?? "",
-    apellido_materno: afiliado?.apellidoMaterno ?? "",
-    fecha_nacimiento: afiliado?.fechaNacimiento ?? "",
-    genero: normalizeGenero(afiliado?.genero),
-    direccion: buildDireccion(afiliado),
-    telefono: afiliado?.telefono ?? "",
-    email: afiliado?.email ?? "",
-    lugar_procedencia: afiliado?.lugarProcedencia ?? "",
-    estado_civil: "SOLTERO",
-    lugar_trabajo: afiliado?.lugarTrabajoId ?? "",
-    fecha_inicio: "",
-    fecha_inicio_tijuana: "",
-    acta_nacimiento: false,
-  };
+  const getInitialData = (afiliadoData?: Afiliado): AffiliatePayload => ({
+    curp: afiliadoData?.curp ?? "",
+    nombre: afiliadoData?.nombres ?? "",
+    apellido_paterno: afiliadoData?.apellidoPaterno ?? "",
+    apellido_materno: afiliadoData?.apellidoMaterno ?? "",
+    fecha_nacimiento: afiliadoData?.fechaNacimiento
+      ? afiliadoData.fechaNacimiento.slice(0, 10)
+      : "",
+    genero: normalizeGenero(afiliadoData?.genero),
+    direccion: buildDireccion(afiliadoData),
+    telefono: afiliadoData?.telefono ?? "",
+    email: afiliadoData?.email ?? "",
+    lugar_procedencia: afiliadoData?.lugarProcedencia ?? "",
+    estado_civil:
+      (afiliadoData?.estadoCivil as EstadoCivil | undefined) ?? "SOLTERO",
+    lugar_trabajo: afiliadoData?.lugarTrabajoId ?? "",
+    fecha_inicio: afiliadoData?.fechaInicio
+      ? afiliadoData.fechaInicio.slice(0, 10)
+      : "",
+    fecha_inicio_tijuana: afiliadoData?.fechaInicioTijuana
+      ? afiliadoData.fechaInicioTijuana.slice(0, 10)
+      : "",
+    acta_nacimiento: Boolean(afiliadoData?.actaNacimiento),
+  });
 
-  const [formData, setFormData] = useState<AffiliatePayload>(initialData);
+  const [formData, setFormData] = useState<AffiliatePayload>(() =>
+    getInitialData(afiliado)
+  );
+
+  useEffect(() => {
+    setFormData(getInitialData(afiliado));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [afiliado?.id]);
 
   const hasLugaresTrabajo = lugaresTrabajo.length > 0;
 
@@ -116,11 +133,12 @@ export function FormAfiliado({
     }
 
     try {
-      const response = await request(
-        "/sics/affiliates/createAffiliate",
-        "POST",
-        payload
-      );
+      setSubmitting(true);
+      const endpoint = isEdit
+        ? `/sics/affiliates/updateAffiliate/${afiliado?.id}`
+        : "/sics/affiliates/createAffiliate";
+      const method = isEdit ? "PUT" : "POST";
+      const response = await request(endpoint, method, payload);
 
       if (response.status >= 200 && response.status < 300) {
         onSubmit(payload);
@@ -130,6 +148,8 @@ export function FormAfiliado({
       }
     } catch (error) {
       console.error("Error al enviar el formulario de afiliado", error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -416,9 +436,13 @@ export function FormAfiliado({
           <ArrowLeft className="mr-2 h-4 w-4" />
           Cancelar
         </Button>
-        <Button type="submit">
+        <Button type="submit" disabled={submitting}>
           <Save className="mr-2 h-4 w-4" />
-          {afiliado ? "Guardar Cambios" : "Registrar Afiliado"}
+          {submitting
+            ? "Guardando..."
+            : afiliado
+            ? "Guardar Cambios"
+            : "Registrar Afiliado"}
         </Button>
       </div>
     </form>

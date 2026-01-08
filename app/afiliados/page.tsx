@@ -19,6 +19,15 @@ export default function AfiliadosPage() {
   );
   const [loading, setLoading] = useState<boolean>(true);
 
+  const saveAfiliadosCache = (data: AfiliadoListado[]) => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem("afiliados-cache", JSON.stringify(data));
+    } catch (error) {
+      console.warn("No se pudo guardar afiliados en cache", error);
+    }
+  };
+
   const normalizeAfiliado = (item: any): AfiliadoListado => ({
     id: String(item?.persona_id ?? item?.persona?.id ?? item?.id ?? ""),
     noAfiliacion:
@@ -35,6 +44,8 @@ export default function AfiliadosPage() {
       item?.persona?.ciudad ??
       item?.lugar_procedencia ??
       "",
+    lugarTrabajoId:
+      item?.catalogo?.id ?? item?.persona?.catalogo_id ?? item?.lugar_trabajo,
     lugarTrabajoCodigo: item?.catalogo?.codigo ?? item?.lugar_trabajo,
     lugarTrabajoNombre: item?.catalogo?.nombre,
     estatus: (item?.estatus ?? "activo") as AfiliadoListado["estatus"],
@@ -93,6 +104,7 @@ export default function AfiliadosPage() {
       console.log("normalizados", normalizados);
       setAfiliados(normalizados);
       setFilteredAfiliados(normalizados);
+      saveAfiliadosCache(normalizados);
     } catch (error) {
       console.error("No se pudieron cargar los afiliados", error);
       setAfiliados([]);
@@ -140,6 +152,7 @@ export default function AfiliadosPage() {
       }
 
       setFilteredAfiliados(results);
+      saveAfiliadosCache(results);
     } catch (error) {
       console.error("Error al buscar afiliado", error);
       setFilteredAfiliados([]);

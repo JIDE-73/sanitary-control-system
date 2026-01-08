@@ -61,6 +61,11 @@ export interface Afiliado {
   ocupacion?: string;
   // Lugar de procedencia
   lugarProcedencia?: string;
+  direccion?: string;
+  estadoCivil?: EstadoCivil;
+  fechaInicio?: string;
+  fechaInicioTijuana?: string;
+  actaNacimiento?: boolean;
   // Fechas del sistema
   fechaRegistro: string;
   fechaActualizacion: string;

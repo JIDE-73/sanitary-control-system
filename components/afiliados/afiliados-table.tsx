@@ -32,6 +32,7 @@ export interface AfiliadoListado {
   genero: "masculino" | "femenino" | "lgbt+" | "LGBTQ+" | string;
   telefono?: string;
   ciudad?: string;
+  lugarTrabajoId?: string;
   lugarTrabajoCodigo?: string;
   lugarTrabajoNombre?: string;
   estatus: "activo" | "inactivo" | "suspendido" | "pendiente";
@@ -80,6 +81,17 @@ export function AfiliadosTable({
   loading = false,
 }: AfiliadosTableProps) {
   const router = useRouter();
+
+  const handleEdit = (afiliado: AfiliadoListado) => {
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("afiliado-current", JSON.stringify(afiliado));
+      }
+    } catch (error) {
+      console.warn("No se pudo guardar afiliado en cache", error);
+    }
+    router.push(`/afiliados/${afiliado.id}/editar`);
+  };
 
   return (
     <div className="rounded-lg border border-border">
@@ -394,22 +406,20 @@ export function AfiliadosTable({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() =>
-                        router.push(`/afiliados/${afiliado.id}/editar`)
-                      }
                       title="Editar"
+                      onClick={() => handleEdit(afiliado)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
+                      title="Generar Credencial"
                       onClick={() =>
                         router.push(
                           `/certificados/nuevo?afiliado=${afiliado.id}`
                         )
                       }
-                      title="Generar Credencial"
                     >
                       <IdCard className="h-4 w-4" />
                     </Button>
