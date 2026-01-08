@@ -1,18 +1,32 @@
-"use client"
+"use client";
 
-import { useRouter } from "next/navigation"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Eye, Edit, Award, CheckCircle, XCircle } from "lucide-react"
-import type { Medico } from "@/lib/types"
+import { useRouter } from "next/navigation";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Eye, Edit, Award, CheckCircle, XCircle } from "lucide-react";
+import type { Medico } from "@/lib/types";
 
 interface MedicosTableProps {
-  medicos: Medico[]
+  medicos: Medico[];
+  loading?: boolean;
 }
 
-export function MedicosTable({ medicos }: MedicosTableProps) {
-  const router = useRouter()
+const estatusVariants = {
+  activo: "default",
+  inactivo: "secondary",
+  suspendido: "destructive",
+} as const;
+
+export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
+  const router = useRouter();
 
   return (
     <div className="rounded-lg border border-border">
@@ -30,38 +44,62 @@ export function MedicosTable({ medicos }: MedicosTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {medicos.length === 0 ? (
+          {loading ? (
             <TableRow>
-              <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+              <TableCell
+                colSpan={8}
+                className="py-8 text-center text-muted-foreground"
+              >
+                Cargando médicos...
+              </TableCell>
+            </TableRow>
+          ) : medicos.length === 0 ? (
+            <TableRow>
+              <TableCell
+                colSpan={8}
+                className="py-8 text-center text-muted-foreground"
+              >
                 No se encontraron médicos
               </TableCell>
             </TableRow>
           ) : (
             medicos.map((medico) => (
               <TableRow key={medico.id}>
-                <TableCell className="font-mono">{medico.cedulaProfesional}</TableCell>
+                <TableCell className="font-mono">
+                  {medico.cedulaProfesional}
+                </TableCell>
                 <TableCell className="font-medium">
-                  Dr(a). {medico.nombres} {medico.apellidoPaterno} {medico.apellidoMaterno}
+                  Dr(a). {medico.nombres} {medico.apellidoPaterno}{" "}
+                  {medico.apellidoMaterno}
                 </TableCell>
                 <TableCell>{medico.especialidad}</TableCell>
                 <TableCell>{medico.telefono}</TableCell>
                 <TableCell className="text-sm">{medico.email}</TableCell>
                 <TableCell>
                   {medico.firmaDigitalUrl ? (
-                    <Badge variant="outline" className="gap-1 bg-accent/10 text-accent border-accent/30">
+                    <Badge
+                      variant="outline"
+                      className="gap-1 bg-accent/10 text-accent border-accent/30"
+                    >
                       <CheckCircle className="h-3 w-3" />
                       Cargada
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="gap-1 text-destructive border-destructive/30">
+                    <Badge
+                      variant="outline"
+                      className="gap-1 text-destructive border-destructive/30"
+                    >
                       <XCircle className="h-3 w-3" />
                       Pendiente
                     </Badge>
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={medico.estatus === "activo" ? "default" : "secondary"}>
-                    {medico.estatus.charAt(0).toUpperCase() + medico.estatus.slice(1)}
+                  <Badge
+                    variant={estatusVariants[medico.estatus] ?? "secondary"}
+                  >
+                    {medico.estatus.charAt(0).toUpperCase() +
+                      medico.estatus.slice(1)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -77,12 +115,18 @@ export function MedicosTable({ medicos }: MedicosTableProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => router.push(`/medicos/${medico.id}/editar`)}
+                      onClick={() =>
+                        router.push(`/medicos/${medico.id}/editar`)
+                      }
                       title="Editar"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" title="Generar credencial">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Generar credencial"
+                    >
                       <Award className="h-4 w-4" />
                     </Button>
                   </div>
@@ -93,5 +137,5 @@ export function MedicosTable({ medicos }: MedicosTableProps) {
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }
