@@ -100,7 +100,7 @@ export default function EditarMedicoPage({ params }: PageProps) {
       );
 
       if (response.status >= 200 && response.status < 300) {
-        router.push(`/medicos/${id}`);
+        router.push("/medicos");
       } else {
         console.error(response.message || "No se pudo actualizar el médico");
       }

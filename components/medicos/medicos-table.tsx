@@ -11,6 +11,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Eye, Edit, Award, CheckCircle, XCircle } from "lucide-react";
 import type { Medico } from "@/lib/types";
 
@@ -104,14 +112,127 @@ export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => router.push(`/medicos/${medico.id}`)}
-                      title="Ver detalles"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Ver detalles"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-xl">
+                        <DialogHeader>
+                          <DialogTitle>
+                            Dr(a). {medico.nombres} {medico.apellidoPaterno}{" "}
+                            {medico.apellidoMaterno}
+                          </DialogTitle>
+                          <DialogDescription>
+                            Información del médico (solo lectura)
+                          </DialogDescription>
+                        </DialogHeader>
+                        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Cédula profesional
+                            </dt>
+                            <dd className="font-medium">
+                              {medico.cedulaProfesional}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Especialidad
+                            </dt>
+                            <dd className="font-medium">
+                              {medico.especialidad}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Teléfono
+                            </dt>
+                            <dd className="font-medium">{medico.telefono}</dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Email
+                            </dt>
+                            <dd className="font-medium break-all">
+                              {medico.email}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Estatus
+                            </dt>
+                            <dd>
+                              <Badge
+                                variant={
+                                  estatusVariants[medico.estatus] ?? "secondary"
+                                }
+                              >
+                                {medico.estatus.charAt(0).toUpperCase() +
+                                  medico.estatus.slice(1)}
+                              </Badge>
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Firma digital
+                            </dt>
+                            <dd>
+                              {medico.firmaDigitalUrl ? (
+                                <Badge
+                                  variant="outline"
+                                  className="gap-1 bg-accent/10 text-accent border-accent/30"
+                                >
+                                  <CheckCircle className="h-3 w-3" />
+                                  Cargada
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="gap-1 text-destructive border-destructive/30"
+                                >
+                                  <XCircle className="h-3 w-3" />
+                                  Pendiente
+                                </Badge>
+                              )}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              CURP
+                            </dt>
+                            <dd className="font-medium">
+                              {medico.curp || "No especificado"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Habilitado para firmar
+                            </dt>
+                            <dd className="font-medium">
+                              {medico.habilitado_para_firmar === true
+                                ? "Sí"
+                                : medico.habilitado_para_firmar === false
+                                ? "No"
+                                : "No especificado"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1 sm:col-span-2">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Fecha de registro
+                            </dt>
+                            <dd className="font-medium">
+                              {medico.fechaRegistro || "No disponible"}
+                            </dd>
+                          </div>
+                        </dl>
+                      </DialogContent>
+                    </Dialog>
                     <Button
                       variant="ghost"
                       size="icon"
