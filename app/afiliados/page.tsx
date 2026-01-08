@@ -19,19 +19,52 @@ export default function AfiliadosPage() {
   );
   const [loading, setLoading] = useState<boolean>(true);
 
-  const extractArray = (response: any) => {
-    if (Array.isArray(response)) return response;
-    if (Array.isArray(response?.data)) return response.data;
+  const normalizeAfiliado = (item: any): AfiliadoListado => ({
+    id: String(item?.persona_id ?? item?.persona?.id ?? item?.id ?? ""),
+    noAfiliacion:
+      item?.no_Afiliacion ?? item?.no_afiliacion ?? item?.noAfiliacion,
+    curp: item?.persona?.curp ?? "",
+    nombres: item?.persona?.nombre ?? "",
+    apellidoPaterno: item?.persona?.apellido_paterno ?? "",
+    apellidoMaterno: item?.persona?.apellido_materno ?? "",
+    genero: (item?.persona?.genero ?? "masculino") as AfiliadoListado["genero"],
+    telefono: item?.persona?.telefono ?? "",
+    ciudad:
+      item?.catalogo?.ciudad ??
+      item?.persona?.direccion ??
+      item?.lugar_procedencia ??
+      "",
+    lugarTrabajoCodigo: item?.catalogo?.codigo ?? item?.lugar_trabajo,
+    lugarTrabajoNombre: item?.catalogo?.nombre,
+    estatus: (item?.estatus ?? "activo") as AfiliadoListado["estatus"],
+  });
 
-    if (response && typeof response === "object") {
-      const numericKeys = Object.keys(response).filter((k) => /^\d+$/.test(k));
+  const extractArray = (response: any) => {
+    const candidate = Array.isArray(response?.data)
+      ? response.data
+      : response?.data ?? response;
+
+    if (Array.isArray(candidate)) return candidate;
+
+    if (candidate && typeof candidate === "object") {
+      const numericKeys = Object.keys(candidate).filter((k) => /^\d+$/.test(k));
       if (numericKeys.length) {
         return numericKeys
           .sort((a, b) => Number(a) - Number(b))
-          .map((k) => (response as any)[k])
+          .map((k) => (candidate as any)[k])
           .filter(Boolean);
       }
+
+      if (
+        "persona" in candidate ||
+        "persona_id" in candidate ||
+        "no_Afiliacion" in candidate ||
+        "no_afiliacion" in candidate
+      ) {
+        return [candidate];
+      }
     }
+
     return [];
   };
 
@@ -40,21 +73,7 @@ export default function AfiliadosPage() {
     try {
       const response = await request("/sics/affiliates/getAffiliattes", "GET");
       const data = extractArray(response);
-      const normalizados: AfiliadoListado[] = data.map((item: any) => ({
-        id: item.persona_id,
-        noAfiliacion: item.no_Afiliacion,
-        curp: item.persona?.curp ?? "",
-        nombres: item.persona?.nombre ?? "",
-        apellidoPaterno: item.persona?.apellido_paterno ?? "",
-        apellidoMaterno: item.persona?.apellido_materno ?? "",
-        genero: (item.persona?.genero ??
-          "masculino") as AfiliadoListado["genero"],
-        telefono: item.persona?.telefono ?? "",
-        ciudad: item.catalogo?.ciudad ?? item.persona?.direccion ?? "",
-        lugarTrabajoCodigo: item.catalogo?.codigo,
-        lugarTrabajoNombre: item.catalogo?.nombre,
-        estatus: "activo",
-      }));
+      const normalizados: AfiliadoListado[] = data.map(normalizeAfiliado);
       setAfiliados(normalizados);
       setFilteredAfiliados(normalizados);
     } catch (error) {
@@ -71,36 +90,45 @@ export default function AfiliadosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSearch = (
+  const handleSearch = async (
     query: string,
     filters: { genero?: string; estatus?: string }
   ) => {
-    let results = [...afiliados];
+    setLoading(true);
 
-    if (query) {
-      const searchTerm = query.toLowerCase();
-      results = results.filter(
-        (a) =>
-          a.curp.toLowerCase().includes(searchTerm) ||
-          `${a.nombres} ${a.apellidoPaterno} ${a.apellidoMaterno ?? ""}`
-            .toLowerCase()
-            .includes(searchTerm) ||
-          (a.noAfiliacion ?? "").toLowerCase().includes(searchTerm) ||
-          a.id.toLowerCase().includes(searchTerm)
-      );
+    try {
+      const trimmedQuery = query.trim();
+      let results: AfiliadoListado[] = [...afiliados];
+
+      if (trimmedQuery) {
+        const response = await request(
+          `/sics/affiliates/getAffiliateById/${encodeURIComponent(
+            trimmedQuery
+          )}`,
+          "GET"
+        );
+        const data = extractArray(response);
+        results = data.map(normalizeAfiliado);
+      }
+
+      if (filters.genero && filters.genero !== "all") {
+        results = results.filter(
+          (a) =>
+            (a.genero || "").toLowerCase() === filters.genero?.toLowerCase()
+        );
+      }
+
+      if (filters.estatus && filters.estatus !== "all") {
+        results = results.filter((a) => a.estatus === filters.estatus);
+      }
+
+      setFilteredAfiliados(results);
+    } catch (error) {
+      console.error("Error al buscar afiliado", error);
+      setFilteredAfiliados([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (filters.genero && filters.genero !== "all") {
-      results = results.filter(
-        (a) => (a.genero || "").toLowerCase() === filters.genero?.toLowerCase()
-      );
-    }
-
-    if (filters.estatus && filters.estatus !== "all") {
-      results = results.filter((a) => a.estatus === filters.estatus);
-    }
-
-    setFilteredAfiliados(results);
   };
 
   const totalAfiliados = useMemo(
