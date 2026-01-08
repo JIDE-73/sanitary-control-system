@@ -1,38 +1,44 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Building2, MapPin, Save, ArrowLeft } from "lucide-react"
-import type { LugarTrabajo } from "@/lib/types"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Building2, MapPin, Save, ArrowLeft } from "lucide-react";
+import type { LugarTrabajo } from "@/lib/types";
 
 interface FormLugarProps {
-  lugar?: LugarTrabajo
-  onSubmit: (data: Partial<LugarTrabajo>) => void
+  lugar?: LugarTrabajo;
+  onSubmit: (data: Partial<LugarTrabajo>) => void;
 }
 
 export function FormLugar({ lugar, onSubmit }: FormLugarProps) {
-  const router = useRouter()
+  const router = useRouter();
   const [formData, setFormData] = useState<Partial<LugarTrabajo>>(
     lugar || {
       estatus: "activo",
-    },
-  )
+    }
+  );
 
   const handleChange = (field: keyof LugarTrabajo, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSubmit(formData)
-  }
+    e.preventDefault();
+    onSubmit(formData);
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -49,7 +55,9 @@ export function FormLugar({ lugar, onSubmit }: FormLugarProps) {
             <Input
               id="codigo"
               value={formData.codigo || ""}
-              onChange={(e) => handleChange("codigo", e.target.value.toUpperCase())}
+              onChange={(e) =>
+                handleChange("codigo", e.target.value.toUpperCase())
+              }
               placeholder="A-00"
               required
             />
@@ -66,7 +74,10 @@ export function FormLugar({ lugar, onSubmit }: FormLugarProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="zonaTrabajo">Zona de Trabajo *</Label>
-            <Select value={formData.zonaTrabajo || ""} onValueChange={(value) => handleChange("zonaTrabajo", value)}>
+            <Select
+              value={formData.zonaTrabajo || ""}
+              onValueChange={(value) => handleChange("zonaTrabajo", value)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar zona" />
               </SelectTrigger>
@@ -76,22 +87,9 @@ export function FormLugar({ lugar, onSubmit }: FormLugarProps) {
                 <SelectItem value="Zona Norte">Zona Norte</SelectItem>
                 <SelectItem value="Zona Este">Zona Este</SelectItem>
                 <SelectItem value="Zona Sur">Zona Sur</SelectItem>
-                <SelectItem value="Playas de Tijuana">Playas de Tijuana</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="estatus">Estatus *</Label>
-            <Select
-              value={formData.estatus || "activo"}
-              onValueChange={(value) => handleChange("estatus", value as "activo" | "inactivo")}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar estatus" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="activo">Activo</SelectItem>
-                <SelectItem value="inactivo">Inactivo</SelectItem>
+                <SelectItem value="Playas de Tijuana">
+                  Playas de Tijuana
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -177,5 +175,5 @@ export function FormLugar({ lugar, onSubmit }: FormLugarProps) {
         </Button>
       </div>
     </form>
-  )
+  );
 }
