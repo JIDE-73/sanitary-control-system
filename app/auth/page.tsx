@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { request } from "@/lib/request";
 import {
   Card,
   CardContent,
@@ -22,42 +21,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
 
-    try {
-      const response = await request("/auth/login", "POST", {
-        mail: email,
-        pass: password,
-      });
+    toast({
+      title: "Sesión iniciada",
+      description:
+        "Redirigiendo al Dashboard del Sistema Integral de Control Sanitario",
+    });
 
-      if (response.status >= 200 && response.status < 300) {
-        toast({
-          title: "Sesión iniciada",
-          description:
-            "Bienvenido nuevamente al Sistema Integral de Control Sanitario",
-        });
-        router.push("/dashboard");
-      } else {
-        toast({
-          title: "No pudimos iniciar sesión",
-          description:
-            response?.message ??
-            "Verifica tus credenciales e inténtalo otra vez.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error al iniciar sesión", error);
-      toast({
-        title: "Error de conexión",
-        description: "No pudimos contactar el servidor. Inténtalo nuevamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    router.push("/dashboard");
   };
 
   return (
