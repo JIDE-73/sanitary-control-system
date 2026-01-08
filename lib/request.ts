@@ -14,9 +14,16 @@ const request = async (url: string, method: string, body?: any) => {
     credentials: "include",
   });
 
-  const data = await response.json();
+  let parsed: any;
+  try {
+    parsed = await response.json();
+  } catch {
+    const text = await response.text();
+    parsed = { message: text || "Respuesta no es JSON" };
+  }
+
   // Preserve HTTP status even if API payload includes its own `status` field
-  return { ...data, status: response.status };
+  return { ...parsed, status: response.status };
 };
 
 const uploadRequest = async (url: string, formData: FormData) => {

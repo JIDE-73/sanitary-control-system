@@ -80,6 +80,22 @@ export interface Medico {
   fechaRegistro: string;
 }
 
+// Payload esperado por /sics/doctors/createDoctor
+export interface DoctorPayload {
+  curp: string;
+  nombre: string;
+  apellido_paterno: string;
+  apellido_materno?: string;
+  fecha_nacimiento: string;
+  genero: "masculino" | "femenino" | "LGBTQ+";
+  direccion: string;
+  telefono: string;
+  email?: string;
+  cedula_profesional: string;
+  especialidad: string;
+  habilitado_para_firmar: boolean;
+}
+
 export interface LugarTrabajo {
   id: string;
   codigo: string; // A-00
