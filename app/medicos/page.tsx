@@ -65,6 +65,11 @@ export default function MedicosPage() {
         telefono: item.persona?.telefono ?? "",
         email: item.persona?.email ?? "",
         estatus: item.habilitado_para_firmar ? "activo" : "inactivo",
+        curp: item.persona?.curp ?? "",
+        genero: item.persona?.genero ?? "masculino",
+        fechaNacimiento: item.persona?.fecha_nacimiento ?? "",
+        direccion: item.persona?.direccion ?? "",
+        habilitado_para_firmar: Boolean(item.habilitado_para_firmar),
         firmaDigitalUrl: item.firma_digital_path ?? "",
         fechaRegistro: item.persona?.created_at ?? "",
       }));

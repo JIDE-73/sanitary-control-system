@@ -76,6 +76,12 @@ export interface Medico {
   telefono: string;
   email: string;
   estatus: EstatusMedico;
+  // Datos personales opcionales para edición
+  curp?: string;
+  genero?: "masculino" | "femenino" | "LGBTQ+";
+  fechaNacimiento?: string;
+  direccion?: string;
+  habilitado_para_firmar?: boolean;
   firmaDigitalUrl?: string;
   fechaRegistro: string;
 }

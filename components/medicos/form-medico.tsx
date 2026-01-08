@@ -43,18 +43,18 @@ export function FormMedico({ medico, onSubmit }: FormMedicoProps) {
   const [formData, setFormData] = useState<DoctorPayload>(() => {
     if (!medico) return initialForm;
     return {
-      curp: "",
+      curp: (medico.curp ?? "").toUpperCase(),
       nombre: medico.nombres ?? "",
       apellido_paterno: medico.apellidoPaterno ?? "",
       apellido_materno: medico.apellidoMaterno ?? "",
-      fecha_nacimiento: "",
-      genero: "masculino",
-      direccion: "",
+      fecha_nacimiento: (medico.fechaNacimiento ?? "").slice(0, 10),
+      genero: (medico.genero as DoctorPayload["genero"]) ?? "masculino",
+      direccion: medico.direccion ?? "",
       telefono: medico.telefono ?? "",
       email: medico.email ?? "",
       cedula_profesional: medico.cedulaProfesional ?? "",
       especialidad: medico.especialidad ?? "",
-      habilitado_para_firmar: false,
+      habilitado_para_firmar: Boolean(medico.habilitado_para_firmar),
     };
   });
 
