@@ -23,6 +23,7 @@ export default function AfiliadosPage() {
     id: String(item?.persona_id ?? item?.persona?.id ?? item?.id ?? ""),
     noAfiliacion:
       item?.no_Afiliacion ?? item?.no_afiliacion ?? item?.noAfiliacion,
+    sidmoCodigo: item?.sidmo_codigo ?? null,
     curp: item?.persona?.curp ?? "",
     nombres: item?.persona?.nombre ?? "",
     apellidoPaterno: item?.persona?.apellido_paterno ?? "",
@@ -31,12 +32,27 @@ export default function AfiliadosPage() {
     telefono: item?.persona?.telefono ?? "",
     ciudad:
       item?.catalogo?.ciudad ??
-      item?.persona?.direccion ??
+      item?.persona?.ciudad ??
       item?.lugar_procedencia ??
       "",
     lugarTrabajoCodigo: item?.catalogo?.codigo ?? item?.lugar_trabajo,
     lugarTrabajoNombre: item?.catalogo?.nombre,
     estatus: (item?.estatus ?? "activo") as AfiliadoListado["estatus"],
+    fechaNacimiento: item?.persona?.fecha_nacimiento,
+    fechaInicio: item?.fecha_inicio,
+    fechaInicioTijuana: item?.fecha_inicio_tijuana,
+    estadoCivil: item?.estado_civil,
+    actaNacimiento: item?.acta_nacimiento,
+    lugarProcedencia: item?.lugar_procedencia,
+    email: item?.persona?.email,
+    direccion: item?.persona?.direccion,
+    fechaRegistro: item?.persona?.created_at,
+    catalogoCalle: item?.catalogo?.calle,
+    catalogoColonia: item?.catalogo?.colonia,
+    catalogoCodigoPostal: item?.catalogo?.codigo_postal,
+    catalogoCiudad: item?.catalogo?.ciudad,
+    catalogoEstado: item?.catalogo?.estado,
+    catalogoTelefono: item?.catalogo?.telefono,
   });
 
   const extractArray = (response: any) => {
@@ -74,6 +90,7 @@ export default function AfiliadosPage() {
       const response = await request("/sics/affiliates/getAffiliattes", "GET");
       const data = extractArray(response);
       const normalizados: AfiliadoListado[] = data.map(normalizeAfiliado);
+      console.log("normalizados", normalizados);
       setAfiliados(normalizados);
       setFilteredAfiliados(normalizados);
     } catch (error) {

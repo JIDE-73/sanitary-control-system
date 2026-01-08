@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Eye, Edit, Award, CheckCircle, XCircle } from "lucide-react";
+import { Eye, Edit,IdCard, CheckCircle, XCircle } from "lucide-react";
 import type { Medico } from "@/lib/types";
 
 interface MedicosTableProps {
@@ -248,7 +248,7 @@ export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
                       size="icon"
                       title="Generar credencial"
                     >
-                      <Award className="h-4 w-4" />
+                      <IdCard className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
