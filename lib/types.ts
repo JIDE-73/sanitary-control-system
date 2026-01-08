@@ -170,3 +170,19 @@ export interface Laboratorio {
   estatus: "activo" | "inactivo";
   examenesAutorizados: string[];
 }
+
+// Laboratorios (nuevo endpoint /sics/laboratories)
+export interface LaboratorioPayload {
+  nombre_comercial: string;
+  rfc: string;
+  certificado_organismo: boolean;
+  email_contacto: string;
+}
+
+export interface LaboratorioListado {
+  id: string;
+  nombre_comercial: string;
+  rfc: string;
+  certificado_organismo: boolean;
+  email_contacto: string;
+}

@@ -15,6 +15,7 @@ import {
   Bell,
   ChevronDown,
   Shield,
+  FlaskConical,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -47,6 +48,15 @@ const navigation = [
     name: "Lugares de Trabajo",
     href: "/lugares-trabajo",
     icon: Building2,
+  },
+  {
+    name: "Laboratorios",
+    href: "/laboratorios",
+    icon: FlaskConical,
+    submenu: [
+      { name: "Listado", href: "/laboratorios" },
+      { name: "Nuevo Laboratorio", href: "/laboratorios/nuevo" },
+    ],
   },
   {
     name: "Consultas Clínicas",
