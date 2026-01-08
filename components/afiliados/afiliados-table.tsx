@@ -16,12 +16,15 @@ import { Eye, Edit, FileText } from "lucide-react";
 export interface AfiliadoListado {
   id: string;
   curp: string;
+  noAfiliacion?: string;
   nombres: string;
   apellidoPaterno: string;
   apellidoMaterno?: string;
   genero: "masculino" | "femenino" | "lgbt+" | "LGBTQ+" | string;
   telefono?: string;
   ciudad?: string;
+  lugarTrabajoCodigo?: string;
+  lugarTrabajoNombre?: string;
   estatus: "activo" | "inactivo" | "suspendido" | "pendiente";
 }
 
@@ -56,11 +59,13 @@ export function AfiliadosTable({
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>No. Afiliación</TableHead>
             <TableHead>CURP</TableHead>
             <TableHead>Nombre Completo</TableHead>
             <TableHead>Género</TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead>Ciudad</TableHead>
+            <TableHead>Lugar de Trabajo</TableHead>
             <TableHead>Estatus</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
@@ -69,7 +74,7 @@ export function AfiliadosTable({
           {loading ? (
             <TableRow>
               <TableCell
-                colSpan={7}
+                colSpan={9}
                 className="py-8 text-center text-muted-foreground"
               >
                 Cargando afiliados...
@@ -78,7 +83,7 @@ export function AfiliadosTable({
           ) : afiliados.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={7}
+                colSpan={9}
                 className="py-8 text-center text-muted-foreground"
               >
                 No se encontraron afiliados
@@ -88,15 +93,29 @@ export function AfiliadosTable({
             afiliados.map((afiliado) => (
               <TableRow key={afiliado.id}>
                 <TableCell className="font-mono text-sm">
+                  {afiliado.noAfiliacion ?? "—"}
+                </TableCell>
+                <TableCell className="font-mono text-sm">
                   {afiliado.curp}
                 </TableCell>
                 <TableCell className="font-medium">
                   {afiliado.nombres} {afiliado.apellidoPaterno}{" "}
                   {afiliado.apellidoMaterno}
                 </TableCell>
-                <TableCell>{generoLabels[afiliado.genero]}</TableCell>
+                <TableCell>
+                  {generoLabels[(afiliado.genero || "").toLowerCase()] ??
+                    afiliado.genero ??
+                    "—"}
+                </TableCell>
                 <TableCell>{afiliado.telefono}</TableCell>
                 <TableCell>{afiliado.ciudad}</TableCell>
+                <TableCell>
+                  {afiliado.lugarTrabajoCodigo
+                    ? `${afiliado.lugarTrabajoCodigo} - ${
+                        afiliado.lugarTrabajoNombre ?? ""
+                      }`
+                    : "—"}
+                </TableCell>
                 <TableCell>
                   <Badge variant={estatusVariants[afiliado.estatus]}>
                     {afiliado.estatus.charAt(0).toUpperCase() +

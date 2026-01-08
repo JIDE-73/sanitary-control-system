@@ -19,13 +19,30 @@ export default function AfiliadosPage() {
   );
   const [loading, setLoading] = useState<boolean>(true);
 
+  const extractArray = (response: any) => {
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.data)) return response.data;
+
+    if (response && typeof response === "object") {
+      const numericKeys = Object.keys(response).filter((k) => /^\d+$/.test(k));
+      if (numericKeys.length) {
+        return numericKeys
+          .sort((a, b) => Number(a) - Number(b))
+          .map((k) => (response as any)[k])
+          .filter(Boolean);
+      }
+    }
+    return [];
+  };
+
   const loadAfiliados = async () => {
     setLoading(true);
     try {
       const response = await request("/sics/affiliates/getAffiliattes", "GET");
-      const data = Array.isArray(response) ? response : [];
+      const data = extractArray(response);
       const normalizados: AfiliadoListado[] = data.map((item: any) => ({
         id: item.persona_id,
+        noAfiliacion: item.no_Afiliacion,
         curp: item.persona?.curp ?? "",
         nombres: item.persona?.nombre ?? "",
         apellidoPaterno: item.persona?.apellido_paterno ?? "",
@@ -33,7 +50,9 @@ export default function AfiliadosPage() {
         genero: (item.persona?.genero ??
           "masculino") as AfiliadoListado["genero"],
         telefono: item.persona?.telefono ?? "",
-        ciudad: item.catalogo?.ciudad ?? "",
+        ciudad: item.catalogo?.ciudad ?? item.persona?.direccion ?? "",
+        lugarTrabajoCodigo: item.catalogo?.codigo,
+        lugarTrabajoNombre: item.catalogo?.nombre,
         estatus: "activo",
       }));
       setAfiliados(normalizados);
@@ -66,6 +85,7 @@ export default function AfiliadosPage() {
           `${a.nombres} ${a.apellidoPaterno} ${a.apellidoMaterno ?? ""}`
             .toLowerCase()
             .includes(searchTerm) ||
+          (a.noAfiliacion ?? "").toLowerCase().includes(searchTerm) ||
           a.id.toLowerCase().includes(searchTerm)
       );
     }
