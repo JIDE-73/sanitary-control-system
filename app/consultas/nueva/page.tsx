@@ -1,20 +1,70 @@
-"use client"
+"use client";
 
-import { Suspense } from "react"
-import { useRouter } from "next/navigation"
-import { MainLayout } from "@/components/layout/main-layout"
-import { FormConsulta } from "@/components/consultas/form-consulta"
-import type { ConsultaClinica } from "@/lib/types"
+import { Suspense, useState } from "react";
+import { useRouter } from "next/navigation";
+import { MainLayout } from "@/components/layout/main-layout";
+import { FormConsulta } from "@/components/consultas/form-consulta";
+import type { ConsultaClinica } from "@/lib/types";
+import { request } from "@/lib/request";
+import { useToast } from "@/hooks/use-toast";
 
 function NuevaConsultaContent() {
-  const router = useRouter()
+  const router = useRouter();
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (data: Partial<ConsultaClinica>) => {
-    console.log("Nueva consulta:", data)
-    router.push("/consultas")
-  }
+  const handleSubmit = async (data: Partial<ConsultaClinica>) => {
+    if (!data.afiliadoId || !data.medicoId) {
+      toast({
+        title: "Faltan datos obligatorios",
+        description: "Selecciona afiliado y médico para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  return <FormConsulta onSubmit={handleSubmit} />
+    const payload = {
+      persona_id: data.afiliadoId,
+      medico_id: data.medicoId,
+      diagnostico: data.diagnostico ?? "",
+      tratamiento: data.tratamiento ?? "",
+      comentario: data.comentarios ?? "",
+    };
+
+    setSaving(true);
+    try {
+      const response = await request(
+        "/sics/medical/createMedicalNote",
+        "POST",
+        payload
+      );
+      console.log(response);
+      if (response.status==201) {
+        toast({
+          title: "Consulta registrada",
+          description: "La nota médica se guardó correctamente.",
+        });
+        router.push("/consultas");
+      } else {
+        toast({
+          title: "No se pudo guardar",
+          description: response?.message ?? "Intenta de nuevo más tarde.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error al crear la nota médica", error);
+      toast({
+        title: "Error inesperado",
+        description: "No se pudo registrar la consulta.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <FormConsulta onSubmit={handleSubmit} submitting={saving} />;
 }
 
 export default function NuevaConsultaPage() {
@@ -22,8 +72,12 @@ export default function NuevaConsultaPage() {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Nueva Consulta Clínica</h1>
-          <p className="text-muted-foreground">Registrar una nueva consulta médica</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Nueva Consulta Clínica
+          </h1>
+          <p className="text-muted-foreground">
+            Registrar una nueva consulta médica
+          </p>
         </div>
 
         <Suspense fallback={<div>Cargando...</div>}>
@@ -31,5 +85,5 @@ export default function NuevaConsultaPage() {
         </Suspense>
       </div>
     </MainLayout>
-  )
+  );
 }
