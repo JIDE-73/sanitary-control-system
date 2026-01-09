@@ -150,14 +150,9 @@ export default function ConsultasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      buscarNotas(searchQuery);
-    }, 450);
-
-    return () => clearTimeout(handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]);
+  const handleSearchClick = () => {
+    buscarNotas(searchQuery);
+  };
 
   const filteredNotas = useMemo(() => {
     if (!searchQuery) return notas;
@@ -196,14 +191,23 @@ export default function ConsultasPage() {
           </Link>
         </div>
 
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por CURP, nombre, diagnóstico o médico..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+        <div className="flex w-full max-w-xl items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por CURP, nombre, apellidos, # de afiliado..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSearchClick();
+                }
+              }}
+              className="pl-10"
+            />
+          </div>
+          <Button onClick={handleSearchClick}>Buscar</Button>
         </div>
 
         <ConsultasTable
