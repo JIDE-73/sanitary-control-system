@@ -25,6 +25,41 @@ import type {
 } from "@/lib/types";
 import { request } from "@/lib/request";
 
+const MEXICO_STATES = [
+  "Aguascalientes",
+  "Baja California",
+  "Baja California Sur",
+  "Campeche",
+  "Coahuila",
+  "Colima",
+  "Chiapas",
+  "Chihuahua",
+  "Ciudad de México",
+  "Durango",
+  "Guanajuato",
+  "Guerrero",
+  "Hidalgo",
+  "Jalisco",
+  "México",
+  "Michoacán",
+  "Morelos",
+  "Nayarit",
+  "Nuevo León",
+  "Oaxaca",
+  "Puebla",
+  "Querétaro",
+  "Quintana Roo",
+  "San Luis Potosí",
+  "Sinaloa",
+  "Sonora",
+  "Tabasco",
+  "Tamaulipas",
+  "Tlaxcala",
+  "Veracruz",
+  "Yucatán",
+  "Zacatecas",
+] as const;
+
 interface FormAfiliadoProps {
   afiliado?: Afiliado;
   lugaresTrabajo: LugarTrabajo[];
@@ -328,17 +363,23 @@ export function FormAfiliado({
           </div>
           <div className="space-y-2">
             <Label htmlFor="lugar_procedencia">Lugar de Procedencia *</Label>
-            <Input
-              id="lugar_procedencia"
-              value={formData.lugar_procedencia}
-              onChange={(e) =>
-                handleChange("lugar_procedencia", e.target.value)
+            <Select
+              value={formData.lugar_procedencia || undefined}
+              onValueChange={(value) =>
+                handleChange("lugar_procedencia", value)
               }
-              placeholder="Ciudad, Estado"
-              minLength={2}
-              maxLength={100}
-              required
-            />
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar estado de procedencia" />
+              </SelectTrigger>
+              <SelectContent>
+                {MEXICO_STATES.map((state) => (
+                  <SelectItem key={state} value={state}>
+                    {state}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center gap-2">
             <input
