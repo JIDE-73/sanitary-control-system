@@ -5,7 +5,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { LaboratoriosTable } from "@/components/laboratorios/laboratorios-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FlaskConical, Search, Plus } from "lucide-react";
+import { FlaskConical, Search, Plus, TestTube } from "lucide-react";
 import Link from "next/link";
 import { request } from "@/lib/request";
 import type { LaboratorioListado } from "@/lib/types";
@@ -69,12 +69,20 @@ export default function LaboratoriosPage() {
               Catálogo de laboratorios certificados y en revisión
             </p>
           </div>
-          <Link href="/laboratorios/nuevo">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Laboratorio
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/laboratorios/examenes">
+              <Button variant="outline">
+                <TestTube className="mr-2 h-4 w-4" />
+                Gestionar exámenes
+              </Button>
+            </Link>
+            <Link href="/laboratorios/nuevo">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo Laboratorio
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="relative max-w-md">
