@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Shield,
   FlaskConical,
+  User,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -34,6 +35,11 @@ const navigation = [
       { name: "Nuevo Afiliado", href: "/afiliados/nuevo" },
       { name: "Expedientes", href: "/afiliados/expedientes" },
     ],
+  },
+  {
+    name: "Ciudadano",
+    href: "/ciudadano",
+    icon: User,
   },
   {
     name: "Médicos",
