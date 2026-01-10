@@ -11,7 +11,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Sistema Integral de Control Sanitario - Resumen general
+            Sistema Integral de Control Medico - Resumen general
           </p>
         </div>
 
