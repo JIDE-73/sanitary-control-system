@@ -87,7 +87,7 @@ export default function CiudadanoPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Ciudadano</h1>
             <p className="text-muted-foreground">
-              Consulta sin integración a API{" "}
+              Búsqueda y consulta rápida de ciudadanos registrados{" "}
               {totalCiudadanos ? `(${totalCiudadanos})` : ""}
             </p>
           </div>

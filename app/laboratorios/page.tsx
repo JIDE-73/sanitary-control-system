@@ -85,25 +85,6 @@ export default function LaboratoriosPage() {
           </div>
         </div>
 
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Búsqueda de laboratorios (próximamente)"
-            disabled
-            className="pl-10"
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-            En construcción
-          </span>
-        </div>
-
-        <div className="rounded-lg border border-dashed border-muted-foreground/40 p-3 text-sm text-muted-foreground flex items-center gap-2">
-          <FlaskConical className="h-4 w-4" />
-          La edición, eliminación y búsqueda estarán disponibles en una
-          siguiente versión. Por ahora sólo se muestra el listado obtenido de la
-          API.
-        </div>
-
         <LaboratoriosTable laboratorios={laboratorios} loading={loading} />
       </div>
     </MainLayout>
