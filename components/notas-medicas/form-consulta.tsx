@@ -29,7 +29,7 @@ import type { ConsultaClinica } from "@/lib/types";
 import { request } from "@/lib/request";
 import { useToast } from "@/hooks/use-toast";
 
-interface FormConsultaProps {
+interface FormNotaMedicaProps {
   onSubmit: (data: Partial<ConsultaClinica>) => void;
   submitting?: boolean;
 }
@@ -111,10 +111,10 @@ const extractArray = (response: any) => {
   return [];
 };
 
-export function FormConsulta({
+export function FormNotaMedica({
   onSubmit,
   submitting = false,
-}: FormConsultaProps) {
+}: FormNotaMedicaProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -241,7 +241,7 @@ export function FormConsulta({
     if (!formData.medicoId) {
       toast({
         title: "Selecciona un médico",
-        description: "Debes elegir un médico para registrar la consulta.",
+        description: "Debes elegir un médico para registrar la nota médica.",
         variant: "destructive",
       });
       return;
@@ -372,7 +372,7 @@ export function FormConsulta({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Stethoscope className="h-5 w-5 text-primary" />
-            Datos de la Consulta
+            Datos de la nota médica
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -476,7 +476,7 @@ export function FormConsulta({
         </Button>
         <Button type="submit" disabled={!selectedAfiliado || submitting}>
           <Save className="mr-2 h-4 w-4" />
-          {submitting ? "Guardando..." : "Guardar Consulta"}
+          {submitting ? "Guardando..." : "Guardar nota médica"}
         </Button>
       </div>
     </form>

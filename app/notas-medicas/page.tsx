@@ -5,11 +5,11 @@ import Link from "next/link";
 import { ClipboardPlus, Search } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
-  ConsultasTable,
+  NotasMedicasTable,
   type AfiliadoTabla,
   type MedicoTabla,
   type NotaMedica,
-} from "@/components/consultas/consultas-table";
+} from "@/components/notas-medicas/consultas-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { request } from "@/lib/request";
@@ -35,7 +35,7 @@ const extractArray = (response: any) => {
   return [];
 };
 
-export default function ConsultasPage() {
+export default function NotasMedicasPage() {
   const { toast } = useToast();
   const [notas, setNotas] = useState<NotaMedica[]>([]);
   const [afiliados, setAfiliados] = useState<AfiliadoTabla[]>([]);
@@ -176,17 +176,13 @@ export default function ConsultasPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Consultas Clínicas
-            </h1>
-            <p className="text-muted-foreground">
-              Historial de consultas médicas registradas
-            </p>
+            <h1 className="text-2xl font-bold tracking-tight">Notas médicas</h1>
+            <p className="text-muted-foreground">Historial de notas médicas</p>
           </div>
-          <Link href="/consultas/nueva">
+          <Link href="/notas-medicas/nueva">
             <Button>
               <ClipboardPlus className="mr-2 h-4 w-4" />
-              Nueva Consulta
+              Nueva nota médica
             </Button>
           </Link>
         </div>
@@ -210,7 +206,7 @@ export default function ConsultasPage() {
           <Button onClick={handleSearchClick}>Buscar</Button>
         </div>
 
-        <ConsultasTable
+        <NotasMedicasTable
           loading={loading}
           notas={filteredNotas}
           afiliados={afiliados}

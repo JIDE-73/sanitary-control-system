@@ -44,19 +44,19 @@ export type MedicoTabla = {
   nombre: string;
 };
 
-interface ConsultasTableProps {
+interface NotasMedicasTableProps {
   notas: NotaMedica[];
   afiliados: AfiliadoTabla[];
   medicos: MedicoTabla[];
   loading?: boolean;
 }
 
-export function ConsultasTable({
+export function NotasMedicasTable({
   notas,
   afiliados,
   medicos,
   loading,
-}: ConsultasTableProps) {
+}: NotasMedicasTableProps) {
   const router = useRouter();
   const [selectedNota, setSelectedNota] = useState<NotaMedica | null>(null);
 
@@ -96,7 +96,7 @@ export function ConsultasTable({
                   colSpan={8}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  Cargando consultas...
+                  Cargando notas médicas...
                 </TableCell>
               </TableRow>
             ) : notas.length === 0 ? (
@@ -105,7 +105,7 @@ export function ConsultasTable({
                   colSpan={8}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  No se encontraron consultas
+                  No se encontraron notas médicas
                 </TableCell>
               </TableRow>
             ) : (
@@ -172,7 +172,7 @@ export function ConsultasTable({
       <Dialog open={!!selectedNota} onOpenChange={() => setSelectedNota(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Detalles de la consulta</DialogTitle>
+            <DialogTitle>Detalles de la nota médica</DialogTitle>
             <DialogDescription>
               Información básica de la nota médica
             </DialogDescription>

@@ -3,12 +3,12 @@
 import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MainLayout } from "@/components/layout/main-layout";
-import { FormConsulta } from "@/components/consultas/form-consulta";
+import { FormNotaMedica } from "@/components/notas-medicas/form-consulta";
 import type { ConsultaClinica } from "@/lib/types";
 import { request } from "@/lib/request";
 import { useToast } from "@/hooks/use-toast";
 
-function NuevaConsultaContent() {
+function NuevaNotaMedicaContent() {
   const router = useRouter();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -39,12 +39,12 @@ function NuevaConsultaContent() {
         payload
       );
       console.log(response);
-      if (response.status==201) {
+      if (response.status == 201) {
         toast({
-          title: "Consulta registrada",
+          title: "Nota médica registrada",
           description: "La nota médica se guardó correctamente.",
         });
-        router.push("/consultas");
+        router.push("/notas-medicas");
       } else {
         toast({
           title: "No se pudo guardar",
@@ -64,24 +64,24 @@ function NuevaConsultaContent() {
     }
   };
 
-  return <FormConsulta onSubmit={handleSubmit} submitting={saving} />;
+  return <FormNotaMedica onSubmit={handleSubmit} submitting={saving} />;
 }
 
-export default function NuevaConsultaPage() {
+export default function NuevaNotaMedicaPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Nueva Consulta Clínica
+            Nueva nota médica
           </h1>
           <p className="text-muted-foreground">
-            Registrar una nueva consulta médica
+            Registrar una nueva nota médica
           </p>
         </div>
 
         <Suspense fallback={<div>Cargando...</div>}>
-          <NuevaConsultaContent />
+          <NuevaNotaMedicaContent />
         </Suspense>
       </div>
     </MainLayout>

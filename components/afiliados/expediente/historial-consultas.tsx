@@ -1,15 +1,31 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Stethoscope, Calendar, Activity, FileText, MessageSquare } from "lucide-react"
-import type { ConsultaClinica, Medico } from "@/lib/types"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Stethoscope,
+  Calendar,
+  Activity,
+  FileText,
+  MessageSquare,
+} from "lucide-react";
+import type { ConsultaClinica, Medico } from "@/lib/types";
 
 interface HistorialConsultasProps {
-  consultas: ConsultaClinica[]
-  medicos: Medico[]
+  consultas: ConsultaClinica[];
+  medicos: Medico[];
 }
 
-export function HistorialConsultas({ consultas, medicos }: HistorialConsultasProps) {
-  const getMedico = (medicoId: string) => medicos.find((m) => m.id === medicoId)
+export function HistorialConsultas({
+  consultas,
+  medicos,
+}: HistorialConsultasProps) {
+  const getMedico = (medicoId: string) =>
+    medicos.find((m) => m.id === medicoId);
 
   if (consultas.length === 0) {
     return (
@@ -17,14 +33,16 @@ export function HistorialConsultas({ consultas, medicos }: HistorialConsultasPro
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Stethoscope className="h-5 w-5 text-primary" />
-            Historial de Consultas Clínicas
+            Historial de notas médicas
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-center text-muted-foreground py-8">No hay consultas clínicas registradas</p>
+          <p className="text-center text-muted-foreground py-8">
+            No hay notas médicas registradas
+          </p>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -32,19 +50,23 @@ export function HistorialConsultas({ consultas, medicos }: HistorialConsultasPro
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Stethoscope className="h-5 w-5 text-primary" />
-          Historial de Consultas Clínicas
+          Historial de notas médicas
         </CardTitle>
         <CardDescription>
-          {consultas.length} consulta{consultas.length !== 1 ? "s" : ""} registrada
-          {consultas.length !== 1 ? "s" : ""}
+          {consultas.length === 1
+            ? "1 nota médica registrada"
+            : `${consultas.length} notas médicas registradas`}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {consultas.map((consulta) => {
-            const medico = getMedico(consulta.medicoId)
+            const medico = getMedico(consulta.medicoId);
             return (
-              <div key={consulta.id} className="rounded-lg border border-border p-4 space-y-4">
+              <div
+                key={consulta.id}
+                className="rounded-lg border border-border p-4 space-y-4"
+              >
                 {/* Header de la consulta */}
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -53,9 +75,13 @@ export function HistorialConsultas({ consultas, medicos }: HistorialConsultasPro
                     </div>
                     <div>
                       <p className="font-medium">
-                        {medico ? `Dr(a). ${medico.nombres} ${medico.apellidoPaterno}` : "Médico no encontrado"}
+                        {medico
+                          ? `Dr(a). ${medico.nombres} ${medico.apellidoPaterno}`
+                          : "Médico no encontrado"}
                       </p>
-                      <p className="text-sm text-muted-foreground">{medico?.especialidad}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {medico?.especialidad}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -73,14 +99,20 @@ export function HistorialConsultas({ consultas, medicos }: HistorialConsultasPro
                   <div className="flex items-start gap-2">
                     <Activity className="h-4 w-4 mt-1 text-accent" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Tensión Arterial</p>
-                      <p className="font-medium">{consulta.tensionArterial} mmHg</p>
+                      <p className="text-sm text-muted-foreground">
+                        Tensión Arterial
+                      </p>
+                      <p className="font-medium">
+                        {consulta.tensionArterial} mmHg
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <FileText className="h-4 w-4 mt-1 text-accent" />
                     <div>
-                      <p className="text-sm text-muted-foreground">Diagnóstico</p>
+                      <p className="text-sm text-muted-foreground">
+                        Diagnóstico
+                      </p>
                       <p className="font-medium">{consulta.diagnostico}</p>
                     </div>
                   </div>
@@ -95,7 +127,9 @@ export function HistorialConsultas({ consultas, medicos }: HistorialConsultasPro
                     <div className="flex items-start gap-2">
                       <MessageSquare className="h-4 w-4 mt-1 text-muted-foreground" />
                       <div>
-                        <p className="text-sm text-muted-foreground">Comentarios</p>
+                        <p className="text-sm text-muted-foreground">
+                          Comentarios
+                        </p>
                         <p className="text-sm">{consulta.comentarios}</p>
                       </div>
                     </div>
@@ -105,7 +139,9 @@ export function HistorialConsultas({ consultas, medicos }: HistorialConsultasPro
                 {/* Exámenes de la consulta */}
                 {consulta.examenes && consulta.examenes.length > 0 && (
                   <div className="border-t border-border pt-4">
-                    <p className="text-sm font-medium mb-2">Exámenes ordenados:</p>
+                    <p className="text-sm font-medium mb-2">
+                      Exámenes ordenados:
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       {consulta.examenes.map((examen) => (
                         <Badge key={examen.id} variant="outline">
@@ -116,10 +152,10 @@ export function HistorialConsultas({ consultas, medicos }: HistorialConsultasPro
                   </div>
                 )}
               </div>
-            )
+            );
           })}
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

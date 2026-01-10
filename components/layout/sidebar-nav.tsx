@@ -65,12 +65,12 @@ const navigation = [
     ],
   },
   {
-    name: "Consultas Clínicas",
-    href: "/consultas",
+    name: "Notas Médicas",
+    href: "/notas-medicas",
     icon: ClipboardList,
     submenu: [
-      { name: "Nueva Consulta", href: "/consultas/nueva" },
-      { name: "Historial", href: "/consultas" },
+      { name: "Nueva Nota Médica", href: "/notas-medicas/nueva" },
+      { name: "Historial", href: "/notas-medicas" },
     ],
   },
   {
