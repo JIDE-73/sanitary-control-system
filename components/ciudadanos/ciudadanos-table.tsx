@@ -79,13 +79,10 @@ export function CiudadanosTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Identificador</TableHead>
             <TableHead>CURP</TableHead>
             <TableHead>Nombre Completo</TableHead>
             <TableHead>Género</TableHead>
             <TableHead>Teléfono</TableHead>
-            <TableHead>Ciudad</TableHead>
-            <TableHead>Lugar de Trabajo</TableHead>
             <TableHead>Estatus</TableHead>
             <TableHead>Nivel de riesgo</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
@@ -114,9 +111,6 @@ export function CiudadanosTable({
             ciudadanos.map((ciudadano) => (
               <TableRow key={ciudadano.id}>
                 <TableCell className="font-mono text-sm">
-                  {ciudadano.id}
-                </TableCell>
-                <TableCell className="font-mono text-sm">
                   {ciudadano.curp}
                 </TableCell>
                 <TableCell className="font-medium">
@@ -129,14 +123,6 @@ export function CiudadanosTable({
                     "—"}
                 </TableCell>
                 <TableCell>{ciudadano.telefono ?? "—"}</TableCell>
-                <TableCell>{ciudadano.ciudad ?? "—"}</TableCell>
-                <TableCell>
-                  {ciudadano.lugarTrabajoCodigo
-                    ? `${ciudadano.lugarTrabajoCodigo} - ${
-                        ciudadano.lugarTrabajoNombre ?? ""
-                      }`
-                    : ciudadano.lugarTrabajoNombre ?? "—"}
-                </TableCell>
                 <TableCell>
                   <Badge variant={estatusVariants[ciudadano.estatus]}>
                     {ciudadano.estatus.charAt(0).toUpperCase() +
