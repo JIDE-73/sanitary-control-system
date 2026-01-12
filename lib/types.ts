@@ -46,6 +46,28 @@ export interface CitizenPayload {
   nivel_riesgo: NivelRiesgo;
 }
 
+export interface UserPayload {
+  curp: string;
+  nombre: string;
+  apellido_paterno: string;
+  apellido_materno?: string;
+  fecha_nacimiento: string;
+  genero: GeneroBackend;
+  direccion: string;
+  telefono: string;
+  email: string;
+  nombre_usuario: string;
+  password: string;
+  activo: boolean;
+  rol_id: string;
+  ultimo_login?: string;
+}
+
+export interface UserRole {
+  id: string;
+  nombre: string;
+}
+
 export type EstatusAfiliado =
   | "activo"
   | "inactivo"

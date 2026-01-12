@@ -17,6 +17,7 @@ import {
   Shield,
   FlaskConical,
   User,
+  KeyRound,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -43,6 +44,15 @@ const navigation = [
     submenu: [
       { name: "Listado", href: "/ciudadano" },
       { name: "Nuevo Ciudadano", href: "/ciudadano/nuevo" },
+    ],
+  },
+  {
+    name: "Usuarios",
+    href: "/usuarios",
+    icon: KeyRound,
+    submenu: [
+      { name: "Listado", href: "/usuarios" },
+      { name: "Nuevo Usuario", href: "/usuarios/nuevo" },
     ],
   },
   {
