@@ -396,32 +396,6 @@ export function FormNotaMedica({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="fecha">Fecha *</Label>
-            <Input
-              id="fecha"
-              type="date"
-              value={formData.fecha || ""}
-              onChange={(e) => handleChange("fecha", e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tensionArterial">Tensión Arterial *</Label>
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-muted-foreground" />
-              <Input
-                id="tensionArterial"
-                value={formData.tensionArterial || ""}
-                onChange={(e) =>
-                  handleChange("tensionArterial", e.target.value)
-                }
-                placeholder="120/80"
-                required
-              />
-              <span className="text-sm text-muted-foreground">mmHg</span>
-            </div>
-          </div>
         </CardContent>
       </Card>
 

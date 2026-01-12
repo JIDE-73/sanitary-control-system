@@ -79,20 +79,20 @@ const navigation = [
     ],
   },
   {
-    name: "Notas Médicas",
+    name: "Notas Médicas CS",
     href: "/notas-medicas",
     icon: ClipboardList,
     submenu: [
       { name: "Nueva Nota Médica", href: "/notas-medicas/nueva" },
+      { name: "Ordenar Examen", href: "/examenes/nuevo" },
       { name: "Historial", href: "/notas-medicas" },
     ],
   },
   {
-    name: "Exámenes",
+    name: "Exámenes CS",
     href: "/examenes",
     icon: TestTube,
     submenu: [
-      { name: "Ordenar Examen", href: "/examenes/nuevo" },
       { name: "Resultados", href: "/examenes/resultados" },
       { name: "Historial", href: "/examenes" },
     ],
