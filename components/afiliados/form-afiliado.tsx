@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { User, MapPin, Briefcase, Save, ArrowLeft } from "lucide-react";
 import type {
   Afiliado,
@@ -60,6 +61,23 @@ const MEXICO_STATES = [
   "Zacatecas",
 ] as const;
 
+const COUNTRIES = [
+  "Estados Unidos",
+  "Canadá",
+  "Guatemala",
+  "Colombia",
+  "Argentina",
+  "España",
+  "Francia",
+  "Alemania",
+  "China",
+  "Japón",
+  "Brasil",
+  "Perú",
+  "Chile",
+  "Cuba",
+] as const;
+
 interface FormAfiliadoProps {
   afiliado?: Afiliado;
   lugaresTrabajo: LugarTrabajo[];
@@ -76,6 +94,13 @@ export function FormAfiliado({
   const router = useRouter();
   const isEdit = Boolean(afiliado?.id);
   const [submitting, setSubmitting] = useState(false);
+  const [isExtranjero, setIsExtranjero] = useState<boolean>(() =>
+    afiliado?.lugarProcedencia
+      ? !MEXICO_STATES.includes(
+          afiliado.lugarProcedencia as (typeof MEXICO_STATES)[number]
+        )
+      : false
+  );
 
   const normalizeGenero = (value?: string): GeneroBackend => {
     if (value === "LGBTQ+") return "LGBTQ+";
@@ -129,6 +154,13 @@ export function FormAfiliado({
 
   useEffect(() => {
     setFormData(getInitialData(afiliado));
+    setIsExtranjero(
+      afiliado?.lugarProcedencia
+        ? !MEXICO_STATES.includes(
+            afiliado.lugarProcedencia as (typeof MEXICO_STATES)[number]
+          )
+        : false
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [afiliado?.id]);
 
@@ -353,34 +385,15 @@ export function FormAfiliado({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Contacto Secundario</Label>
             <Input
               id="email"
-              type="email"
+              type="string"
               value={formData.email || ""}
               onChange={(e) => handleChange("email", e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="lugar_procedencia">Lugar de Procedencia *</Label>
-            <Select
-              value={formData.lugar_procedencia || undefined}
-              onValueChange={(value) =>
-                handleChange("lugar_procedencia", value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar estado de procedencia" />
-              </SelectTrigger>
-              <SelectContent>
-                {MEXICO_STATES.map((state) => (
-                  <SelectItem key={state} value={state}>
-                    {state}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
           <div className="flex items-center gap-2">
             <input
               id="acta_nacimiento"
@@ -441,6 +454,53 @@ export function FormAfiliado({
                       {lugar.codigo} - {lugar.nombre}
                     </SelectItem>
                   ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="lugar_procedencia">Lugar de Procedencia *</Label>
+              <div className="flex items-center gap-2">
+                <Label
+                  htmlFor="extranjero"
+                  className="text-sm font-normal text-muted-foreground"
+                >
+                  Extranjero
+                </Label>
+                <Switch
+                  id="extranjero"
+                  checked={isExtranjero}
+                  onCheckedChange={(checked) => {
+                    setIsExtranjero(checked);
+                    setFormData((prev) => ({
+                      ...prev,
+                      lugar_procedencia: "",
+                    }));
+                  }}
+                />
+              </div>
+            </div>
+            <Select
+              value={formData.lugar_procedencia || undefined}
+              onValueChange={(value) =>
+                handleChange("lugar_procedencia", value)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    isExtranjero
+                      ? "Seleccionar país de procedencia"
+                      : "Seleccionar estado de procedencia"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {(isExtranjero ? COUNTRIES : MEXICO_STATES).map((place) => (
+                  <SelectItem key={place} value={place}>
+                    {place}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
