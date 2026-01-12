@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 
 import {
   CiudadanosTable,
@@ -8,45 +10,88 @@ import {
 } from "@/components/ciudadanos/ciudadanos-table";
 import { SearchCiudadano } from "@/components/ciudadanos/search-ciudadano";
 import { MainLayout } from "@/components/layout/main-layout";
-import { afiliados as ciudadanosMock, lugaresTrabajo } from "@/lib/mock-data";
+import { Button } from "@/components/ui/button";
+import { request } from "@/lib/request";
 
 export default function CiudadanoPage() {
-  const baseCiudadanos = useMemo<CiudadanoListado[]>(() => {
-    return ciudadanosMock.map((ciudadano) => {
-      const lugarTrabajo = lugaresTrabajo.find(
-        (l) => l.id === ciudadano.lugarTrabajoId
+  const [ciudadanos, setCiudadanos] = useState<CiudadanoListado[]>([]);
+  const [filteredCiudadanos, setFilteredCiudadanos] = useState<
+    CiudadanoListado[]
+  >([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  const normalizeCiudadano = (item: any): CiudadanoListado => ({
+    id: String(item?.persona_id ?? item?.persona?.id ?? item?.id ?? ""),
+    curp: item?.persona?.curp ?? "",
+    nombres: item?.persona?.nombre ?? "",
+    apellidoPaterno: item?.persona?.apellido_paterno ?? "",
+    apellidoMaterno: item?.persona?.apellido_materno ?? "",
+    genero: (item?.persona?.genero ??
+      "masculino") as CiudadanoListado["genero"],
+    telefono: item?.persona?.telefono ?? "",
+    ciudad: item?.persona?.direccion ?? "",
+    estatus: "activo",
+    nivelRiesgo: item?.nivel_riesgo ?? item?.persona?.nivel_riesgo,
+    fechaNacimiento: item?.persona?.fecha_nacimiento,
+    email: item?.persona?.email,
+    lugarProcedencia: item?.persona?.lugar_procedencia,
+    ocupacion: item?.ocupacion ?? item?.persona?.ocupacion,
+    direccion: item?.persona?.direccion,
+    lugarTrabajoCodigo: item?.persona?.lugar_trabajo_codigo ?? "",
+    lugarTrabajoNombre: item?.persona?.lugar_trabajo_nombre ?? "",
+    fechaRegistro: item?.persona?.created_at,
+  });
+
+  const extractArray = (response: any) => {
+    if (Array.isArray(response?.citizens)) return response.citizens;
+    if (Array.isArray(response?.data)) return response.data;
+    if (Array.isArray(response)) return response;
+    if (response && typeof response === "object") {
+      const numericKeys = Object.keys(response).filter((k) => /^\d+$/.test(k));
+      if (numericKeys.length) {
+        return numericKeys
+          .sort((a, b) => Number(a) - Number(b))
+          .map((k) => (response as any)[k])
+          .filter(Boolean);
+      }
+    }
+    return [];
+  };
+
+  const loadCiudadanos = async () => {
+    setLoading(true);
+    try {
+      const response = await request(
+        "/alcoholimetria/citizens/getCitizens",
+        "GET"
       );
+      const data = extractArray(response);
+      const normalizados = data
+        .map(normalizeCiudadano)
+        .filter((c: CiudadanoListado) => c.id && c.curp);
 
-      return {
-        id: ciudadano.id,
-        curp: ciudadano.curp,
-        nombres: ciudadano.nombres,
-        apellidoPaterno: ciudadano.apellidoPaterno,
-        apellidoMaterno: ciudadano.apellidoMaterno,
-        genero: ciudadano.genero,
-        telefono: ciudadano.telefono,
-        ciudad: ciudadano.ciudad,
-        estatus: ciudadano.estatus,
-        fechaNacimiento: ciudadano.fechaNacimiento,
-        email: ciudadano.email,
-        lugarProcedencia: ciudadano.lugarProcedencia,
-        ocupacion: ciudadano.ocupacion,
-        lugarTrabajoCodigo: lugarTrabajo?.codigo,
-        lugarTrabajoNombre: lugarTrabajo?.nombre,
-        fechaRegistro: ciudadano.fechaRegistro,
-      };
-    });
+      setCiudadanos(normalizados);
+      setFilteredCiudadanos(normalizados);
+    } catch (error) {
+      console.error("No se pudieron cargar los ciudadanos", error);
+      setCiudadanos([]);
+      setFilteredCiudadanos([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCiudadanos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const [filteredCiudadanos, setFilteredCiudadanos] =
-    useState<CiudadanoListado[]>(baseCiudadanos);
 
   const handleSearch = (
     query: string,
     filters: { genero?: string; estatus?: string }
   ) => {
     const normalizedQuery = query.trim().toLowerCase();
-    let results = [...baseCiudadanos];
+    let results = [...ciudadanos];
 
     if (normalizedQuery) {
       results = results.filter((ciudadano) => {
@@ -91,11 +136,17 @@ export default function CiudadanoPage() {
               {totalCiudadanos ? `(${totalCiudadanos})` : ""}
             </p>
           </div>
+          <Button asChild>
+            <Link href="/ciudadano/nuevo">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Ciudadano
+            </Link>
+          </Button>
         </div>
 
         <SearchCiudadano onSearch={handleSearch} />
 
-        <CiudadanosTable ciudadanos={filteredCiudadanos} />
+        <CiudadanosTable ciudadanos={filteredCiudadanos} loading={loading} />
       </div>
     </MainLayout>
   );

@@ -37,9 +37,13 @@ const navigation = [
     ],
   },
   {
-    name: "Ciudadano",
+    name: "Ciudadanos",
     href: "/ciudadano",
     icon: User,
+    submenu: [
+      { name: "Listado", href: "/ciudadano" },
+      { name: "Nuevo Ciudadano", href: "/ciudadano/nuevo" },
+    ],
   },
   {
     name: "Médicos",

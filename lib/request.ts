@@ -13,10 +13,11 @@ const request = async (url: string, method: string, body?: any) => {
       : undefined,
     credentials: "include",
   });
-
+  
   let parsed: any;
   try {
     parsed = await response.json();
+    console.log(parsed);
   } catch {
     const text = await response.text();
     parsed = { message: text || "Respuesta no es JSON" };

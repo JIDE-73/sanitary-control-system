@@ -32,10 +32,12 @@ export interface CiudadanoListado {
   lugarTrabajoCodigo?: string;
   lugarTrabajoNombre?: string;
   estatus: "activo" | "inactivo" | "suspendido" | "pendiente";
+  nivelRiesgo?: string;
   fechaNacimiento?: string;
   email?: string;
   lugarProcedencia?: string;
   ocupacion?: string;
+  direccion?: string;
   fechaRegistro?: string;
 }
 
@@ -59,6 +61,15 @@ const estatusVariants = {
   pendiente: "outline",
 } as const;
 
+const riesgoVariants: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  bajo: "secondary",
+  medio: "default",
+  alto: "destructive",
+};
+
 export function CiudadanosTable({
   ciudadanos,
   loading = false,
@@ -76,6 +87,7 @@ export function CiudadanosTable({
             <TableHead>Ciudad</TableHead>
             <TableHead>Lugar de Trabajo</TableHead>
             <TableHead>Estatus</TableHead>
+            <TableHead>Nivel de riesgo</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -131,6 +143,20 @@ export function CiudadanosTable({
                       ciudadano.estatus.slice(1)}
                   </Badge>
                 </TableCell>
+                <TableCell>
+                  {ciudadano.nivelRiesgo ? (
+                    <Badge
+                      variant={
+                        riesgoVariants[ciudadano.nivelRiesgo.toLowerCase()] ??
+                        "outline"
+                      }
+                    >
+                      {ciudadano.nivelRiesgo}
+                    </Badge>
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <Dialog>
                     <DialogTrigger asChild>
@@ -150,7 +176,7 @@ export function CiudadanosTable({
                           {ciudadano.apellidoMaterno}
                         </DialogTitle>
                         <DialogDescription>
-                          Información de ciudadano (sin conexión a la API)
+                          Información de ciudadano
                         </DialogDescription>
                       </DialogHeader>
                       <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -193,6 +219,26 @@ export function CiudadanosTable({
                         </div>
                         <div className="flex flex-col gap-1">
                           <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                            Nivel de riesgo
+                          </dt>
+                          <dd>
+                            {ciudadano.nivelRiesgo ? (
+                              <Badge
+                                variant={
+                                  riesgoVariants[
+                                    ciudadano.nivelRiesgo.toLowerCase()
+                                  ] ?? "outline"
+                                }
+                              >
+                                {ciudadano.nivelRiesgo}
+                              </Badge>
+                            ) : (
+                              "—"
+                            )}
+                          </dd>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
                             Teléfono
                           </dt>
                           <dd className="font-medium">
@@ -213,6 +259,14 @@ export function CiudadanosTable({
                           </dt>
                           <dd className="font-medium">
                             {ciudadano.ciudad ?? "—"}
+                          </dd>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                            Dirección
+                          </dt>
+                          <dd className="font-medium break-all">
+                            {ciudadano.direccion ?? ciudadano.ciudad ?? "—"}
                           </dd>
                         </div>
                         <div className="flex flex-col gap-1">

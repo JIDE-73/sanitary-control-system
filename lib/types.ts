@@ -29,6 +29,23 @@ export interface AffiliatePayload {
   acta_nacimiento: boolean;
 }
 
+export type NivelRiesgo = "BAJO" | "MEDIO" | "ALTO";
+
+export interface CitizenPayload {
+  curp: string;
+  nombre: string;
+  apellido_paterno: string;
+  apellido_materno?: string;
+  fecha_nacimiento: string;
+  genero: GeneroBackend;
+  email?: string;
+  telefono: string;
+  direccion: string;
+  lugar_procedencia: string;
+  ocupacion?: string;
+  nivel_riesgo: NivelRiesgo;
+}
+
 export type EstatusAfiliado =
   | "activo"
   | "inactivo"
