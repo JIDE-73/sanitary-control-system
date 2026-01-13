@@ -92,10 +92,7 @@ const navigation = [
     name: "Exámenes CS",
     href: "/examenes",
     icon: TestTube,
-    submenu: [
-      { name: "Resultados", href: "/examenes/resultados" },
-      { name: "Historial", href: "/examenes" },
-    ],
+    submenu: [{ name: "Historial", href: "/examenes" }],
   },
   {
     name: "Certificados",
