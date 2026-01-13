@@ -7,16 +7,7 @@ import {
   FormNotaMedicaALM,
   type NotaMedicaALMFormValues,
 } from "@/components/notas-medicas-alm/form-nota-alm";
-import {
-  generateAlmFolio,
-  loadNotasAlm,
-  medicosAlm,
-  notasAlmSeed,
-  PacienteALM,
-  pacientesAlm,
-  persistNotasAlm,
-  type NotaMedicaALM,
-} from "@/lib/notas-medicas-alm";
+import { request } from "@/lib/request";
 import { useToast } from "@/hooks/use-toast";
 
 function NuevaNotaALMContent() {
@@ -24,54 +15,39 @@ function NuevaNotaALMContent() {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
-  const buildId = () =>
-    typeof crypto !== "undefined" && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `alm-${Date.now()}`;
-
-  const handleSubmit = (data: NotaMedicaALMFormValues) => {
-    const paciente: PacienteALM | undefined = pacientesAlm.find(
-      (p) => p.id === data.pacienteId
-    );
-    const medico = medicosAlm.find((m) => m.id === data.medicoId);
-
-    const nota: NotaMedicaALM = {
-      id: buildId(),
-      folio: data.folio?.trim() || generateAlmFolio(),
-      fecha: data.fecha,
-      servicio: data.servicio,
-      clasificacion: data.clasificacion,
-      estado: data.estado,
-      pacienteId: data.pacienteId,
-      pacienteNombre: paciente?.nombre ?? "Paciente sin nombre",
-      pacienteCurp: paciente?.curp ?? "",
-      medicoId: data.medicoId,
-      medicoNombre: medico?.nombre ?? "Médico sin nombre",
-      motivoConsulta: data.motivoConsulta.trim(),
-      impresionDiagnostica: data.impresionDiagnostica.trim(),
-      planManejo: data.planManejo.trim(),
-      seguimiento: data.seguimiento?.trim(),
-      notasEnfermeria: data.notasEnfermeria?.trim(),
-      proximaCita: data.proximaCita || undefined,
-      signosVitales: data.signosVitales,
-    };
-
+  const handleSubmit = async (data: NotaMedicaALMFormValues) => {
     setSaving(true);
     try {
-      const prevNotas = loadNotasAlm();
-      const updated = [nota, ...prevNotas];
-      persistNotasAlm(updated);
+      const response = await request(
+        "/alcoholimetria/medicalNotes/createMedicalNote",
+        "POST",
+        {
+          ...data,
+          edad: data.edad ?? "",
+        }
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Nota médica creada",
+          description: "La nota de alcoholimetría se envió correctamente.",
+        });
+        router.push("/notas-medicas-alm");
+        return;
+      }
+
       toast({
-        title: "Nota ALM creada",
-        description: "La nota quedó guardada de manera local (sin backend).",
+        title: "No se pudo crear la nota",
+        description:
+          response?.message ||
+          "El backend devolvió un error. Revisa los datos e intenta nuevamente.",
+        variant: "destructive",
       });
-      router.push("/notas-medicas-alm");
     } catch (error) {
-      console.error("No se pudo guardar la nota ALM", error);
-      persistNotasAlm(notasAlmSeed);
+      console.error("Error al crear la nota ALM", error);
       toast({
-        title: "No se pudo guardar",
-        description: "Ocurrió un problema inesperado. Intenta de nuevo.",
+        title: "Error de red",
+        description: "No se pudo comunicar con el backend.",
         variant: "destructive",
       });
     } finally {
@@ -91,7 +67,7 @@ export default function NuevaNotaALMPage() {
             Nueva nota médica ALM
           </h1>
           <p className="text-muted-foreground">
-            Captura específica para el esquema ALM (sin integración a backend)
+            Captura y envío de nota médica para alcoholimetría
           </p>
         </div>
 
