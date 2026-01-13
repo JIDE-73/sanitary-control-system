@@ -7,14 +7,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://sics-alco-app-backend-dev:3000/:path*'
-      }
-    ]
-  }
 }
 
 export default nextConfig
