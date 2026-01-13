@@ -18,6 +18,7 @@ import {
   FlaskConical,
   User,
   KeyRound,
+  NotebookPen,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -86,6 +87,15 @@ const navigation = [
       { name: "Nueva Nota Médica", href: "/notas-medicas/nueva" },
       { name: "Ordenar Examen", href: "/examenes/nuevo" },
       { name: "Historial", href: "/notas-medicas" },
+    ],
+  },
+  {
+    name: "Notas Médicas ALM",
+    href: "/notas-medicas-alm",
+    icon: NotebookPen,
+    submenu: [
+      { name: "Nueva Nota ALM", href: "/notas-medicas-alm/nueva" },
+      { name: "Historial ALM", href: "/notas-medicas-alm" },
     ],
   },
   {
