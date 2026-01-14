@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -11,18 +11,45 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { request } from "@/lib/request";
 
 function FormCertificadoWrapper() {
   const router = useRouter();
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (data: CertificadoFormPayload) => {
-    toast.success("Certificado emitido exitosamente", {
-      description: `Folio: ${data.folio}`,
-    });
-    router.push("/certificados");
+  const handleSubmit = async (data: CertificadoFormPayload) => {
+    try {
+      setSaving(true);
+      const response = await request(
+        "/alcoholimetria/certificates/createCertificate",
+        "POST",
+        data
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        toast.success("Certificado emitido exitosamente", {
+          description: `Folio: ${data.folio}`,
+        });
+        router.push("/certificados");
+        return;
+      }
+
+      toast.error("No se pudo emitir el certificado", {
+        description:
+          response?.message ||
+          "El backend respondió con un error. Revisa los datos e intenta nuevamente.",
+      });
+    } catch (error) {
+      console.error("Error al enviar el certificado", error);
+      toast.error("Error de red", {
+        description: "No se pudo comunicar con el backend.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  return <FormCertificado onSubmit={handleSubmit} />;
+  return <FormCertificado onSubmit={handleSubmit} submitting={saving} />;
 }
 
 function FormSkeleton() {

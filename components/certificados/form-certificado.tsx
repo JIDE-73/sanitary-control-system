@@ -16,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, FileText, Save, User } from "lucide-react";
+import { toast } from "sonner";
+import { request } from "@/lib/request";
 
 type CertificadoFormState = {
   fecha_expedicion: string;
@@ -193,7 +195,8 @@ export interface CertificadoFormPayload {
 }
 
 interface FormCertificadoProps {
-  onSubmit: (data: CertificadoFormPayload) => void;
+  onSubmit: (data: CertificadoFormPayload) => void | Promise<void>;
+  submitting?: boolean;
 }
 
 const initialState: CertificadoFormState = {
@@ -283,9 +286,14 @@ const initialState: CertificadoFormState = {
   extranjeras: false,
 };
 
-export function FormCertificado({ onSubmit }: FormCertificadoProps) {
+export function FormCertificado({
+  onSubmit,
+  submitting = false,
+}: FormCertificadoProps) {
   const router = useRouter();
   const [formData, setFormData] = useState<CertificadoFormState>(initialState);
+  const [loadingCitizen, setLoadingCitizen] = useState(false);
+  const [loadingDoctor, setLoadingDoctor] = useState(false);
 
   const toNumber = (value: string): number | null => {
     if (value === "") return null;
@@ -303,7 +311,107 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
     checked: boolean | "indeterminate"
   ) => setFormData((prev) => ({ ...prev, [field]: Boolean(checked) }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const computeAge = (isoDate?: string) => {
+    if (!isoDate) return "";
+    const birth = new Date(isoDate);
+    if (Number.isNaN(birth.getTime())) return "";
+    const diff = Date.now() - birth.getTime();
+    const ageDate = new Date(diff);
+    const years = ageDate.getUTCFullYear() - 1970;
+    return years >= 0 ? String(years) : "";
+  };
+
+  const fetchCitizen = async () => {
+    const param = formData.persona_id.trim();
+    if (!param) {
+      toast.error(
+        "Ingresa un parámetro para buscar ciudadano (id/curp/nombre)"
+      );
+      return;
+    }
+
+    try {
+      setLoadingCitizen(true);
+      const response = await request(
+        `/alcoholimetria/citizens/getCitizenById/${param}`,
+        "GET"
+      );
+
+      if (!response?.persona?.length) {
+        toast.error("No se encontró al ciudadano");
+        return;
+      }
+
+      const persona = response.persona[0];
+      const nombreCompleto = [
+        persona.nombre,
+        persona.apellido_paterno,
+        persona.apellido_materno,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      setFormData((prev) => ({
+        ...prev,
+        persona_id: persona.id,
+        nombre: nombreCompleto || prev.nombre,
+        genero: persona.genero || prev.genero,
+        direccion: persona.direccion || prev.direccion,
+        edad: computeAge(persona.fecha_nacimiento),
+      }));
+
+      toast.success("Ciudadano cargado", {
+        description: nombreCompleto || persona.id,
+      });
+    } catch (error) {
+      console.error("Error al obtener ciudadano", error);
+      toast.error("Error al obtener ciudadano");
+    } finally {
+      setLoadingCitizen(false);
+    }
+  };
+
+  const fetchDoctor = async () => {
+    const param = formData.medico_id.trim();
+    if (!param) {
+      toast.error("Ingresa un parámetro para buscar médico");
+      return;
+    }
+
+    try {
+      setLoadingDoctor(true);
+      const response = await request(`/sics/doctors/getDoctor/${param}`, "GET");
+
+      if (!response?.persona_id) {
+        toast.error("No se encontró al médico");
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        medico_id: response.persona_id,
+        cedula_perito: response.cedula_profesional || prev.cedula_perito,
+      }));
+
+      const nombreMedico = response.persona
+        ? `${response.persona.nombre ?? ""} ${
+            response.persona.apellido_paterno ?? ""
+          } ${response.persona.apellido_materno ?? ""}`.trim()
+        : response.persona_id;
+
+      toast.success("Médico cargado", {
+        description: nombreMedico || response.persona_id,
+      });
+    } catch (error) {
+      console.error("Error al obtener médico", error);
+      toast.error("Error al obtener médico");
+    } finally {
+      setLoadingDoctor(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const folio = `SICS-${new Date().getFullYear()}-${String(
       Math.floor(Math.random() * 100000)
@@ -397,7 +505,7 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
       extranjeras: formData.extranjeras,
     };
 
-    onSubmit(payload);
+    await Promise.resolve(onSubmit(payload));
   };
 
   const isSubmitDisabled = useMemo(
@@ -420,10 +528,10 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="h-5 w-5 text-primary" />
-            Encabezado e información de registro
+            1. Metadatos / Identificación general
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
             <Label htmlFor="fecha_expedicion">Fecha de expedición *</Label>
             <Input
@@ -437,24 +545,46 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="medico_id">Autoridad / Médico ID *</Label>
-            <Input
-              id="medico_id"
-              placeholder="ID del médico emisor"
-              value={formData.medico_id}
-              onChange={(e) => handleInputChange("medico_id", e.target.value)}
-              required
-            />
+            <Label htmlFor="persona_id">Persona ID *</Label>
+            <div className="flex gap-2">
+              <Input
+                id="persona_id"
+                placeholder="ID, CURP o nombre completo"
+                value={formData.persona_id}
+                onChange={(e) =>
+                  handleInputChange("persona_id", e.target.value)
+                }
+                required
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={fetchCitizen}
+                disabled={loadingCitizen || submitting}
+              >
+                {loadingCitizen ? "Buscando..." : "Buscar"}
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="persona_id">Persona ID *</Label>
-            <Input
-              id="persona_id"
-              placeholder="ID de la persona evaluada"
-              value={formData.persona_id}
-              onChange={(e) => handleInputChange("persona_id", e.target.value)}
-              required
-            />
+            <Label htmlFor="medico_id">Autoridad / Médico ID *</Label>
+            <div className="flex gap-2">
+              <Input
+                id="medico_id"
+                placeholder="ID, cédula o nombre del médico"
+                value={formData.medico_id}
+                onChange={(e) => handleInputChange("medico_id", e.target.value)}
+                required
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={fetchDoctor}
+                disabled={loadingDoctor || submitting}
+              >
+                {loadingDoctor ? "Buscando..." : "Buscar"}
+              </Button>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="cedula_perito">Cédula del perito</Label>
@@ -473,7 +603,7 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Datos de identificación del paciente</CardTitle>
+          <CardTitle className="text-lg">2. Datos del paciente</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
@@ -519,7 +649,7 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
               <SelectContent>
                 <SelectItem value="masculino">Masculino</SelectItem>
                 <SelectItem value="femenino">Femenino</SelectItem>
-                <SelectItem value="lgbtq+">LGBTQ+</SelectItem>
+                <SelectItem value="LGBTQ+">LGBTQ+</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -582,7 +712,7 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <User className="h-5 w-5 text-primary" />
-            Exploración física
+            3. Exploración física – Estado general
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -594,30 +724,43 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
                 handleInputChange("estado_conciencia", e.target.value)
               }
             />
+            <div className="space-y-2">
+              <Label htmlFor="aliento">Aliento</Label>
+              <Select
+                value={formData.aliento}
+                onValueChange={(value) => handleInputChange("aliento", value)}
+              >
+                <SelectTrigger id="aliento">
+                  <SelectValue placeholder="Selecciona el tipo de aliento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="alcoholico">Alcohólico</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="acetona">Acetona</SelectItem>
+                  <SelectItem value="otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Input
-              placeholder="Aliento"
-              value={formData.aliento}
-              onChange={(e) => handleInputChange("aliento", e.target.value)}
+              placeholder="Equilibrio a la marcha"
+              value={formData.equilibrio_marcha}
+              onChange={(e) =>
+                handleInputChange("equilibrio_marcha", e.target.value)
+              }
             />
             <Input
-              placeholder="Facies"
-              value={formData.facies}
-              onChange={(e) => handleInputChange("facies", e.target.value)}
+              placeholder="Equilibrio vertical de reposo"
+              value={formData.equilibrio_vertical}
+              onChange={(e) =>
+                handleInputChange("equilibrio_vertical", e.target.value)
+              }
             />
             <Input
-              placeholder="Conjuntivas"
-              value={formData.conjuntivas}
-              onChange={(e) => handleInputChange("conjuntivas", e.target.value)}
-            />
-            <Input
-              placeholder="Pupilas"
-              value={formData.pupilas}
-              onChange={(e) => handleInputChange("pupilas", e.target.value)}
-            />
-            <Input
-              placeholder="Vómito"
-              value={formData.vomito}
-              onChange={(e) => handleInputChange("vomito", e.target.value)}
+              placeholder="Levantar objetos del piso"
+              value={formData.levantar_objetos}
+              onChange={(e) =>
+                handleInputChange("levantar_objetos", e.target.value)
+              }
             />
           </div>
 
@@ -659,112 +802,161 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
               </Label>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="space-y-3">
-            <Label className="text-sm font-semibold">Equilibrio y marcha</Label>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              <Input
-                placeholder="Signo de Romberg"
-                value={formData.signo_romberg}
-                onChange={(e) =>
-                  handleInputChange("signo_romberg", e.target.value)
-                }
-              />
-              <Input
-                placeholder="Equilibrio a la marcha"
-                value={formData.equilibrio_marcha}
-                onChange={(e) =>
-                  handleInputChange("equilibrio_marcha", e.target.value)
-                }
-              />
-              <Input
-                placeholder="Prueba de tándem"
-                value={formData.prueba_tandem}
-                onChange={(e) =>
-                  handleInputChange("prueba_tandem", e.target.value)
-                }
-              />
-              <Input
-                placeholder="Equilibrio vertical de reposo"
-                value={formData.equilibrio_vertical}
-                onChange={(e) =>
-                  handleInputChange("equilibrio_vertical", e.target.value)
-                }
-              />
-              <Input
-                placeholder="Levantar objetos del piso"
-                value={formData.levantar_objetos}
-                onChange={(e) =>
-                  handleInputChange("levantar_objetos", e.target.value)
-                }
-              />
-            </div>
-            <div className="flex flex-wrap gap-4">
-              {[
-                { id: "trastabillea", key: "trastabillea", label: "Trastabillea" },
-                { id: "trastabillea1", key: "trastabillea1", label: "Trastabillea 1" },
-                { id: "trastabillea2", key: "trastabillea2", label: "Trastabillea 2" },
-                { id: "trastabillea3", key: "trastabillea3", label: "Trastabillea 3" },
-                { id: "trastabillea4", key: "trastabillea4", label: "Trastabillea 4" },
-                { id: "trastabillea5", key: "trastabillea5", label: "Trastabillea 5" },
-                { id: "trastabillea6", key: "trastabillea6", label: "Trastabillea 6" },
-              ].map((item) => (
-                <div key={item.key} className="flex items-center gap-2">
-                  <Checkbox
-                    id={item.id}
-                    checked={
-                      formData[item.key as keyof CertificadoFormState] as boolean
-                    }
-                    onCheckedChange={(checked) =>
-                      handleCheckboxChange(
-                        item.key as keyof CertificadoFormState,
-                        checked
-                      )
-                    }
-                  />
-                  <Label htmlFor={item.id} className="text-sm font-normal">
-                    {item.label}
-                  </Label>
-                </div>
-              ))}
-              {[
-                { id: "cae", key: "cae", label: "Cae" },
-                { id: "cae1", key: "cae1", label: "Cae 1" },
-                { id: "cae2", key: "cae2", label: "Cae 2" },
-                { id: "cae3", key: "cae3", label: "Cae 3" },
-                { id: "cae4", key: "cae4", label: "Cae 4" },
-                { id: "cae5", key: "cae5", label: "Cae 5" },
-                { id: "cae6", key: "cae6", label: "Cae 6" },
-              ].map((item) => (
-                <div key={item.key} className="flex items-center gap-2">
-                  <Checkbox
-                    id={item.id}
-                    checked={
-                      formData[item.key as keyof CertificadoFormState] as boolean
-                    }
-                    onCheckedChange={(checked) =>
-                      handleCheckboxChange(
-                        item.key as keyof CertificadoFormState,
-                        checked
-                      )
-                    }
-                  />
-                  <Label htmlFor={item.id} className="text-sm font-normal">
-                    {item.label}
-                  </Label>
-                </div>
-              ))}
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">
+            4. Exploración física – Coordinación / Caídas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-4">
+            {[
+              {
+                id: "trastabillea",
+                key: "trastabillea",
+                label: "Trastabillea",
+              },
+              {
+                id: "trastabillea1",
+                key: "trastabillea1",
+                label: "Trastabillea 1",
+              },
+              {
+                id: "trastabillea2",
+                key: "trastabillea2",
+                label: "Trastabillea 2",
+              },
+              {
+                id: "trastabillea3",
+                key: "trastabillea3",
+                label: "Trastabillea 3",
+              },
+              {
+                id: "trastabillea4",
+                key: "trastabillea4",
+                label: "Trastabillea 4",
+              },
+              {
+                id: "trastabillea5",
+                key: "trastabillea5",
+                label: "Trastabillea 5",
+              },
+              {
+                id: "trastabillea6",
+                key: "trastabillea6",
+                label: "Trastabillea 6",
+              },
+            ].map((item) => (
+              <div key={item.key} className="flex items-center gap-2">
+                <Checkbox
+                  id={item.id}
+                  checked={
+                    formData[item.key as keyof CertificadoFormState] as boolean
+                  }
+                  onCheckedChange={(checked) =>
+                    handleCheckboxChange(
+                      item.key as keyof CertificadoFormState,
+                      checked
+                    )
+                  }
+                />
+                <Label htmlFor={item.id} className="text-sm font-normal">
+                  {item.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {[
+              { id: "cae", key: "cae", label: "Cae" },
+              { id: "cae1", key: "cae1", label: "Cae 1" },
+              { id: "cae2", key: "cae2", label: "Cae 2" },
+              { id: "cae3", key: "cae3", label: "Cae 3" },
+              { id: "cae4", key: "cae4", label: "Cae 4" },
+              { id: "cae5", key: "cae5", label: "Cae 5" },
+              { id: "cae6", key: "cae6", label: "Cae 6" },
+            ].map((item) => (
+              <div key={item.key} className="flex items-center gap-2">
+                <Checkbox
+                  id={item.id}
+                  checked={
+                    formData[item.key as keyof CertificadoFormState] as boolean
+                  }
+                  onCheckedChange={(checked) =>
+                    handleCheckboxChange(
+                      item.key as keyof CertificadoFormState,
+                      checked
+                    )
+                  }
+                />
+                <Label htmlFor={item.id} className="text-sm font-normal">
+                  {item.label}
+                </Label>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Coordinación y habla</CardTitle>
+          <CardTitle className="text-lg">
+            5. Exploración física – Signos neurológicos
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Input
+              placeholder="Facies"
+              value={formData.facies}
+              onChange={(e) => handleInputChange("facies", e.target.value)}
+            />
+            <Input
+              placeholder="Vómito"
+              value={formData.vomito}
+              onChange={(e) => handleInputChange("vomito", e.target.value)}
+            />
+            <Input
+              placeholder="Conjuntivas"
+              value={formData.conjuntivas}
+              onChange={(e) => handleInputChange("conjuntivas", e.target.value)}
+            />
+            <Input
+              placeholder="Signo de Romberg"
+              value={formData.signo_romberg}
+              onChange={(e) =>
+                handleInputChange("signo_romberg", e.target.value)
+              }
+            />
+            <Input
+              placeholder="Prueba de tándem"
+              value={formData.prueba_tandem}
+              onChange={(e) =>
+                handleInputChange("prueba_tandem", e.target.value)
+              }
+            />
+            <Input
+              placeholder="Pupilas"
+              value={formData.pupilas}
+              onChange={(e) => handleInputChange("pupilas", e.target.value)}
+            />
+          </div>
           <div className="flex flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="gira_sobre_eje"
+                checked={formData.gira_sobre_eje}
+                onCheckedChange={(checked) =>
+                  handleCheckboxChange("gira_sobre_eje", checked)
+                }
+              />
+              <Label htmlFor="gira_sobre_eje" className="text-sm font-normal">
+                Gira sobre su eje
+              </Label>
+            </div>
             <div className="flex items-center gap-2">
               <Checkbox
                 id="prueba_talon_rodilla"
@@ -780,89 +972,89 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
                 Prueba talón rodilla
               </Label>
             </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="gira_sobre_eje"
-                checked={formData.gira_sobre_eje}
-                onCheckedChange={(checked) =>
-                  handleCheckboxChange("gira_sobre_eje", checked)
-                }
-              />
-              <Label htmlFor="gira_sobre_eje" className="text-sm font-normal">
-                Gira sobre su eje
-              </Label>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[
-              { key: "mano_derecha", label: "Mano derecha" },
-              { key: "falla", label: "Falla" },
-              { key: "mano_izquierda", label: "Mano izquierda" },
-              { key: "falla1", label: "Falla 1" },
-              {
-                key: "dedo_nariz_mano_izquierda",
-                label: "Dedo-nariz mano izquierda",
-              },
-              { key: "falla2", label: "Falla 2" },
-              {
-                key: "dedo_nariz_mano_derecha",
-                label: "Dedo-nariz mano derecha",
-              },
-              { key: "falla3", label: "Falla 3" },
-            ].map((item) => (
-              <div key={item.key} className="flex items-center gap-2">
-                <Checkbox
-                  id={item.key}
-                  checked={
-                    formData[item.key as keyof CertificadoFormState] as boolean
-                  }
-                  onCheckedChange={(checked) =>
-                    handleCheckboxChange(
-                      item.key as keyof CertificadoFormState,
-                      checked
-                    )
-                  }
-                />
-                <Label htmlFor={item.key} className="text-sm font-normal">
-                  {item.label}
-                </Label>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-4">
-            {[
-              { key: "normal", label: "Normal" },
-              { key: "disartria", label: "Disartria" },
-              { key: "ininteligible", label: "Ininteligible" },
-              { key: "verborrea", label: "Verborrea" },
-            ].map((item) => (
-              <div key={item.key} className="flex items-center gap-2">
-                <Checkbox
-                  id={item.key}
-                  checked={
-                    formData[item.key as keyof CertificadoFormState] as boolean
-                  }
-                  onCheckedChange={(checked) =>
-                    handleCheckboxChange(
-                      item.key as keyof CertificadoFormState,
-                      checked
-                    )
-                  }
-                />
-                <Label htmlFor={item.key} className="text-sm font-normal">
-                  {item.label}
-                </Label>
-              </div>
-            ))}
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Signos vitales</CardTitle>
+          <CardTitle className="text-lg">
+            6. Coordinación digital (dedo–dedo / dedo–nariz)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            { key: "mano_derecha", label: "Mano derecha" },
+            { key: "falla", label: "Falla (mano derecha)" },
+            { key: "mano_izquierda", label: "Mano izquierda" },
+            { key: "falla1", label: "Falla (mano izquierda)" },
+            {
+              key: "dedo_nariz_mano_derecha",
+              label: "Dedo–nariz mano derecha",
+            },
+            { key: "falla2", label: "Falla dedo–nariz derecha" },
+            {
+              key: "dedo_nariz_mano_izquierda",
+              label: "Dedo–nariz mano izquierda",
+            },
+            { key: "falla3", label: "Falla dedo–nariz izquierda" },
+          ].map((item) => (
+            <div key={item.key} className="flex items-center gap-2">
+              <Checkbox
+                id={item.key}
+                checked={
+                  formData[item.key as keyof CertificadoFormState] as boolean
+                }
+                onCheckedChange={(checked) =>
+                  handleCheckboxChange(
+                    item.key as keyof CertificadoFormState,
+                    checked
+                  )
+                }
+              />
+              <Label htmlFor={item.key} className="text-sm font-normal">
+                {item.label}
+              </Label>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">7. Habla</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-4">
+          {[
+            { key: "normal", label: "Normal" },
+            { key: "disartria", label: "Disartria" },
+            { key: "ininteligible", label: "Ininteligible" },
+            { key: "verborrea", label: "Verborrea" },
+          ].map((item) => (
+            <div key={item.key} className="flex items-center gap-2">
+              <Checkbox
+                id={item.key}
+                checked={
+                  formData[item.key as keyof CertificadoFormState] as boolean
+                }
+                onCheckedChange={(checked) =>
+                  handleCheckboxChange(
+                    item.key as keyof CertificadoFormState,
+                    checked
+                  )
+                }
+              />
+              <Label htmlFor={item.key} className="text-sm font-normal">
+                {item.label}
+              </Label>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">8. Signos vitales</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
@@ -901,7 +1093,9 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="tension_arterial1">Tensión arterial 1</Label>
+            <Label htmlFor="tension_arterial1">
+              Tensión arterial (diastólica)
+            </Label>
             <Input
               id="tension_arterial1"
               type="number"
@@ -925,67 +1119,38 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Determinación de alcoholemia</CardTitle>
+          <CardTitle className="text-lg">
+            9. Alcoholemia y observaciones
+          </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="determinacion_alcohol">
-              Resultado del alcoholímetro
-            </Label>
-            <Input
-              id="determinacion_alcohol"
-              placeholder="Ej. 0.85 Br AC"
-              value={formData.determinacion_alcohol}
-              onChange={(e) =>
-                handleInputChange("determinacion_alcohol", e.target.value)
-              }
-            />
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="determinacion_alcohol">
+                Determinación de alcoholemia
+              </Label>
+              <Input
+                id="determinacion_alcohol"
+                placeholder="Ej. 0.85 Br AC"
+                value={formData.determinacion_alcohol}
+                onChange={(e) =>
+                  handleInputChange("determinacion_alcohol", e.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2 lg:col-span-2">
+              <Label htmlFor="observacion">Observación</Label>
+              <Input
+                id="observacion"
+                placeholder="Impacto en la capacidad para conducir"
+                value={formData.observacion}
+                onChange={(e) =>
+                  handleInputChange("observacion", e.target.value)
+                }
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="determinacion_alcohol1">Determinación adicional</Label>
-            <Input
-              id="determinacion_alcohol1"
-              placeholder="Determinación de alcohol"
-              value={formData.determinacion_alcohol1}
-              onChange={(e) =>
-                handleInputChange("determinacion_alcohol1", e.target.value)
-              }
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="BAC"
-              checked={formData.BAC}
-              onCheckedChange={(checked) =>
-                handleCheckboxChange("BAC", checked)
-              }
-            />
-            <Label htmlFor="BAC" className="text-sm font-normal">
-              BAC
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="BR_AC"
-              checked={formData.BR_AC}
-              onCheckedChange={(checked) =>
-                handleCheckboxChange("BR_AC", checked)
-              }
-            />
-            <Label htmlFor="BR_AC" className="text-sm font-normal">
-              BR/AC
-            </Label>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="auto_test">Auto test</Label>
-            <Input
-              id="auto_test"
-              type="number"
-              value={formData.auto_test}
-              onChange={(e) => handleInputChange("auto_test", e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-4 lg:col-span-3">
+          <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <Checkbox
                 id="si"
@@ -995,7 +1160,7 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
                 }
               />
               <Label htmlFor="si" className="text-sm font-normal">
-                Sí (bajo tratamiento/enfermedad)
+                Sí
               </Label>
             </div>
             <div className="flex items-center gap-2">
@@ -1016,7 +1181,65 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Diagnóstico y conclusiones</CardTitle>
+          <CardTitle className="text-lg">
+            10. Resultado de alcoholímetro
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="determinacion_alcohol1">
+              Resultado de alcoholímetro
+            </Label>
+            <Input
+              id="determinacion_alcohol1"
+              placeholder="Determinación de alcohol"
+              value={formData.determinacion_alcohol1}
+              onChange={(e) =>
+                handleInputChange("determinacion_alcohol1", e.target.value)
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="auto_test">Auto test</Label>
+            <Input
+              id="auto_test"
+              type="number"
+              value={formData.auto_test}
+              onChange={(e) => handleInputChange("auto_test", e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="BAC"
+                checked={formData.BAC}
+                onCheckedChange={(checked) =>
+                  handleCheckboxChange("BAC", checked)
+                }
+              />
+              <Label htmlFor="BAC" className="text-sm font-normal">
+                BAC
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="BR_AC"
+                checked={formData.BR_AC}
+                onCheckedChange={(checked) =>
+                  handleCheckboxChange("BR_AC", checked)
+                }
+              />
+              <Label htmlFor="BR_AC" className="text-sm font-normal">
+                BR/AC
+              </Label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">11. Cuadro clínico</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="flex items-center gap-2">
@@ -1065,15 +1288,6 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
               }
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="observacion">Observación</Label>
-            <Input
-              id="observacion"
-              placeholder="Impacto en la capacidad para conducir"
-              value={formData.observacion}
-              onChange={(e) => handleInputChange("observacion", e.target.value)}
-            />
-          </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="el_cual">El cual</Label>
             <Input
@@ -1087,7 +1301,7 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Datos del solicitante y vehículo</CardTitle>
+          <CardTitle className="text-lg">12. Solicitante</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
@@ -1098,6 +1312,14 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
               onChange={(e) =>
                 handleInputChange("nombre_solicitante", e.target.value)
               }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="no_placa">No. placa</Label>
+            <Input
+              id="no_placa"
+              value={formData.no_placa}
+              onChange={(e) => handleInputChange("no_placa", e.target.value)}
             />
           </div>
           <div className="space-y-2">
@@ -1119,22 +1341,6 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="nombre_juez">Juez municipal</Label>
-            <Input
-              id="nombre_juez"
-              value={formData.nombre_juez}
-              onChange={(e) => handleInputChange("nombre_juez", e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="no_placa">No. placa</Label>
-            <Input
-              id="no_placa"
-              value={formData.no_placa}
-              onChange={(e) => handleInputChange("no_placa", e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="no_boleta">No. boleta</Label>
             <Input
               id="no_boleta"
@@ -1143,6 +1349,22 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
               onChange={(e) => handleInputChange("no_boleta", e.target.value)}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="nombre_juez">Nombre del juez</Label>
+            <Input
+              id="nombre_juez"
+              value={formData.nombre_juez}
+              onChange={(e) => handleInputChange("nombre_juez", e.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">13. Vehículo</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="vehiculo">Vehículo</Label>
             <Input
@@ -1205,9 +1427,9 @@ export function FormCertificado({ onSubmit }: FormCertificadoProps) {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitDisabled}>
+        <Button type="submit" disabled={isSubmitDisabled || submitting}>
           <Save className="mr-2 h-4 w-4" />
-          Guardar datos
+          {submitting ? "Guardando..." : "Guardar datos"}
         </Button>
       </div>
     </form>

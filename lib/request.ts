@@ -2,6 +2,7 @@
 const baseUrl = `${process.env.NEXT_PUBLIC_URL}`;
 
 const request = async (url: string, method: string, body?: any) => {
+  console.log("body", body);
   const hasJsonBody = body !== undefined && method !== "GET";
 
   const response = await fetch(`${baseUrl}${url}`, {
@@ -14,7 +15,7 @@ const request = async (url: string, method: string, body?: any) => {
       : undefined,
     credentials: "include",
   });
-  
+
   let parsed: any;
   try {
     parsed = await response.json();
