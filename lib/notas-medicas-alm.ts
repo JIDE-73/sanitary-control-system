@@ -28,6 +28,29 @@ export interface SignosVitalesALM {
   glucemia?: string;
 }
 
+// Respuesta del backend para listado de notas de alcoholimetría
+export interface NotaMedicaALMRecord {
+  id: string;
+  fecha_expedicion: string;
+  persona_id: string;
+  medico_id: string;
+  cedula: string;
+  edad: string;
+  se_identifica: string;
+  conciente: boolean;
+  orientacion_alopsiquica: boolean;
+  control_esfinteres: boolean;
+  aliento_alcoholico: boolean;
+  lesiones_visibles: boolean;
+  adicciones_referidas: string;
+  descripcion_lesiones_hallazgos: string;
+  recomendacion_medico: string;
+  nombre_oficial: string;
+  dependencia: string;
+  noOficial: number;
+  noUnidad: number;
+}
+
 export interface PacienteALM {
   id: string;
   nombre: string;

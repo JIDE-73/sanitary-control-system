@@ -1,4 +1,5 @@
-const baseUrl = `${process.env.NEXT_PUBLIC_URL}:${process.env.NEXT_PUBLIC_PORT}`;
+// const baseUrl = `${process.env.NEXT_PUBLIC_URL}:${process.env.NEXT_PUBLIC_PORT}`;
+const baseUrl = `${process.env.NEXT_PUBLIC_URL}`;
 
 const request = async (url: string, method: string, body?: any) => {
   const hasJsonBody = body !== undefined && method !== "GET";

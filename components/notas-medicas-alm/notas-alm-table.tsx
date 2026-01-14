@@ -21,44 +21,29 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Eye } from "lucide-react";
-import type { NotaMedicaALM } from "@/lib/notas-medicas-alm";
-import { cn } from "@/lib/utils";
+import type { NotaMedicaALMRecord } from "@/lib/notas-medicas-alm";
 
 interface NotasMedicasALMTableProps {
-  notas: NotaMedicaALM[];
+  notas: NotaMedicaALMRecord[];
   loading?: boolean;
 }
 
-const clasificacionTone: Record<NotaMedicaALM["clasificacion"], string> = {
-  Rojo: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-100",
-  Naranja:
-    "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-100",
-  Amarillo:
-    "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100",
-  Verde:
-    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100",
-  Azul: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-100",
-};
-
-const estadoTone: Record<NotaMedicaALM["estado"], string> = {
-  abierta: "bg-primary/10 text-primary",
-  "pendiente de estudios":
-    "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100",
-  cerrada:
-    "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100",
-  referida: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-100",
-};
+const booleanLabel = (value: boolean) => (value ? "Sí" : "No");
 
 export function NotasMedicasALMTable({
   notas,
   loading,
 }: NotasMedicasALMTableProps) {
-  const [selectedNota, setSelectedNota] = useState<NotaMedicaALM | null>(null);
+  const [selectedNota, setSelectedNota] = useState<NotaMedicaALMRecord | null>(
+    null
+  );
 
   const sortedNotas = useMemo(
     () =>
       [...notas].sort(
-        (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+        (a, b) =>
+          new Date(b.fecha_expedicion).getTime() -
+          new Date(a.fecha_expedicion).getTime()
       ),
     [notas]
   );
@@ -69,14 +54,12 @@ export function NotasMedicasALMTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Folio</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Paciente</TableHead>
-              <TableHead>CURP</TableHead>
-              <TableHead>Médico</TableHead>
-              <TableHead>Servicio</TableHead>
-              <TableHead>Clasificación</TableHead>
-              <TableHead>Estado</TableHead>
+              <TableHead>Fecha expedición</TableHead>
+              <TableHead>Oficial</TableHead>
+              <TableHead>Dependencia</TableHead>
+              <TableHead>No. oficial</TableHead>
+              <TableHead>No. unidad</TableHead>
+              <TableHead>Lesiones visibles</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -102,39 +85,32 @@ export function NotasMedicasALMTable({
             ) : (
               sortedNotas.map((nota) => (
                 <TableRow key={nota.id}>
-                  <TableCell className="font-medium">{nota.folio}</TableCell>
-                  <TableCell>
-                    {nota.fecha
-                      ? new Date(nota.fecha).toLocaleDateString("es-MX")
+                  <TableCell className="font-medium">
+                    {nota.fecha_expedicion
+                      ? new Date(nota.fecha_expedicion).toLocaleDateString(
+                          "es-MX"
+                        )
                       : "-"}
                   </TableCell>
-                  <TableCell className="max-w-[180px] truncate">
-                    {nota.pacienteNombre}
+                  <TableCell className="max-w-[200px] truncate">
+                    {nota.nombre_oficial}
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate">
+                    {nota.dependencia}
                   </TableCell>
                   <TableCell className="font-mono text-xs">
-                    {nota.pacienteCurp || "-"}
+                    {nota.noOficial ?? "-"}
                   </TableCell>
-                  <TableCell className="max-w-[180px] truncate">
-                    {nota.medicoNombre}
-                  </TableCell>
-                  <TableCell>{nota.servicio}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "uppercase",
-                        clasificacionTone[nota.clasificacion]
-                      )}
-                    >
-                      {nota.clasificacion}
-                    </Badge>
+                  <TableCell className="font-mono text-xs">
+                    {nota.noUnidad ?? "-"}
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant="outline"
-                      className={estadoTone[nota.estado]}
+                      variant={
+                        nota.lesiones_visibles ? "destructive" : "outline"
+                      }
                     >
-                      {nota.estado}
+                      {booleanLabel(nota.lesiones_visibles)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -158,51 +134,41 @@ export function NotasMedicasALMTable({
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Nota médica ALM</DialogTitle>
-            <DialogDescription>
-              Detalle clínico y plan de manejo registrado
-            </DialogDescription>
+            <DialogDescription>Detalle clínico registrado</DialogDescription>
           </DialogHeader>
 
           {selectedNota && (
             <div className="space-y-4 text-sm">
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <p className="text-muted-foreground">Folio</p>
-                  <p className="font-medium">{selectedNota.folio}</p>
+                  <p className="text-muted-foreground">ID</p>
+                  <p className="font-medium">{selectedNota.id}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Fecha</p>
                   <p className="font-medium">
-                    {new Date(selectedNota.fecha).toLocaleString("es-MX")}
+                    {selectedNota.fecha_expedicion
+                      ? new Date(selectedNota.fecha_expedicion).toLocaleString(
+                          "es-MX"
+                        )
+                      : "-"}
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <p className="text-muted-foreground">Paciente</p>
-                  <p className="font-medium">{selectedNota.pacienteNombre}</p>
+                  <p className="text-muted-foreground">Oficial</p>
+                  <p className="font-medium">{selectedNota.nombre_oficial}</p>
                   <p className="font-mono text-xs">
-                    {selectedNota.pacienteCurp}
+                    Dependencia: {selectedNota.dependencia}
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Médico</p>
-                  <p className="font-medium">{selectedNota.medicoNombre}</p>
-                  <div className="mt-1 flex gap-2">
-                    <Badge variant="secondary">{selectedNota.servicio}</Badge>
-                    <Badge
-                      className={clasificacionTone[selectedNota.clasificacion]}
-                    >
-                      {selectedNota.clasificacion}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={estadoTone[selectedNota.estado]}
-                    >
-                      {selectedNota.estado}
-                    </Badge>
-                  </div>
+                  <p className="text-muted-foreground">Cédula</p>
+                  <p className="font-medium">{selectedNota.cedula || "-"}</p>
+                  <p className="text-muted-foreground mt-2">Edad</p>
+                  <p className="font-medium">{selectedNota.edad || "-"}</p>
                 </div>
               </div>
 
@@ -210,86 +176,70 @@ export function NotasMedicasALMTable({
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <p className="text-muted-foreground">Motivo de consulta</p>
-                  <p className="font-medium whitespace-pre-wrap">
-                    {selectedNota.motivoConsulta}
-                  </p>
+                  <p className="text-muted-foreground">Se identifica con</p>
+                  <p className="font-medium">{selectedNota.se_identifica}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Impresión diagnóstica</p>
+                  <p className="text-muted-foreground">Recomendación médica</p>
                   <p className="font-medium whitespace-pre-wrap">
-                    {selectedNota.impresionDiagnostica}
+                    {selectedNota.recomendacion_medico}
                   </p>
                 </div>
               </div>
 
-              <div>
-                <p className="text-muted-foreground">Plan de manejo</p>
-                <p className="font-medium whitespace-pre-wrap">
-                  {selectedNota.planManejo}
-                </p>
-              </div>
-
-              {selectedNota.seguimiento ? (
+              <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <p className="text-muted-foreground">Seguimiento</p>
+                  <p className="text-muted-foreground">Adicciones referidas</p>
                   <p className="font-medium whitespace-pre-wrap">
-                    {selectedNota.seguimiento}
+                    {selectedNota.adicciones_referidas}
                   </p>
                 </div>
-              ) : null}
-
-              {selectedNota.proximaCita ? (
                 <div>
-                  <p className="text-muted-foreground">Próxima cita</p>
-                  <p className="font-medium">
-                    {new Date(selectedNota.proximaCita).toLocaleDateString(
-                      "es-MX"
-                    )}
+                  <p className="text-muted-foreground">
+                    Descripción lesiones / hallazgos
+                  </p>
+                  <p className="font-medium whitespace-pre-wrap">
+                    {selectedNota.descripcion_lesiones_hallazgos}
                   </p>
                 </div>
-              ) : null}
+              </div>
 
               <Separator />
 
               <div className="grid gap-3 md:grid-cols-3">
                 <div>
-                  <p className="text-muted-foreground">TA</p>
+                  <p className="text-muted-foreground">Consciente</p>
                   <p className="font-medium">
-                    {selectedNota.signosVitales.tensionArterial}
+                    {booleanLabel(selectedNota.conciente)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">FC</p>
+                  <p className="text-muted-foreground">
+                    Orientación alopsíquica
+                  </p>
                   <p className="font-medium">
-                    {selectedNota.signosVitales.frecuenciaCardiaca} lpm
+                    {booleanLabel(selectedNota.orientacion_alopsiquica)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">FR</p>
+                  <p className="text-muted-foreground">Control de esfínteres</p>
                   <p className="font-medium">
-                    {selectedNota.signosVitales.frecuenciaRespiratoria} rpm
+                    {booleanLabel(selectedNota.control_esfinteres)}
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
                 <div>
-                  <p className="text-muted-foreground">Temperatura</p>
+                  <p className="text-muted-foreground">Aliento alcohólico</p>
                   <p className="font-medium">
-                    {selectedNota.signosVitales.temperatura} °C
+                    {booleanLabel(selectedNota.aliento_alcoholico)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">SpO2</p>
+                  <p className="text-muted-foreground">Lesiones visibles</p>
                   <p className="font-medium">
-                    {selectedNota.signosVitales.saturacion || "-"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Glucemia</p>
-                  <p className="font-medium">
-                    {selectedNota.signosVitales.glucemia || "-"}
+                    {booleanLabel(selectedNota.lesiones_visibles)}
                   </p>
                 </div>
               </div>

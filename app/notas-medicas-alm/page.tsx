@@ -2,27 +2,54 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ClipboardPlus, RefreshCcw, Search } from "lucide-react";
+import { ClipboardPlus, Search } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { NotasMedicasALMTable } from "@/components/notas-medicas-alm/notas-alm-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { NotaMedicaALM } from "@/lib/notas-medicas-alm";
-import {
-  loadNotasAlm,
-  notasAlmSeed,
-  persistNotasAlm,
-} from "@/lib/notas-medicas-alm";
+import type { NotaMedicaALMRecord } from "@/lib/notas-medicas-alm";
+import { request } from "@/lib/request";
+import { useToast } from "@/hooks/use-toast";
 
 export default function NotasMedicasALMPage() {
-  const [notas, setNotas] = useState<NotaMedicaALM[]>([]);
+  const [notas, setNotas] = useState<NotaMedicaALMRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const { toast } = useToast();
 
   useEffect(() => {
-    const data = loadNotasAlm();
-    setNotas(data);
-    setLoading(false);
+    const fetchNotas = async () => {
+      setLoading(true);
+      try {
+        const response = await request(
+          "/alcoholimetria/medicalNotes/getMedicalNotes",
+          "GET"
+        );
+
+        if (response.status >= 200 && response.status < 300) {
+          setNotas(Array.isArray(response.notes) ? response.notes : []);
+        } else {
+          toast({
+            title: "No se pudieron obtener las notas",
+            description:
+              response?.message ||
+              "El backend devolvió un error al listar las notas.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error al cargar notas ALM", error);
+        toast({
+          title: "Error de red",
+          description: "No se pudo comunicar con el backend.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotas();
   }, []);
 
   const filteredNotas = useMemo(() => {
@@ -30,19 +57,13 @@ export default function NotasMedicasALMPage() {
     const term = search.toLowerCase();
     return notas.filter(
       (nota) =>
-        nota.folio.toLowerCase().includes(term) ||
-        nota.pacienteNombre.toLowerCase().includes(term) ||
-        nota.pacienteCurp.toLowerCase().includes(term) ||
-        nota.medicoNombre.toLowerCase().includes(term) ||
-        nota.motivoConsulta.toLowerCase().includes(term) ||
-        nota.impresionDiagnostica.toLowerCase().includes(term)
+        nota.nombre_oficial.toLowerCase().includes(term) ||
+        nota.dependencia.toLowerCase().includes(term) ||
+        `${nota.noOficial}`.includes(term) ||
+        `${nota.noUnidad}`.includes(term) ||
+        nota.recomendacion_medico.toLowerCase().includes(term)
     );
   }, [search, notas]);
-
-  const handleResetSeed = () => {
-    setNotas(notasAlmSeed);
-    persistNotasAlm(notasAlmSeed);
-  };
 
   return (
     <MainLayout>
@@ -57,10 +78,6 @@ export default function NotasMedicasALMPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleResetSeed}>
-              <RefreshCcw className="mr-2 h-4 w-4" />
-              Restaurar ejemplos
-            </Button>
             <Link href="/notas-medicas-alm/nueva">
               <Button>
                 <ClipboardPlus className="mr-2 h-4 w-4" />
@@ -74,7 +91,7 @@ export default function NotasMedicasALMPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por folio, paciente, CURP, médico..."
+              placeholder="Buscar por oficial, dependencia, no. oficial o unidad..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
