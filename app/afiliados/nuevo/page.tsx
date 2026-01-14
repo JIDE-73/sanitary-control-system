@@ -43,8 +43,6 @@ export default function NuevoAfiliadoPage() {
   }, []);
 
   const handleSubmit = (data: AffiliatePayload) => {
-    // En producción, esto se enviaría a la API
-    console.log("Nuevo afiliado:", data);
     router.push("/afiliados");
   };
 

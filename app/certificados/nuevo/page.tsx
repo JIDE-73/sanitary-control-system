@@ -14,7 +14,6 @@ function FormCertificadoWrapper() {
   const router = useRouter()
 
   const handleSubmit = (data: Partial<CertificadoSanitario>) => {
-    console.log("Nuevo certificado:", data)
     toast.success("Certificado emitido exitosamente", {
       description: `Folio: ${data.folio}`,
     })

@@ -101,7 +101,6 @@ export default function AfiliadosPage() {
       const response = await request("/sics/affiliates/getAffiliattes", "GET");
       const data = extractArray(response);
       const normalizados: AfiliadoListado[] = data.map(normalizeAfiliado);
-      console.log("normalizados", normalizados);
       setAfiliados(normalizados);
       setFilteredAfiliados(normalizados);
       saveAfiliadosCache(normalizados);

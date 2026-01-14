@@ -38,7 +38,6 @@ function NuevaNotaMedicaContent() {
         "POST",
         payload
       );
-      console.log(response);
       if (response.status == 201) {
         toast({
           title: "Nota médica registrada",

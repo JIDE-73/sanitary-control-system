@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { Eye } from "lucide-react";
+import { Download, Eye } from "lucide-react";
 import type { NotaMedicaALMRecord } from "@/lib/notas-medicas-alm";
 
 interface NotasMedicasALMTableProps {
@@ -29,6 +29,36 @@ interface NotasMedicasALMTableProps {
 }
 
 const booleanLabel = (value: boolean) => (value ? "Sí" : "No");
+const LOGO_PATH = "/Logo_XXVAyto_Horizontal.png";
+let logoDataUrlCache: string | null = null;
+
+const loadLogoDataUrl = async () => {
+  if (logoDataUrlCache) return logoDataUrlCache;
+  try {
+    const response = await fetch(LOGO_PATH);
+    const blob = await response.blob();
+    const reader = new FileReader();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      reader.onerror = () => reject(new Error("No se pudo leer el logo"));
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+    logoDataUrlCache = dataUrl;
+    return dataUrl;
+  } catch (error) {
+    console.warn("No se pudo cargar el logo para PDF", error);
+    return null;
+  }
+};
+
+const formatDateTime = (value?: string, withTime?: boolean) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return withTime
+    ? date.toLocaleString("es-MX")
+    : date.toLocaleDateString("es-MX");
+};
 
 export function NotasMedicasALMTable({
   notas,
@@ -37,6 +67,7 @@ export function NotasMedicasALMTable({
   const [selectedNota, setSelectedNota] = useState<NotaMedicaALMRecord | null>(
     null
   );
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const sortedNotas = useMemo(
     () =>
@@ -47,6 +78,110 @@ export function NotasMedicasALMTable({
       ),
     [notas]
   );
+
+  const handleDownloadPdf = async (nota: NotaMedicaALMRecord) => {
+    setDownloadingId(nota.id);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "mm", format: "letter" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const marginX = 14;
+      const marginRight = pageWidth - marginX;
+      const centerX = pageWidth / 2;
+      const logoDataUrl = await loadLogoDataUrl();
+      const baseFont = "helvetica";
+
+      if (logoDataUrl) {
+        doc.addImage(logoDataUrl, "PNG", marginX, 12, 60, 20);
+      }
+
+      doc.setFontSize(10);
+      doc.setFont(baseFont, "bold");
+      doc.text(
+        "Dirección Municipal de Prevención, Control y Sanidad",
+        centerX,
+        18,
+        { align: "center" }
+      );
+      doc.setFont(baseFont, "normal");
+      doc.text("Departamento de Apoyo a Seguridad Pública", marginRight, 18, {
+        align: "right",
+      });
+
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.4);
+      doc.line(marginX, 36, marginRight, 36);
+
+      doc.setFontSize(12);
+      doc.setFont(baseFont, "bold");
+      doc.text("HOJA DE NOTAS MÉDICAS", centerX, 42, { align: "center" });
+
+      doc.setLineWidth(0.3);
+      doc.line(marginX, 44, marginRight, 44);
+
+      let cursorY = 54;
+      doc.setFontSize(10);
+
+      const addField = (label: string, value: string) => {
+        doc.setFont(baseFont, "bold");
+        doc.text(label, marginX, cursorY);
+        doc.setFont(baseFont, "normal");
+        doc.text(value || "-", marginX + 55, cursorY);
+        cursorY += 6;
+      };
+
+      const addBooleanField = (label: string, value: boolean) => {
+        addField(label, booleanLabel(value));
+      };
+
+      const addParagraph = (title: string, text: string) => {
+        doc.setFont(baseFont, "bold");
+        doc.text(title, marginX, cursorY);
+        cursorY += 5;
+        doc.setFont(baseFont, "normal");
+        const lines = doc.splitTextToSize(
+          text && text.trim() ? text : "-",
+          marginRight - marginX
+        );
+        doc.text(lines, marginX, cursorY);
+        cursorY += lines.length * 5 + 3;
+      };
+
+      addField("ID de nota", nota.id);
+      addField(
+        "Fecha de expedición",
+        formatDateTime(nota.fecha_expedicion, true)
+      );
+      addField("Médico oficial", nota.nombre_oficial || "-");
+      addField("Dependencia", nota.dependencia || "-");
+      addField("No. oficial", `${nota.noOficial ?? "-"}`);
+      addField("No. unidad", `${nota.noUnidad ?? "-"}`);
+      addField("Cédula profesional", nota.cedula || "-");
+      addField("Edad", nota.edad ? `${nota.edad} años` : "-");
+      addField("Se identifica con", nota.se_identifica || "-");
+
+      cursorY += 2;
+      addBooleanField("Consciente", nota.conciente);
+      addBooleanField("Orientación alopsíquica", nota.orientacion_alopsiquica);
+      addBooleanField("Control de esfínteres", nota.control_esfinteres);
+      addBooleanField("Aliento alcohólico", nota.aliento_alcoholico);
+      addBooleanField("Lesiones visibles", nota.lesiones_visibles);
+
+      cursorY += 2;
+      addParagraph("Adicciones referidas", nota.adicciones_referidas || "-");
+      addParagraph(
+        "Descripción de lesiones / hallazgos",
+        nota.descripcion_lesiones_hallazgos || "-"
+      );
+      addParagraph("Recomendación médica", nota.recomendacion_medico || "-");
+
+      doc.save(`nota-medica-alm-${nota.id}.pdf`);
+    } catch (error) {
+      console.error("No se pudo generar el PDF de la nota ALM", error);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <>
@@ -114,6 +249,15 @@ export function NotasMedicasALMTable({
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => void handleDownloadPdf(nota)}
+                      title="Descargar PDF"
+                      disabled={downloadingId === nota.id}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -247,6 +391,15 @@ export function NotasMedicasALMTable({
           )}
 
           <DialogFooter>
+            <Button
+              onClick={() =>
+                selectedNota ? void handleDownloadPdf(selectedNota) : null
+              }
+              disabled={!selectedNota || downloadingId === selectedNota?.id}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Descargar PDF
+            </Button>
             <Button variant="outline" onClick={() => setSelectedNota(null)}>
               Cerrar
             </Button>

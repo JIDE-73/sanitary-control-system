@@ -18,7 +18,6 @@ export default function EditarLugarPage({ params }: PageProps) {
   const lugar = lugaresTrabajo.find((l) => l.id === id)
 
   const handleSubmit = (data: Partial<LugarTrabajo>) => {
-    console.log("Actualizar lugar:", data)
     router.push(`/lugares-trabajo/${id}`)
   }
 
