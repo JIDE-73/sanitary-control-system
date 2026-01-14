@@ -201,6 +201,23 @@ export interface CertificadoSanitario {
   pdfUrl?: string;
 }
 
+export interface AlcoholCertificate {
+  id: string;
+  fecha_expedicion?: string;
+  persona_id?: string;
+  medico_id?: string;
+  cedula_perito?: number;
+  nombre?: string;
+  identifica_con?: string;
+  edad?: number;
+  genero?: string;
+  nacionalidad?: string;
+  residencia_nacional?: boolean;
+  extranjera?: boolean;
+  direccion?: string;
+  [key: string]: any;
+}
+
 // Catálogos
 export interface TipoExamen {
   id: string;
