@@ -49,6 +49,19 @@ export interface NotaMedicaALMRecord {
   dependencia: string;
   noOficial: number;
   noUnidad: number;
+  Persona?: {
+    id: string;
+    curp: string;
+    nombre: string;
+    apellido_paterno: string;
+    apellido_materno: string;
+    fecha_nacimiento: string;
+    genero: string;
+    email: string;
+    telefono: string;
+    direccion: string;
+    created_at: string;
+  };
 }
 
 export interface PacienteALM {

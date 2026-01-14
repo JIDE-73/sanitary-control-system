@@ -85,11 +85,51 @@ export function NotasMedicasALMTable({
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ unit: "mm", format: "letter" });
       const pageWidth = doc.internal.pageSize.getWidth();
-      const marginX = 14;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const marginX = 12;
       const marginRight = pageWidth - marginX;
       const centerX = pageWidth / 2;
       const logoDataUrl = await loadLogoDataUrl();
       const baseFont = "helvetica";
+      const now = nota.fecha_expedicion
+        ? new Date(nota.fecha_expedicion)
+        : new Date();
+      const day = `${now.getDate()}`.padStart(2, "0");
+      const month = now
+        .toLocaleString("es-MX", { month: "long" })
+        .toUpperCase();
+      const year = `${now.getFullYear()}`;
+      const hours = `${now.getHours()}`.padStart(2, "0");
+      const minutes = `${now.getMinutes()}`.padStart(2, "0");
+      const folio = nota.id || "-";
+      const safe = (value?: string | number | null) =>
+        value === undefined || value === null || `${value}`.trim() === ""
+          ? "-"
+          : `${value}`;
+      const personaNombreCompleto = nota.Persona
+        ? [
+            nota.Persona.nombre,
+            nota.Persona.apellido_paterno,
+            nota.Persona.apellido_materno,
+          ]
+            .filter(Boolean)
+            .join(" ")
+        : "";
+      const personaEdad =
+        nota.edad && nota.edad !== "0"
+          ? nota.edad
+          : (() => {
+              const birth = nota.Persona?.fecha_nacimiento
+                ? new Date(nota.Persona.fecha_nacimiento)
+                : null;
+              if (!birth || Number.isNaN(birth.getTime())) return "-";
+              const diff = Date.now() - birth.getTime();
+              const ageDate = new Date(diff);
+              return `${Math.abs(ageDate.getUTCFullYear() - 1970)}`;
+            })();
+      const personaGenero = nota.Persona?.genero ?? "NO REFERIDO";
+      const personaDireccion = nota.Persona?.direccion ?? "-";
+      const personaCurp = nota.Persona?.curp ?? "-";
 
       if (logoDataUrl) {
         doc.addImage(logoDataUrl, "PNG", marginX, 12, 60, 20);
@@ -98,13 +138,13 @@ export function NotasMedicasALMTable({
       doc.setFontSize(10);
       doc.setFont(baseFont, "bold");
       doc.text(
-        "Dirección Municipal de Prevención, Control y Sanidad",
+        "Dirección Municipal de Prevención\nControl y Sanidad",
         centerX,
         18,
         { align: "center" }
       );
       doc.setFont(baseFont, "normal");
-      doc.text("Departamento de Apoyo a Seguridad Pública", marginRight, 18, {
+      doc.text("Departamento de Apoyo\n a Seguridad Pública", marginRight, 18, {
         align: "right",
       });
 
@@ -119,20 +159,118 @@ export function NotasMedicasALMTable({
       doc.setLineWidth(0.3);
       doc.line(marginX, 44, marginRight, 44);
 
-      let cursorY = 54;
+      // Folio
       doc.setFontSize(10);
+      doc.setFont(baseFont, "bold");
+      doc.text("Folio", marginRight - 80, 50, { align: "left" });
+      doc.setFont(baseFont, "normal");
+      doc.text(folio, marginRight - 30, 50, { align: "center" });
 
-      const addField = (label: string, value: string) => {
+      let cursorY = 58;
+      doc.setFontSize(9);
+
+      const drawLabeledRow = (label: string, value: string, y: number) => {
         doc.setFont(baseFont, "bold");
-        doc.text(label, marginX, cursorY);
+        doc.text(label, marginX, y);
         doc.setFont(baseFont, "normal");
-        doc.text(value || "-", marginX + 55, cursorY);
-        cursorY += 6;
+        doc.text(value, marginX + 60, y);
       };
 
-      const addBooleanField = (label: string, value: boolean) => {
-        addField(label, booleanLabel(value));
-      };
+      drawLabeledRow(
+        "En Tijuana B.C. a las",
+        `${hours} hrs. con ${minutes} minutos del día ${day} del mes de ${month} del año ${year}`,
+        cursorY
+      );
+      cursorY += 8;
+
+      drawLabeledRow(
+        "El suscrito Médico Perito Dr.",
+        safe(nota.nombre_oficial),
+        cursorY
+      );
+      cursorY += 6;
+      drawLabeledRow("Cédula Profesional No.", safe(nota.cedula), cursorY);
+      cursorY += 6;
+      drawLabeledRow(
+        "Examinó a quien dijo llamarse",
+        personaNombreCompleto || "- (sin nombre en registro ALM)",
+        cursorY
+      );
+      cursorY += 6;
+      drawLabeledRow("CURP", safe(personaCurp), cursorY);
+      cursorY += 6;
+      drawLabeledRow("Sexo", `${personaGenero}   Edad ${personaEdad}`, cursorY);
+      cursorY += 6;
+      drawLabeledRow("Domicilio", safe(personaDireccion), cursorY);
+      cursorY += 6;
+      drawLabeledRow(
+        "Que se identifica con",
+        safe(nota.se_identifica),
+        cursorY
+      );
+      cursorY += 10;
+
+      // Tabla clínica SI/NO
+      doc.setFont(baseFont, "bold");
+      doc.text(
+        "CLINICAMENTE OBTENIENDO LOS SIGUIENTES RESULTADOS",
+        marginX,
+        cursorY
+      );
+      cursorY += 4;
+
+      const tableRows = [
+        { label: "CONSCIENTE", value: nota.conciente },
+        {
+          label: "ORIENTACION ALOPSIQUICA",
+          value: nota.orientacion_alopsiquica,
+        },
+        { label: "CONTROL DE ESFINTERES", value: nota.control_esfinteres },
+        { label: "ALIENTO ALCOHOLICO", value: nota.aliento_alcoholico },
+        { label: "LESIONES VISIBLES", value: nota.lesiones_visibles },
+      ];
+
+      const tableX = marginX;
+      const tableWidth = marginRight - marginX;
+      const labelWidth = tableWidth * 0.6;
+      const yesWidth = (tableWidth - labelWidth) / 2;
+      const rowHeight = 8;
+
+      doc.rect(tableX, cursorY, tableWidth, rowHeight);
+      doc.rect(tableX + labelWidth, cursorY, yesWidth, rowHeight);
+      doc.rect(tableX + labelWidth + yesWidth, cursorY, yesWidth, rowHeight);
+      doc.setFont(baseFont, "bold");
+      doc.text("RESULTADO", tableX + 2, cursorY + 5);
+      doc.text("SI", tableX + labelWidth + yesWidth / 2, cursorY + 5, {
+        align: "center",
+      });
+      doc.text(
+        "NO",
+        tableX + labelWidth + yesWidth + yesWidth / 2,
+        cursorY + 5,
+        {
+          align: "center",
+        }
+      );
+
+      tableRows.forEach((row, idx) => {
+        const y = cursorY + rowHeight * (idx + 1);
+        doc.rect(tableX, y, tableWidth, rowHeight);
+        doc.rect(tableX + labelWidth, y, yesWidth, rowHeight);
+        doc.rect(tableX + labelWidth + yesWidth, y, yesWidth, rowHeight);
+        doc.setFont(baseFont, "normal");
+        doc.text(row.label, tableX + 2, y + 5);
+        const markYes = row.value ? "X" : "";
+        const markNo = row.value ? "" : "X";
+        doc.text(markYes, tableX + labelWidth + yesWidth / 2, y + 5, {
+          align: "center",
+        });
+        doc.text(markNo, tableX + labelWidth + yesWidth + yesWidth / 2, y + 5, {
+          align: "center",
+        });
+      });
+
+      cursorY += rowHeight * (tableRows.length + 1) + 6;
 
       const addParagraph = (title: string, text: string) => {
         doc.setFont(baseFont, "bold");
@@ -141,39 +279,46 @@ export function NotasMedicasALMTable({
         doc.setFont(baseFont, "normal");
         const lines = doc.splitTextToSize(
           text && text.trim() ? text : "-",
-          marginRight - marginX
+          tableWidth
         );
         doc.text(lines, marginX, cursorY);
-        cursorY += lines.length * 5 + 3;
+        cursorY += lines.length * 5 + 6;
       };
 
-      addField("ID de nota", nota.id);
-      addField(
-        "Fecha de expedición",
-        formatDateTime(nota.fecha_expedicion, true)
-      );
-      addField("Médico oficial", nota.nombre_oficial || "-");
-      addField("Dependencia", nota.dependencia || "-");
-      addField("No. oficial", `${nota.noOficial ?? "-"}`);
-      addField("No. unidad", `${nota.noUnidad ?? "-"}`);
-      addField("Cédula profesional", nota.cedula || "-");
-      addField("Edad", nota.edad ? `${nota.edad} años` : "-");
-      addField("Se identifica con", nota.se_identifica || "-");
-
-      cursorY += 2;
-      addBooleanField("Consciente", nota.conciente);
-      addBooleanField("Orientación alopsíquica", nota.orientacion_alopsiquica);
-      addBooleanField("Control de esfínteres", nota.control_esfinteres);
-      addBooleanField("Aliento alcohólico", nota.aliento_alcoholico);
-      addBooleanField("Lesiones visibles", nota.lesiones_visibles);
-
-      cursorY += 2;
-      addParagraph("Adicciones referidas", nota.adicciones_referidas || "-");
+      addParagraph("Adicciones referidas", safe(nota.adicciones_referidas));
       addParagraph(
-        "Descripción de lesiones / hallazgos",
-        nota.descripcion_lesiones_hallazgos || "-"
+        "Descripción de lesiones Agudas/Hallazgos Médicos",
+        safe(nota.descripcion_lesiones_hallazgos)
       );
-      addParagraph("Recomendación médica", nota.recomendacion_medico || "-");
+      addParagraph("Recomendación médica", safe(nota.recomendacion_medico));
+      addParagraph("Nombre del Oficial", safe(nota.nombre_oficial));
+      addParagraph("Dependencia", safe(nota.dependencia));
+
+      doc.setFont(baseFont, "bold");
+      doc.text(
+        `Oficial No: ${safe(nota.noOficial)}    No de Unidad: ${safe(
+          nota.noUnidad
+        )}`,
+        marginX,
+        cursorY
+      );
+      cursorY += 18;
+
+      const lineWidth = 60;
+      const leftLineX = marginX + 10;
+      const rightLineX = marginRight - lineWidth - 10;
+      doc.text("Oficial", rightLineX + lineWidth / 2, cursorY + 12, {
+        align: "center",
+      });
+      doc.line(leftLineX, cursorY, leftLineX + lineWidth, cursorY);
+      doc.line(rightLineX, cursorY, rightLineX + lineWidth, cursorY);
+      doc.setFont(baseFont, "normal");
+      doc.text("Sello y Firma", leftLineX + lineWidth / 2, cursorY + 6, {
+        align: "center",
+      });
+      doc.text("Firma", rightLineX + lineWidth / 2, cursorY + 6, {
+        align: "center",
+      });
 
       doc.save(`nota-medica-alm-${nota.id}.pdf`);
     } catch (error) {
