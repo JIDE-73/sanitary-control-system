@@ -307,16 +307,13 @@ export function NotasMedicasALMTable({
       const lineWidth = 60;
       const leftLineX = marginX + 10;
       const rightLineX = marginRight - lineWidth - 10;
-      doc.text("Oficial", rightLineX + lineWidth / 2, cursorY + 12, {
-        align: "center",
-      });
       doc.line(leftLineX, cursorY, leftLineX + lineWidth, cursorY);
       doc.line(rightLineX, cursorY, rightLineX + lineWidth, cursorY);
       doc.setFont(baseFont, "normal");
       doc.text("Sello y Firma", leftLineX + lineWidth / 2, cursorY + 6, {
         align: "center",
       });
-      doc.text("Firma", rightLineX + lineWidth / 2, cursorY + 6, {
+      doc.text("Firma oficial", rightLineX + lineWidth / 2, cursorY + 6, {
         align: "center",
       });
 

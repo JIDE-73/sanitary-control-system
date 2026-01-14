@@ -23,7 +23,8 @@ function NuevaNotaALMContent() {
         "POST",
         {
           ...data,
-          edad: data.edad ?? "",
+          // Enviar la edad como cadena (evita errores de parseo en backend)
+          edad: data.edad?.toString().trim() ?? "",
         }
       );
 

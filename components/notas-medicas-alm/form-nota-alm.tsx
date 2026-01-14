@@ -359,7 +359,7 @@ export function FormNotaMedicaALM({
       dependencia: formData.dependencia.trim(),
       noOficial: formData.noOficial.trim(),
       noUnidad: formData.noUnidad.trim(),
-      edad: formData.edad ? String(formData.edad) : "",
+      edad: formData.edad.toString().trim(),
     });
   };
 
@@ -442,8 +442,7 @@ export function FormNotaMedicaALM({
             <Label htmlFor="edad">Edad</Label>
             <Input
               id="edad"
-              type="number"
-              min={0}
+              type="text"
               value={formData.edad}
               onChange={(e) => handleChange("edad", e.target.value)}
               placeholder="Ej. 32"
