@@ -20,19 +20,13 @@ export default function CertificadosPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Certificados Sanitarios
+              Certificados Alcoholimetria
             </h1>
             <p className="text-muted-foreground">
-              Gestión y emisión de certificados sanitarios
+              Gestión y emisión de certificados alcoholimetria
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href="/certificados/verificar">
-              <Button variant="outline">
-                <QrCode className="mr-2 h-4 w-4" />
-                Verificar Certificado
-              </Button>
-            </Link>
             <Link href="/certificados/nuevo">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />

@@ -105,12 +105,11 @@ const navigation = [
     submenu: [{ name: "Historial", href: "/examenes" }],
   },
   {
-    name: "Certificados",
+    name: "Certificados ALM",
     href: "/certificados",
     icon: FileText,
     submenu: [
       { name: "Emitir Certificado", href: "/certificados/nuevo" },
-      { name: "Verificar", href: "/certificados/verificar" },
       { name: "Historial", href: "/certificados" },
     ],
   },
