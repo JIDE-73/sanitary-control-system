@@ -13,25 +13,77 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { request } from "@/lib/request";
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    const username = usuario.trim();
+    const userPassword = password.trim();
+    if (!username || !userPassword) {
+      toast({
+        title: "Faltan datos",
+        description: "Ingresa tu usuario y contraseña para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
+    try {
+      const response = await request("/admin/users/login", "POST", {
+        usuario: username,
+        password: userPassword,
+      });
 
-    toast({
-      title: "Sesión iniciada",
-      description:
-        "Redirigiendo al Dashboard del Sistema Integral de Control Sanitario",
-    });
+      if (!response || response.status < 200 || response.status >= 300) {
+        toast({
+          title: "No se pudo iniciar sesión",
+          description:
+            response?.message ||
+            "Credenciales inválidas o servicio no disponible.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    router.push("/dashboard");
+      const activo = Boolean(
+        response?.findUser?.activo ?? response?.activo ?? false
+      );
+
+      if (!activo) {
+        toast({
+          title: "Cuenta inactiva",
+          description: "Contacta a un administrador para reactivarla.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: response?.message || "Sesión iniciada",
+        description:
+          "Redirigiendo al Dashboard del Sistema Integral de Control Sanitario",
+      });
+
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Error al iniciar sesión", error);
+      toast({
+        title: "Error al iniciar sesión",
+        description: "Revisa tu conexión e intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,15 +101,15 @@ export default function LoginPage() {
         <CardContent>
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="email">Correo institucional</Label>
+              <Label htmlFor="usuario">Usuario</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="admin@salud.gob.mx"
+                id="usuario"
+                type="text"
+                placeholder="admin"
                 required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                autoComplete="email"
+                value={usuario}
+                onChange={(event) => setUsuario(event.target.value)}
+                autoComplete="username"
               />
             </div>
 
