@@ -19,19 +19,7 @@ interface HeaderProps {
 
 export function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-card px-6 pr-6">
-      {/* Search */}
-      <div className="flex flex-1 items-center gap-4">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar por CURP, nombre o folio..."
-            className="pl-10"
-          />
-        </div>
-      </div>
-
+    <header className="sticky top-0 z-50 flex h-16 items-center justify-end border-b border-border bg-card px-6 pr-6">
       {/* Actions */}
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="relative">
