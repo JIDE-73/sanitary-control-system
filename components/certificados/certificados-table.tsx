@@ -347,7 +347,10 @@ export function CertificadosTable() {
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ unit: "mm", format: "letter" });
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const marginX = 12;
+      const marginY = 12;
+      const contentBottom = pageHeight - marginY;
       const marginRight = pageWidth - marginX;
       const centerX = pageWidth / 2;
       const logoDataUrl = await loadLogoDataUrl();
@@ -380,6 +383,14 @@ export function CertificadosTable() {
         .getMinutes()
         .toString()
         .padStart(2, "0")}`;
+      const ensureSpace = (height = 10) => {
+        if (y + height > contentBottom) {
+          doc.addPage();
+          y = marginY;
+          doc.setFont(baseFont, "normal");
+          doc.setFontSize(9);
+        }
+      };
 
       if (logoDataUrl) {
         doc.addImage(logoDataUrl, "PNG", marginX, 8, 50, 12);
@@ -394,8 +405,10 @@ export function CertificadosTable() {
       doc.setFontSize(10);
       doc.text(`Folio: ${safe(certificate.id)}`, marginRight - 30, 10);
 
-      let y = 30;
+      let y = 28;
       doc.setFont(baseFont, "normal");
+      doc.setFontSize(9);
+      ensureSpace(18);
       doc.text(
         `En la ciudad de Tijuana, B.C. Siendo las ${timeText} hrs. del día ${dateText}, el suscrito médico ${safe(
           medicoDisplay
@@ -421,9 +434,10 @@ export function CertificadosTable() {
         width = pageWidth - marginX * 2
       ) => {
         const text = doc.splitTextToSize(`${label}: ${value}`, width);
-        doc.text(text, marginX, y);
         const lines = Array.isArray(text) ? text.length : 1;
-        y += lines * 5;
+        ensureSpace(lines * 4.5 + 4);
+        doc.text(text, marginX, y);
+        y += lines * 4.5;
       };
 
       sectionTitle("Datos de identificación del paciente");
@@ -478,6 +492,7 @@ export function CertificadosTable() {
         ],
       ];
       rows.forEach((row) => {
+        ensureSpace(7);
         let x = marginX;
         row.forEach(([label, value]) => {
           if (!label) return;
@@ -503,7 +518,8 @@ export function CertificadosTable() {
       ];
       coord.forEach(([label, value], idx) => {
         const x = idx % 2 === 0 ? marginX : marginX + 90;
-        if (idx % 2 === 0 && idx !== 0) y += 6;
+        if (idx % 2 === 0 && idx !== 0) y += 5;
+        ensureSpace(6);
         doc.text(`${label}: ${value}`, x, y);
       });
       y += 8;
@@ -517,8 +533,9 @@ export function CertificadosTable() {
       ];
       const hablaStartY = y;
       habla.forEach(([label, value]) => {
+        ensureSpace(5);
         doc.text(`${label}: ${value}`, marginX, y);
-        y += 5;
+        y += 4.5;
       });
       const vitales = [
         ["Pulso", safe(certificate.signos_vitales)],
@@ -533,9 +550,10 @@ export function CertificadosTable() {
       ];
       let vitalY = hablaStartY;
       vitales.forEach(([label, value], idx) => {
-        doc.text(`${label}: ${value}`, marginX + 90, vitalY + idx * 5);
+        ensureSpace(5);
+        doc.text(`${label}: ${value}`, marginX + 90, vitalY + idx * 4.5);
       });
-      y = Math.max(y, vitalY + vitales.length * 5) + 2;
+      y = Math.max(y, vitalY + vitales.length * 4.5) + 2;
 
       sectionTitle("Alcoholímetro y observaciones");
       line("Determinación de alcohol", safe(certificate.determinacion_alcohol));
@@ -544,7 +562,7 @@ export function CertificadosTable() {
       line("BR/AC", boolLabel(certificate.BR_AC));
       line("Auto test", safe(certificate.auto_test));
       line("Observaciones", safe(certificate.observacion));
-      y += 10;
+      y += 6;
 
       sectionTitle("Diagnóstico y conclusiones");
       line(
@@ -576,7 +594,7 @@ export function CertificadosTable() {
         `${safe(certificate.dependencia)} • ${safe(certificate.no_boleta)}`
       );
       line("Nombre del juez", safe(certificate.nombre_juez));
-      y += 8;
+      y += 6;
 
       sectionTitle("Datos complementarios");
       line("Vehículo", safe(certificate.vehiculo));
