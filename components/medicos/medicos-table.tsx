@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -19,7 +20,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Eye, Edit, IdCard, CheckCircle, XCircle } from "lucide-react";
+import {
+  Eye,
+  Edit,
+  IdCard,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Trash2,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { request } from "@/lib/request";
 import type { Medico } from "@/lib/types";
 
 interface MedicosTableProps {
@@ -35,6 +46,44 @@ const estatusVariants = {
 
 export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
   const router = useRouter();
+  const { toast } = useToast();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (medicoId: string, nombre: string) => {
+    const confirmed = window.confirm(`¿Eliminar al Dr(a). ${nombre}?`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(medicoId);
+      const response = await request(
+        `/sics/doctors/deleteDoctor/${medicoId}`,
+        "DELETE"
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Médico eliminado",
+          description: "El médico fue eliminado correctamente.",
+        });
+        router.refresh();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "No se pudo eliminar",
+          description: response?.message || "Intenta de nuevo más tarde.",
+        });
+      }
+    } catch (error) {
+      console.error("Error al eliminar médico", error);
+      toast({
+        variant: "destructive",
+        title: "Error al eliminar",
+        description: "Ocurrió un error. Intenta nuevamente.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="rounded-lg border border-border">
@@ -249,6 +298,24 @@ export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
                       title="Generar credencial"
                     >
                       <IdCard className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Eliminar"
+                      onClick={() =>
+                        handleDelete(
+                          medico.id,
+                          `${medico.nombres} ${medico.apellidoPaterno}`
+                        )
+                      }
+                      disabled={deletingId === medico.id}
+                    >
+                      {deletingId === medico.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </TableCell>
