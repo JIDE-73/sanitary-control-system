@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye } from "lucide-react";
+import { Eye, Loader2, Trash2, RotateCcw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { request } from "@/lib/request";
 
 export interface CiudadanoListado {
   id: string;
@@ -44,6 +48,7 @@ export interface CiudadanoListado {
 interface CiudadanosTableProps {
   ciudadanos: CiudadanoListado[];
   loading?: boolean;
+  onReload?: () => Promise<void> | void;
 }
 
 const generoLabels: Record<string, string> = {
@@ -73,9 +78,98 @@ const riesgoVariants: Record<
 export function CiudadanosTable({
   ciudadanos,
   loading = false,
+  onReload,
 }: CiudadanosTableProps) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reloading, setReloading] = useState(false);
+  const [localCiudadanos, setLocalCiudadanos] = useState(ciudadanos);
+
+  useEffect(() => {
+    setLocalCiudadanos(ciudadanos);
+  }, [ciudadanos]);
+
+  const runReload = async () => {
+    setReloading(true);
+    try {
+      if (onReload) {
+        await onReload();
+      } else {
+        await router.refresh();
+      }
+    } finally {
+      setReloading(false);
+    }
+  };
+
+  const refreshData = async () => {
+    setReloading(true);
+    try {
+      await router.refresh();
+    } finally {
+      setReloading(false);
+    }
+  };
+
+  const handleDelete = async (ciudadanoId: string, nombre: string) => {
+    const confirmed = window.confirm(`¿Eliminar a ${nombre}?`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(ciudadanoId);
+      const response = await request(
+        `/alcoholimetria/citizens/deleteCitizen/${ciudadanoId}`,
+        "DELETE"
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Ciudadano eliminado",
+          description: "El ciudadano fue eliminado correctamente.",
+        });
+        setLocalCiudadanos((prev) =>
+          prev.filter((item) => item.id !== ciudadanoId)
+        );
+        await runReload();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "No se pudo eliminar",
+          description: response?.message || "Intenta de nuevo más tarde.",
+        });
+      }
+    } catch (error) {
+      console.error("Error al eliminar ciudadano", error);
+      toast({
+        variant: "destructive",
+        title: "Error al eliminar",
+        description: "Ocurrió un error. Intenta nuevamente.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-border">
+      <div className="flex items-center justify-between px-4 py-3">
+        <p className="text-sm text-muted-foreground">Ciudadanos registrados</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={runReload}
+          disabled={reloading || loading}
+          className="gap-2"
+        >
+          {reloading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RotateCcw className="h-4 w-4" />
+          )}
+          Recargar
+        </Button>
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -98,7 +192,7 @@ export function CiudadanosTable({
                 Cargando ciudadanos...
               </TableCell>
             </TableRow>
-          ) : ciudadanos.length === 0 ? (
+          ) : localCiudadanos.length === 0 ? (
             <TableRow>
               <TableCell
                 colSpan={9}
@@ -108,7 +202,7 @@ export function CiudadanosTable({
               </TableCell>
             </TableRow>
           ) : (
-            ciudadanos.map((ciudadano) => (
+            localCiudadanos.map((ciudadano) => (
               <TableRow key={ciudadano.id}>
                 <TableCell className="font-mono text-sm">
                   {ciudadano.curp}
@@ -144,168 +238,191 @@ export function CiudadanosTable({
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Ver detalles"
-                        aria-label="Ver detalles de ciudadano"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>
-                          {ciudadano.nombres} {ciudadano.apellidoPaterno}{" "}
-                          {ciudadano.apellidoMaterno}
-                        </DialogTitle>
-                        <DialogDescription>
-                          Información de ciudadano
-                        </DialogDescription>
-                      </DialogHeader>
-                      <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Identificador
-                          </dt>
-                          <dd className="font-medium">{ciudadano.id}</dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            CURP
-                          </dt>
-                          <dd className="font-medium break-all">
-                            {ciudadano.curp}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Género
-                          </dt>
-                          <dd className="font-medium">
-                            {generoLabels[
-                              (ciudadano.genero || "").toLowerCase()
-                            ] ??
-                              ciudadano.genero ??
-                              "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Estatus
-                          </dt>
-                          <dd>
-                            <Badge variant={estatusVariants[ciudadano.estatus]}>
-                              {ciudadano.estatus.charAt(0).toUpperCase() +
-                                ciudadano.estatus.slice(1)}
-                            </Badge>
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Nivel de riesgo
-                          </dt>
-                          <dd>
-                            {ciudadano.nivelRiesgo ? (
+                  <div className="flex justify-end gap-1">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Ver detalles"
+                          aria-label="Ver detalles de ciudadano"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>
+                            {ciudadano.nombres} {ciudadano.apellidoPaterno}{" "}
+                            {ciudadano.apellidoMaterno}
+                          </DialogTitle>
+                          <DialogDescription>
+                            Información de ciudadano
+                          </DialogDescription>
+                        </DialogHeader>
+                        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Identificador
+                            </dt>
+                            <dd className="font-medium">{ciudadano.id}</dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              CURP
+                            </dt>
+                            <dd className="font-medium break-all">
+                              {ciudadano.curp}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Género
+                            </dt>
+                            <dd className="font-medium">
+                              {generoLabels[
+                                (ciudadano.genero || "").toLowerCase()
+                              ] ??
+                                ciudadano.genero ??
+                                "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Estatus
+                            </dt>
+                            <dd>
                               <Badge
-                                variant={
-                                  riesgoVariants[
-                                    ciudadano.nivelRiesgo.toLowerCase()
-                                  ] ?? "outline"
-                                }
+                                variant={estatusVariants[ciudadano.estatus]}
                               >
-                                {ciudadano.nivelRiesgo}
+                                {ciudadano.estatus.charAt(0).toUpperCase() +
+                                  ciudadano.estatus.slice(1)}
                               </Badge>
-                            ) : (
-                              "—"
-                            )}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Teléfono
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.telefono ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Email
-                          </dt>
-                          <dd className="font-medium break-all">
-                            {ciudadano.email ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Ciudad
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.ciudad ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Dirección
-                          </dt>
-                          <dd className="font-medium break-all">
-                            {ciudadano.direccion ?? ciudadano.ciudad ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Lugar de procedencia
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.lugarProcedencia ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Ocupación
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.ocupacion ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Lugar de trabajo
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.lugarTrabajoCodigo
-                              ? `${ciudadano.lugarTrabajoCodigo} - ${
-                                  ciudadano.lugarTrabajoNombre ?? ""
-                                }`
-                              : ciudadano.lugarTrabajoNombre ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Fecha de nacimiento
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.fechaNacimiento
-                              ? ciudadano.fechaNacimiento.split("T")[0]
-                              : "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Fecha de registro
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.fechaRegistro
-                              ? ciudadano.fechaRegistro.split("T")[0]
-                              : "—"}
-                          </dd>
-                        </div>
-                      </dl>
-                    </DialogContent>
-                  </Dialog>
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Nivel de riesgo
+                            </dt>
+                            <dd>
+                              {ciudadano.nivelRiesgo ? (
+                                <Badge
+                                  variant={
+                                    riesgoVariants[
+                                      ciudadano.nivelRiesgo.toLowerCase()
+                                    ] ?? "outline"
+                                  }
+                                >
+                                  {ciudadano.nivelRiesgo}
+                                </Badge>
+                              ) : (
+                                "—"
+                              )}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Teléfono
+                            </dt>
+                            <dd className="font-medium">
+                              {ciudadano.telefono ?? "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Email
+                            </dt>
+                            <dd className="font-medium break-all">
+                              {ciudadano.email ?? "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Ciudad
+                            </dt>
+                            <dd className="font-medium">
+                              {ciudadano.ciudad ?? "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Dirección
+                            </dt>
+                            <dd className="font-medium break-all">
+                              {ciudadano.direccion ?? ciudadano.ciudad ?? "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Lugar de procedencia
+                            </dt>
+                            <dd className="font-medium">
+                              {ciudadano.lugarProcedencia ?? "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Ocupación
+                            </dt>
+                            <dd className="font-medium">
+                              {ciudadano.ocupacion ?? "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Lugar de trabajo
+                            </dt>
+                            <dd className="font-medium">
+                              {ciudadano.lugarTrabajoCodigo
+                                ? `${ciudadano.lugarTrabajoCodigo} - ${
+                                    ciudadano.lugarTrabajoNombre ?? ""
+                                  }`
+                                : ciudadano.lugarTrabajoNombre ?? "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Fecha de nacimiento
+                            </dt>
+                            <dd className="font-medium">
+                              {ciudadano.fechaNacimiento
+                                ? ciudadano.fechaNacimiento.split("T")[0]
+                                : "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Fecha de registro
+                            </dt>
+                            <dd className="font-medium">
+                              {ciudadano.fechaRegistro
+                                ? ciudadano.fechaRegistro.split("T")[0]
+                                : "—"}
+                            </dd>
+                          </div>
+                        </dl>
+                      </DialogContent>
+                    </Dialog>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Eliminar"
+                      aria-label="Eliminar ciudadano"
+                      onClick={() =>
+                        handleDelete(
+                          ciudadano.id,
+                          `${ciudadano.nombres} ${ciudadano.apellidoPaterno}`
+                        )
+                      }
+                      disabled={deletingId === ciudadano.id}
+                    >
+                      {deletingId === ciudadano.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))
