@@ -1,0 +1,372 @@
+"use client";
+
+import { use, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
+import type { AfiliadoListado } from "@/components/afiliados/afiliados-table";
+import { MainLayout } from "@/components/layout/main-layout";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { request } from "@/lib/request";
+import { ArrowLeft, IdCard, QrCode, RefreshCcw } from "lucide-react";
+
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+const normalizeAfiliado = (item: any): AfiliadoListado => ({
+  id: String(item?.persona_id ?? item?.persona?.id ?? item?.id ?? ""),
+  noAfiliacion:
+    item?.no_Afiliacion ?? item?.no_afiliacion ?? item?.noAfiliacion,
+  sidmoCodigo: item?.sidmo_codigo ?? null,
+  curp: item?.persona?.curp ?? "",
+  nombres: item?.persona?.nombre ?? "",
+  apellidoPaterno: item?.persona?.apellido_paterno ?? "",
+  apellidoMaterno: item?.persona?.apellido_materno ?? "",
+  genero: (item?.persona?.genero ?? "masculino") as AfiliadoListado["genero"],
+  telefono: item?.persona?.telefono ?? "",
+  ciudad:
+    item?.catalogo?.ciudad ??
+    item?.persona?.ciudad ??
+    item?.lugar_procedencia ??
+    "",
+  lugarTrabajoId:
+    item?.catalogo?.id ?? item?.persona?.catalogo_id ?? item?.lugar_trabajo,
+  lugarTrabajoCodigo: item?.catalogo?.codigo ?? item?.lugar_trabajo,
+  lugarTrabajoNombre: item?.catalogo?.nombre,
+  estatus: (item?.estatus ?? "activo") as AfiliadoListado["estatus"],
+  fechaNacimiento: item?.persona?.fecha_nacimiento,
+  fechaInicio: item?.fecha_inicio,
+  fechaInicioTijuana: item?.fecha_inicio_tijuana,
+  estadoCivil: item?.estado_civil,
+  actaNacimiento: item?.acta_nacimiento,
+  lugarProcedencia: item?.lugar_procedencia,
+  email: item?.persona?.email,
+  direccion: item?.persona?.direccion,
+  fechaRegistro: item?.persona?.created_at,
+  ocupacion: item?.persona?.ocupacion ?? item?.ocupacion,
+  catalogoCalle: item?.catalogo?.calle,
+  catalogoColonia: item?.catalogo?.colonia,
+  catalogoCodigoPostal: item?.catalogo?.codigo_postal,
+  catalogoCiudad: item?.catalogo?.ciudad,
+  catalogoEstado: item?.catalogo?.estado,
+  catalogoTelefono: item?.catalogo?.telefono,
+});
+
+const extractArray = (response: any) => {
+  const candidate = Array.isArray(response?.data)
+    ? response.data
+    : response?.data ?? response;
+
+  if (Array.isArray(candidate)) return candidate;
+
+  if (candidate && typeof candidate === "object") {
+    const numericKeys = Object.keys(candidate).filter((k) => /^\d+$/.test(k));
+    if (numericKeys.length) {
+      return numericKeys
+        .sort((a, b) => Number(a) - Number(b))
+        .map((k) => (candidate as any)[k])
+        .filter(Boolean);
+    }
+
+    if (
+      "persona" in candidate ||
+      "persona_id" in candidate ||
+      "no_Afiliacion" in candidate ||
+      "no_afiliacion" in candidate
+    ) {
+      return [candidate];
+    }
+  }
+
+  return [];
+};
+
+export default function CredencialAfiliadoPage({ params }: PageProps) {
+  const { id: curp } = use(params); // el segmento de ruta lleva la curp
+  const router = useRouter();
+
+  const [afiliado, setAfiliado] = useState<AfiliadoListado | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAfiliado = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await request(
+        `/sics/affiliates/getAffiliateById/${encodeURIComponent(curp)}`,
+        "GET"
+      );
+      const data = extractArray(response);
+      const item = data[0];
+
+      if (!item) {
+        setAfiliado(null);
+        setError("No se encontró al afiliado solicitado.");
+        return;
+      }
+
+      setAfiliado(normalizeAfiliado(item));
+    } catch (err) {
+      console.error("No se pudo cargar el afiliado", err);
+      setError("No se pudo cargar el afiliado. Intenta de nuevo.");
+      setAfiliado(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAfiliado();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [curp]);
+
+  const fullName = useMemo(() => {
+    if (!afiliado) return "";
+    return `${afiliado.nombres} ${afiliado.apellidoPaterno} ${
+      afiliado.apellidoMaterno ?? ""
+    }`.trim();
+  }, [afiliado]);
+
+  const qrPayload = useMemo(() => {
+    if (!afiliado) return null;
+    return {
+      id: afiliado.id,
+      curp: afiliado.curp,
+      noAfiliacion: afiliado.noAfiliacion ?? "",
+      sidmoCodigo: afiliado.sidmoCodigo ?? "",
+      nombres: afiliado.nombres,
+      apellidoPaterno: afiliado.apellidoPaterno,
+      apellidoMaterno: afiliado.apellidoMaterno ?? "",
+      genero: afiliado.genero,
+      telefono: afiliado.telefono ?? "",
+      email: afiliado.email ?? "",
+      ciudad: afiliado.ciudad ?? "",
+      direccion: afiliado.direccion ?? "",
+      lugarTrabajoCodigo: afiliado.lugarTrabajoCodigo ?? "",
+      lugarTrabajoNombre: afiliado.lugarTrabajoNombre ?? "",
+      estatus: afiliado.estatus,
+      fechaNacimiento: afiliado.fechaNacimiento ?? "",
+      fechaInicio: afiliado.fechaInicio ?? "",
+      fechaInicioTijuana: afiliado.fechaInicioTijuana ?? "",
+      estadoCivil: afiliado.estadoCivil ?? "",
+      actaNacimiento: afiliado.actaNacimiento ?? null,
+      lugarProcedencia: afiliado.lugarProcedencia ?? "",
+      fechaRegistro: afiliado.fechaRegistro ?? "",
+      ocupacion: afiliado.ocupacion ?? "",
+      catalogoTelefono: afiliado.catalogoTelefono ?? "",
+      catalogoCiudad: afiliado.catalogoCiudad ?? "",
+      catalogoEstado: afiliado.catalogoEstado ?? "",
+      catalogoCodigoPostal: afiliado.catalogoCodigoPostal ?? "",
+    };
+  }, [afiliado]);
+
+  const qrValue = useMemo(
+    () => (qrPayload ? JSON.stringify(qrPayload) : ""),
+    [qrPayload]
+  );
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error || !afiliado) {
+    return (
+      <MainLayout>
+        <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+          <p className="text-lg font-semibold">
+            No se pudo cargar la credencial
+          </p>
+          <p className="text-muted-foreground">{error}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver
+            </Button>
+            <Button onClick={loadAfiliado}>
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Reintentar
+            </Button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Expedición de credencial
+              </p>
+              <h1 className="text-2xl font-bold tracking-tight">
+                Credencial del afiliado
+              </h1>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={loadAfiliado}>
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Actualizar datos
+          </Button>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <IdCard className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Credencial sanitaria</CardTitle>
+              </div>
+              <Badge
+                variant="outline"
+                className="capitalize"
+                title="Estatus actual del afiliado"
+              >
+                {afiliado.estatus}
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                <div className="flex h-48 w-36 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/50 bg-muted/30 px-3 text-center text-xs text-muted-foreground">
+                  Espacio reservado para la fotografía del afiliado
+                </div>
+                <div className="grid flex-1 grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Nombre completo
+                    </p>
+                    <p className="font-semibold">{fullName}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      CURP
+                    </p>
+                    <p className="font-mono text-sm">{afiliado.curp || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      No. Afiliación
+                    </p>
+                    <p className="font-medium">
+                      {afiliado.noAfiliacion ?? "Sin asignar"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      SIDMO
+                    </p>
+                    <p className="font-medium">{afiliado.sidmoCodigo ?? "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Género
+                    </p>
+                    <p className="capitalize">{afiliado.genero}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Ocupación
+                    </p>
+                    <p className="font-medium">
+                      {afiliado.ocupacion ?? "No especificada"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Teléfono
+                    </p>
+                    <p className="font-medium">
+                      {afiliado.telefono ?? afiliado.catalogoTelefono ?? "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Ciudad
+                    </p>
+                    <p className="font-medium">
+                      {afiliado.ciudad ??
+                        afiliado.catalogoCiudad ??
+                        afiliado.lugarProcedencia ??
+                        "—"}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Dirección
+                    </p>
+                    <p className="font-medium">
+                      {afiliado.direccion ??
+                        afiliado.catalogoCalle ??
+                        afiliado.catalogoColonia ??
+                        "—"}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                      Lugar de trabajo
+                    </p>
+                    <p className="font-medium">
+                      {afiliado.lugarTrabajoCodigo
+                        ? `${afiliado.lugarTrabajoCodigo} - ${
+                            afiliado.lugarTrabajoNombre ?? ""
+                          }`
+                        : afiliado.lugarTrabajoNombre ?? "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">QR con datos vigentes</CardTitle>
+              </div>
+              <Badge variant="secondary" className="font-mono text-xs">
+                ID: {afiliado.id}
+              </Badge>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-4">
+              {qrValue ? (
+                <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
+                  <QRCodeSVG value={qrValue} size={220} />
+                </div>
+              ) : (
+                <Skeleton className="h-[220px] w-[220px]" />
+              )}
+              <p className="text-center text-xs text-muted-foreground">
+                El código QR incluye toda la información vigente del afiliado,
+                por lo que siempre reflejará los datos actuales al ser
+                escaneado.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </MainLayout>
+  );
+}

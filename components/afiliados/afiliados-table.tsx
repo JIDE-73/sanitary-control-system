@@ -182,6 +182,18 @@ export function AfiliadosTable({
     }
   };
 
+  const handleCredencial = (afiliado: AfiliadoListado) => {
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("afiliado-current", JSON.stringify(afiliado));
+      }
+    } catch (error) {
+      console.warn("No se pudo guardar afiliado en cache", error);
+    }
+    const identifier = afiliado.curp || afiliado.id;
+    router.push(`/afiliados/${identifier}/credencial`);
+  };
+
   return (
     <div className="rounded-lg border border-border">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -520,11 +532,7 @@ export function AfiliadosTable({
                       variant="ghost"
                       size="icon"
                       title="Generar Credencial"
-                      onClick={() =>
-                        router.push(
-                          `/certificados/nuevo?afiliado=${afiliado.id}`
-                        )
-                      }
+                      onClick={() => handleCredencial(afiliado)}
                     >
                       <IdCard className="h-4 w-4" />
                     </Button>
