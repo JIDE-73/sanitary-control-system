@@ -613,6 +613,26 @@ export function CertificadosTable() {
       );
       line("Nacionales o frontera", safe(certificate.nacionales_o_frontera));
 
+      // Espacios para firmas y sello
+      ensureSpace(42);
+      y += 10;
+      doc.setFont(baseFont, "bold");
+      doc.text("Firmas / Sellos", centerX, y, { align: "center" });
+      doc.setFont(baseFont, "normal");
+      const signatureY = y + 22;
+      const signatureWidth = 55;
+      const signatures = [
+        { label: "Juez municipal", x: marginX },
+        { label: "Atentamente", x: centerX - signatureWidth / 2 },
+        { label: "Conductor", x: marginRight - signatureWidth },
+      ];
+      signatures.forEach(({ label, x }) => {
+        doc.line(x, signatureY, x + signatureWidth, signatureY);
+        doc.text(label, x + signatureWidth / 2, signatureY + 6, {
+          align: "center",
+        });
+      });
+
       doc.save(`certificado-${safe(certificate.id, "sin-folio")}.pdf`);
     } catch (err) {
       console.error("No se pudo generar el PDF del certificado", err);
