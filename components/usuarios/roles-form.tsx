@@ -167,7 +167,7 @@ export function RolesForm() {
           title: "Rol creado",
           description: "Los permisos fueron registrados correctamente.",
         });
-        router.push("/usuarios");
+        router.push("/usuarios/roles");
       } else {
         toast({
           title: "No se pudo crear el rol",

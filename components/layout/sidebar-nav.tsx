@@ -55,6 +55,7 @@ const navigation = [
       { name: "Listado", href: "/usuarios" },
       { name: "Nuevo Usuario", href: "/usuarios/nuevo" },
       { name: "Roles", href: "/usuarios/roles" },
+      { name: "Nuevo Rol", href: "/usuarios/roles/nuevo" },
     ],
   },
   {
