@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,13 +31,6 @@ import type { GeneroBackend, UserPayload, UserRole } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
 type UserFormState = UserPayload & { confirm_password: string };
-
-const rolesDisponibles: UserRole[] = [
-  { id: "admin", nombre: "Administrador" },
-  { id: "operador", nombre: "Operador" },
-  { id: "medico", nombre: "Médico" },
-  { id: "inspector", nombre: "Inspector" },
-];
 
 const initialForm: UserFormState = {
   curp: "",
@@ -69,8 +62,39 @@ export function FormUsuario({ onSubmit }: FormUsuarioProps) {
   const { toast } = useToast();
   const [formData, setFormData] = useState<UserFormState>(initialForm);
   const [submitting, setSubmitting] = useState(false);
+  const [roles, setRoles] = useState<UserRole[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        setRolesLoading(true);
+        const response = await request("/admin/rol/getRoles", "GET");
+        if (response?.roles?.length) {
+          setRoles(response.roles);
+        } else {
+          toast({
+            title: "No se pudieron cargar los roles",
+            description: response?.message || "Inténtalo más tarde.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error al obtener roles", error);
+        toast({
+          title: "Error al obtener roles",
+          description: "Revisa tu conexión o inténtalo más tarde.",
+          variant: "destructive",
+        });
+      } finally {
+        setRolesLoading(false);
+      }
+    };
+
+    fetchRoles();
+  }, [toast]);
 
   const normalizeGenero = (value?: string): GeneroBackend => {
     if (value === "LGBTQ+") return "LGBTQ+";
@@ -132,7 +156,11 @@ export function FormUsuario({ onSubmit }: FormUsuarioProps) {
 
     try {
       setSubmitting(true);
-      const response = await request("/sics/users/createUser", "POST", payload);
+      const response = await request(
+        "/admin/users/createUser",
+        "POST",
+        payload
+      );
 
       if (response.status >= 200 && response.status < 300) {
         onSubmit(payload);
@@ -411,16 +439,32 @@ export function FormUsuario({ onSubmit }: FormUsuarioProps) {
             <Select
               value={formData.rol_id}
               onValueChange={(value) => handleChange("rol_id", value)}
+              disabled={rolesLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Seleccionar rol" />
+                <SelectValue
+                  placeholder={
+                    rolesLoading ? "Cargando roles..." : "Seleccionar rol"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                {rolesDisponibles.map((rol) => (
-                  <SelectItem key={rol.id} value={rol.id}>
-                    {rol.nombre}
+                {rolesLoading && (
+                  <SelectItem value="loading" disabled>
+                    Cargando roles...
                   </SelectItem>
-                ))}
+                )}
+                {!rolesLoading && roles.length === 0 && (
+                  <SelectItem value="no-data" disabled>
+                    No hay roles disponibles
+                  </SelectItem>
+                )}
+                {!rolesLoading &&
+                  roles.map((rol) => (
+                    <SelectItem key={rol.id} value={rol.id}>
+                      {rol.nombre}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
