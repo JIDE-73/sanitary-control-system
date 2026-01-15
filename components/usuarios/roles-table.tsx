@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, RefreshCcw } from "lucide-react";
+import { Loader2, RefreshCcw, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { request } from "@/lib/request";
+import { useToast } from "@/hooks/use-toast";
 
 type PermissionAction = "create" | "read" | "update" | "delete";
 
@@ -41,9 +42,11 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 export function RolesTable() {
+  const { toast } = useToast();
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchRoles = async () => {
     try {
@@ -66,6 +69,33 @@ export function RolesTable() {
   useEffect(() => {
     fetchRoles();
   }, []);
+
+  const handleDelete = async (roleId: string) => {
+    const confirmDelete = window.confirm("¿Eliminar este rol?");
+    if (!confirmDelete) return;
+    try {
+      setDeletingId(roleId);
+      const response = await request(
+        `/admin/rol/deleteRol/${roleId}`,
+        "DELETE",
+        { id_role: roleId }
+      );
+      if (response.status >= 200 && response.status < 300) {
+        setRoles((prev) => prev.filter((role) => role.id !== roleId));
+        toast({
+          title: "Rol eliminado",
+          description: "El rol se eliminó correctamente.",
+        });
+      } else {
+        setError(response?.message || "No se pudo eliminar el rol.");
+      }
+    } catch (err) {
+      console.error("Error al eliminar rol", err);
+      setError("Error al eliminar rol. Intenta de nuevo.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const summary = useMemo(
     () =>
@@ -115,6 +145,7 @@ export function RolesTable() {
                 <TableHead className="w-1/4">Nombre</TableHead>
                 <TableHead className="w-1/4">Módulos con permisos</TableHead>
                 <TableHead>Detalle</TableHead>
+                <TableHead className="w-[140px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -173,6 +204,21 @@ export function RolesTable() {
                           )
                         )
                       )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(item.id)}
+                        disabled={deletingId === item.id}
+                      >
+                        {deletingId === item.id ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="mr-2 h-4 w-4" />
+                        )}
+                        Eliminar
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
