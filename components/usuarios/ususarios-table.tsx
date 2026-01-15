@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import {
   Dialog,
   DialogContent,
@@ -18,73 +20,183 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye } from "lucide-react";
+import { Eye, Loader2, RotateCcw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { request } from "@/lib/request";
 
-export interface CiudadanoListado {
+export interface UsuarioListado {
   id: string;
-  curp: string;
-  nombres: string;
-  apellidoPaterno: string;
-  apellidoMaterno?: string;
-  genero: "masculino" | "femenino" | "lgbt+" | "LGBTQ+" | string;
-  telefono?: string;
-  ciudad?: string;
-  lugarTrabajoCodigo?: string;
-  lugarTrabajoNombre?: string;
-  estatus: "activo" | "inactivo" | "suspendido" | "pendiente";
-  nivelRiesgo?: string;
-  fechaNacimiento?: string;
-  email?: string;
-  lugarProcedencia?: string;
-  ocupacion?: string;
-  direccion?: string;
-  fechaRegistro?: string;
+  personaId?: string;
+  nombreUsuario: string;
+  activo: boolean;
+  rolId?: string;
+  ultimoLogin?: string | null;
 }
 
-interface CiudadanosTableProps {
-  ciudadanos: CiudadanoListado[];
+interface UsuariosTableProps {
+  usuarios: UsuarioListado[];
   loading?: boolean;
+  onReload?: () => Promise<void> | void;
 }
 
-const generoLabels: Record<string, string> = {
-  masculino: "Masculino",
-  femenino: "Femenino",
-  "lgbt+": "LGBT+",
-  lgbtq: "LGBTQ+",
-  "lgbtq+": "LGBTQ+",
-};
+interface UsuarioDetalle extends UsuarioListado {
+  rolId?: string;
+  persona?: {
+    id?: string;
+    curp?: string;
+    nombre?: string;
+    apellido_paterno?: string;
+    apellido_materno?: string;
+    fecha_nacimiento?: string;
+    genero?: string;
+    email?: string;
+    telefono?: string;
+    direccion?: string;
+    foto?: string | null;
+    created_at?: string;
+  };
+}
 
 const estatusVariants = {
   activo: "default",
   inactivo: "secondary",
-  suspendido: "destructive",
-  pendiente: "outline",
 } as const;
 
-const riesgoVariants: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  bajo: "secondary",
-  medio: "default",
-  alto: "destructive",
+const formatFecha = (date?: string | null) => {
+  if (!date) return "—";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleString();
 };
 
 export function UsuariosListado({
-  ciudadanos,
+  usuarios,
   loading = false,
-}: CiudadanosTableProps) {
+  onReload,
+}: UsuariosTableProps) {
+  const { toast } = useToast();
+  const [localUsuarios, setLocalUsuarios] =
+    useState<UsuarioListado[]>(usuarios);
+  const [reloading, setReloading] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detalle, setDetalle] = useState<UsuarioDetalle | null>(null);
+  const [detalleCache, setDetalleCache] = useState<
+    Record<string, UsuarioDetalle>
+  >({});
+  const [detalleLoading, setDetalleLoading] = useState(false);
+
+  useEffect(() => {
+    setLocalUsuarios(usuarios);
+  }, [usuarios]);
+
+  const runReload = async () => {
+    if (!onReload) return;
+    setReloading(true);
+    try {
+      await onReload();
+    } finally {
+      setReloading(false);
+    }
+  };
+
+  const normalizeDetalle = (response: any): UsuarioDetalle | null => {
+    const item = response?.user ?? response;
+    if (!item) return null;
+
+    return {
+      id: String(item?.id ?? ""),
+      personaId: item?.persona_id ?? item?.personaId ?? "",
+      nombreUsuario: item?.nombre_usuario ?? item?.nombreUsuario ?? "",
+      activo: Boolean(item?.activo ?? false),
+      rolId: item?.rol_id ?? item?.rolId ?? "",
+      ultimoLogin: item?.ultimo_login ?? item?.ultimoLogin ?? null,
+      persona: item?.persona
+        ? {
+            id: item?.persona?.id,
+            curp: item?.persona?.curp,
+            nombre: item?.persona?.nombre,
+            apellido_paterno: item?.persona?.apellido_paterno,
+            apellido_materno: item?.persona?.apellido_materno,
+            fecha_nacimiento: item?.persona?.fecha_nacimiento,
+            genero: item?.persona?.genero,
+            email: item?.persona?.email,
+            telefono: item?.persona?.telefono,
+            direccion: item?.persona?.direccion,
+            foto: item?.persona?.foto,
+            created_at: item?.persona?.created_at,
+          }
+        : undefined,
+    };
+  };
+
+  const fetchDetalle = async (id: string) => {
+    if (detalleCache[id]) {
+      setDetalle(detalleCache[id]);
+      return;
+    }
+
+    setDetalleLoading(true);
+    try {
+      const response = await request(`/admin/users/getUserbyId/${id}`, "GET");
+      const normalizado = normalizeDetalle(response);
+      if (normalizado) {
+        setDetalle(normalizado);
+        setDetalleCache((prev) => ({ ...prev, [id]: normalizado }));
+      } else {
+        toast({
+          title: "No se pudo cargar el detalle",
+          description: "Respuesta inválida del servidor.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error al obtener usuario por id", error);
+      toast({
+        title: "Error al cargar detalle",
+        description: "Intenta nuevamente más tarde.",
+        variant: "destructive",
+      });
+    } finally {
+      setDetalleLoading(false);
+    }
+  };
+
+  const handleDialogChange = (open: boolean, usuario: UsuarioListado) => {
+    if (open) {
+      setSelectedId(usuario.id);
+      setDetalle(null);
+      void fetchDetalle(usuario.id);
+    } else {
+      setSelectedId(null);
+      setDetalle(null);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-border">
+      <div className="flex items-center justify-between px-4 py-3">
+        <p className="text-sm text-muted-foreground">Usuarios registrados</p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={runReload}
+          disabled={reloading || loading || !onReload}
+          className="gap-2"
+        >
+          {reloading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RotateCcw className="h-4 w-4" />
+          )}
+          Recargar
+        </Button>
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>CURP</TableHead>
-            <TableHead>Nombre Completo</TableHead>
-            <TableHead>Género</TableHead>
-            <TableHead>Teléfono</TableHead>
+            <TableHead>Usuario</TableHead>
+            <TableHead>Último acceso</TableHead>
             <TableHead>Estatus</TableHead>
-            <TableHead>Nivel de riesgo</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -92,218 +204,198 @@ export function UsuariosListado({
           {loading ? (
             <TableRow>
               <TableCell
-                colSpan={9}
+                colSpan={4}
                 className="py-8 text-center text-muted-foreground"
               >
-                Cargando ciudadanos...
+                Cargando usuarios...
               </TableCell>
             </TableRow>
-          ) : ciudadanos.length === 0 ? (
+          ) : localUsuarios.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={9}
+                colSpan={4}
                 className="py-8 text-center text-muted-foreground"
               >
-                No se encontraron ciudadanos
+                No se encontraron usuarios
               </TableCell>
             </TableRow>
           ) : (
-            ciudadanos.map((ciudadano) => (
-              <TableRow key={ciudadano.id}>
-                <TableCell className="font-mono text-sm">
-                  {ciudadano.curp}
-                </TableCell>
+            localUsuarios.map((usuario) => (
+              <TableRow key={usuario.id}>
                 <TableCell className="font-medium">
-                  {ciudadano.nombres} {ciudadano.apellidoPaterno}{" "}
-                  {ciudadano.apellidoMaterno}
+                  {usuario.nombreUsuario}
                 </TableCell>
+                <TableCell>{formatFecha(usuario.ultimoLogin)}</TableCell>
                 <TableCell>
-                  {generoLabels[(ciudadano.genero || "").toLowerCase()] ??
-                    ciudadano.genero ??
-                    "—"}
-                </TableCell>
-                <TableCell>{ciudadano.telefono ?? "—"}</TableCell>
-                <TableCell>
-                  <Badge variant={estatusVariants[ciudadano.estatus]}>
-                    {ciudadano.estatus.charAt(0).toUpperCase() +
-                      ciudadano.estatus.slice(1)}
+                  <Badge
+                    variant={
+                      estatusVariants[usuario.activo ? "activo" : "inactivo"]
+                    }
+                  >
+                    {usuario.activo ? "Activo" : "Inactivo"}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  {ciudadano.nivelRiesgo ? (
-                    <Badge
-                      variant={
-                        riesgoVariants[ciudadano.nivelRiesgo.toLowerCase()] ??
-                        "outline"
-                      }
-                    >
-                      {ciudadano.nivelRiesgo}
-                    </Badge>
-                  ) : (
-                    "—"
-                  )}
-                </TableCell>
                 <TableCell className="text-right">
-                  <Dialog>
+                  <Dialog
+                    open={selectedId === usuario.id}
+                    onOpenChange={(open) => handleDialogChange(open, usuario)}
+                  >
                     <DialogTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
                         title="Ver detalles"
-                        aria-label="Ver detalles de ciudadano"
+                        aria-label="Ver detalles de usuario"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
+                    <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle>
-                          {ciudadano.nombres} {ciudadano.apellidoPaterno}{" "}
-                          {ciudadano.apellidoMaterno}
-                        </DialogTitle>
+                        <DialogTitle>{usuario.nombreUsuario}</DialogTitle>
                         <DialogDescription>
-                          Información de ciudadano
+                          Información del usuario
                         </DialogDescription>
                       </DialogHeader>
-                      <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Identificador
-                          </dt>
-                          <dd className="font-medium">{ciudadano.id}</dd>
+                      {detalleLoading ? (
+                        <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Cargando detalle...
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            CURP
-                          </dt>
-                          <dd className="font-medium break-all">
-                            {ciudadano.curp}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Género
-                          </dt>
-                          <dd className="font-medium">
-                            {generoLabels[
-                              (ciudadano.genero || "").toLowerCase()
-                            ] ??
-                              ciudadano.genero ??
-                              "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Estatus
-                          </dt>
-                          <dd>
-                            <Badge variant={estatusVariants[ciudadano.estatus]}>
-                              {ciudadano.estatus.charAt(0).toUpperCase() +
-                                ciudadano.estatus.slice(1)}
-                            </Badge>
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Nivel de riesgo
-                          </dt>
-                          <dd>
-                            {ciudadano.nivelRiesgo ? (
+                      ) : (
+                        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              ID
+                            </dt>
+                            <dd className="font-mono text-xs break-all">
+                              {detalle?.id ?? usuario.id}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Rol ID
+                            </dt>
+                            <dd className="font-mono text-xs break-all">
+                              {detalle?.rolId || usuario.rolId || "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Persona ID
+                            </dt>
+                            <dd className="font-mono text-xs break-all">
+                              {detalle?.persona?.id ||
+                                detalle?.personaId ||
+                                usuario.personaId ||
+                                "—"}
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Estatus
+                            </dt>
+                            <dd>
                               <Badge
                                 variant={
-                                  riesgoVariants[
-                                    ciudadano.nivelRiesgo.toLowerCase()
-                                  ] ?? "outline"
+                                  estatusVariants[
+                                    detalle?.activo ?? usuario.activo
+                                      ? "activo"
+                                      : "inactivo"
+                                  ]
                                 }
                               >
-                                {ciudadano.nivelRiesgo}
+                                {detalle?.activo ?? usuario.activo
+                                  ? "Activo"
+                                  : "Inactivo"}
                               </Badge>
-                            ) : (
-                              "—"
-                            )}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Teléfono
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.telefono ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Email
-                          </dt>
-                          <dd className="font-medium break-all">
-                            {ciudadano.email ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Ciudad
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.ciudad ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Dirección
-                          </dt>
-                          <dd className="font-medium break-all">
-                            {ciudadano.direccion ?? ciudadano.ciudad ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Lugar de procedencia
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.lugarProcedencia ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Ocupación
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.ocupacion ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Lugar de trabajo
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.lugarTrabajoCodigo
-                              ? `${ciudadano.lugarTrabajoCodigo} - ${
-                                  ciudadano.lugarTrabajoNombre ?? ""
-                                }`
-                              : ciudadano.lugarTrabajoNombre ?? "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Fecha de nacimiento
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.fechaNacimiento
-                              ? ciudadano.fechaNacimiento.split("T")[0]
-                              : "—"}
-                          </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                            Fecha de registro
-                          </dt>
-                          <dd className="font-medium">
-                            {ciudadano.fechaRegistro
-                              ? ciudadano.fechaRegistro.split("T")[0]
-                              : "—"}
-                          </dd>
-                        </div>
-                      </dl>
+                            </dd>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Último acceso
+                            </dt>
+                            <dd className="font-medium">
+                              {formatFecha(
+                                detalle?.ultimoLogin ?? usuario.ultimoLogin
+                              )}
+                            </dd>
+                          </div>
+
+                          {detalle?.persona && (
+                            <>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  CURP
+                                </dt>
+                                <dd className="font-mono text-xs break-all">
+                                  {detalle.persona.curp || "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Nombre
+                                </dt>
+                                <dd className="font-medium">
+                                  {[
+                                    detalle.persona.nombre,
+                                    detalle.persona.apellido_paterno,
+                                    detalle.persona.apellido_materno,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ") || "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Email
+                                </dt>
+                                <dd className="font-medium break-all">
+                                  {detalle.persona.email || "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Teléfono
+                                </dt>
+                                <dd className="font-medium">
+                                  {detalle.persona.telefono || "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Dirección
+                                </dt>
+                                <dd className="font-medium break-all">
+                                  {detalle.persona.direccion || "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Fecha de nacimiento
+                                </dt>
+                                <dd className="font-medium">
+                                  {detalle.persona.fecha_nacimiento
+                                    ? detalle.persona.fecha_nacimiento.split(
+                                        "T"
+                                      )[0]
+                                    : "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Fecha de registro
+                                </dt>
+                                <dd className="font-medium">
+                                  {detalle.persona.created_at
+                                    ? detalle.persona.created_at.split("T")[0]
+                                    : "—"}
+                                </dd>
+                              </div>
+                            </>
+                          )}
+                        </dl>
+                      )}
                     </DialogContent>
                   </Dialog>
                 </TableCell>
