@@ -189,7 +189,11 @@ export default function AfiliadosPage() {
         <SearchAfiliado onSearch={handleSearch} />
 
         {/* Results */}
-        <AfiliadosTable afiliados={filteredAfiliados} loading={loading} />
+        <AfiliadosTable
+          afiliados={filteredAfiliados}
+          loading={loading}
+          onReload={loadAfiliados}
+        />
       </div>
     </MainLayout>
   );

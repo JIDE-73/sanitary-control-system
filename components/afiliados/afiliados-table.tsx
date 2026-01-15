@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -19,7 +20,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Eye, Edit, IdCard } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { request } from "@/lib/request";
+import { Eye, Edit, IdCard, Loader2, RefreshCcw, Trash2 } from "lucide-react";
 
 export interface AfiliadoListado {
   id: string;
@@ -59,6 +62,7 @@ export interface AfiliadoListado {
 interface AfiliadosTableProps {
   afiliados: AfiliadoListado[];
   loading?: boolean;
+  onReload?: () => Promise<void> | void;
 }
 
 const generoLabels: Record<string, string> = {
@@ -79,8 +83,55 @@ const estatusVariants = {
 export function AfiliadosTable({
   afiliados,
   loading = false,
+  onReload,
 }: AfiliadosTableProps) {
   const router = useRouter();
+  const { toast } = useToast();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isReloading, setIsReloading] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const reloadRef = useRef<(() => Promise<void> | void) | undefined>(onReload);
+
+  useEffect(() => {
+    reloadRef.current = onReload;
+  }, [onReload]);
+
+  const handleRefresh = () => {
+    setRefreshToken((prev) => prev + 1);
+  };
+
+  useEffect(() => {
+    if (refreshToken === 0) return;
+
+    let cancelled = false;
+    const runReload = async () => {
+      setIsReloading(true);
+      try {
+        if (onReload) {
+          await onReload();
+        } else {
+          router.refresh();
+        }
+      } catch (error) {
+        console.error("Error al recargar afiliados", error);
+        toast({
+          variant: "destructive",
+          title: "No se pudo recargar",
+          description: "Intenta de nuevo más tarde.",
+        });
+      } finally {
+        if (!cancelled) {
+          setIsReloading(false);
+        }
+      }
+    };
+
+    runReload();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshToken, router, toast]);
 
   const handleEdit = (afiliado: AfiliadoListado) => {
     try {
@@ -93,8 +144,62 @@ export function AfiliadosTable({
     router.push(`/afiliados/${afiliado.id}/editar`);
   };
 
+  const handleDelete = async (afiliado: AfiliadoListado) => {
+    const confirmDelete = window.confirm(
+      `¿Eliminar al afiliado ${afiliado.nombres} ${afiliado.apellidoPaterno}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingId(afiliado.id);
+      const response = await request(
+        `/sics/affiliates/deleteAffiliate/${afiliado.id}`,
+        "DELETE"
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Afiliado eliminado",
+          description: "El afiliado fue eliminado correctamente.",
+        });
+        setRefreshToken((prev) => prev + 1);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "No se pudo eliminar",
+          description: response?.message || "Intenta de nuevo más tarde.",
+        });
+      }
+    } catch (error) {
+      console.error("Error al eliminar afiliado", error);
+      toast({
+        variant: "destructive",
+        title: "Error al eliminar",
+        description: "Ocurrió un error. Intenta nuevamente.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-border">
+      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+        <h3 className="text-sm font-semibold">Afiliados</h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={loading || isReloading || Boolean(deletingId)}
+        >
+          {isReloading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCcw className="mr-2 h-4 w-4" />
+          )}
+          Recargar
+        </Button>
+      </div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -422,6 +527,19 @@ export function AfiliadosTable({
                       }
                     >
                       <IdCard className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Eliminar"
+                      onClick={() => handleDelete(afiliado)}
+                      disabled={deletingId === afiliado.id || isReloading}
+                    >
+                      {deletingId === afiliado.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </TableCell>
