@@ -201,6 +201,29 @@ export interface CertificadoSanitario {
   pdfUrl?: string;
 }
 
+export interface CertificatePerson {
+  id?: string;
+  curp?: string;
+  nombre?: string;
+  apellido_paterno?: string;
+  apellido_materno?: string;
+  fecha_nacimiento?: string;
+  genero?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  foto?: string | null;
+  created_at?: string;
+}
+
+export interface CertificateDoctor {
+  persona_id?: string;
+  cedula_profesional?: string;
+  firma_digital_path?: string;
+  especialidad?: string;
+  habilitado_para_firmar?: boolean;
+}
+
 export interface AlcoholCertificate {
   id: string;
   fecha_expedicion?: string;
@@ -208,6 +231,7 @@ export interface AlcoholCertificate {
   medico_id?: string;
   cedula_perito?: number;
   nombre?: string;
+  medico_nombre?: string;
   identifica_con?: string;
   edad?: number;
   genero?: string;
@@ -215,6 +239,67 @@ export interface AlcoholCertificate {
   residencia_nacional?: boolean;
   extranjera?: boolean;
   direccion?: string;
+  estado_conciencia?: string;
+  facies?: string;
+  conjuntivas?: string;
+  aliento?: string;
+  nauseas?: boolean;
+  signo_romberg?: string;
+  hipo?: boolean;
+  vomito?: string;
+  prueba_tandem?: string;
+  equilibrio_marcha?: string;
+  trastabillea?: boolean;
+  gira_sobre_eje?: boolean;
+  equilibrio_vertical?: string;
+  cae?: boolean;
+  prueba_talon_rodilla?: boolean;
+  levantar_objetos?: string;
+  pupilas?: string;
+  mano_derecha?: boolean;
+  falla?: boolean;
+  mano_izquierda?: boolean;
+  falla1?: boolean;
+  dedo_nariz_mano_derecha?: boolean;
+  falla2?: boolean;
+  dedo_nariz_mano_izquierda?: boolean;
+  falla3?: boolean;
+  normal?: boolean;
+  disartria?: boolean;
+  ininteligible?: boolean;
+  verborrea?: boolean;
+  signos_vitales?: number;
+  frecuencia_respiratoria?: number;
+  tension_arterial?: number;
+  tension_arterial1?: number;
+  temperatura?: string;
+  determinacion_alcohol?: string;
+  determinacion_alcohol1?: string;
+  BAC?: boolean;
+  BR_AC?: boolean;
+  auto_test?: number | string;
+  observacion?: string;
+  estado_ebriedad?: boolean;
+  cuadro_clinico?: string;
+  el_cual?: string;
+  estupefacientes?: boolean;
+  estupefacientes_texto?: string;
+  nombre_solicitante?: string;
+  no_placa?: string;
+  departamento?: string;
+  dependencia?: string;
+  no_boleta?: number;
+  nombre_juez?: string;
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
+  placas?: string;
+  nacionales_o_frontera?: string;
+  extranjeras?: boolean;
+  si?: boolean;
+  no?: boolean;
+  Persona?: CertificatePerson;
+  Medico?: CertificateDoctor;
   [key: string]: any;
 }
 
