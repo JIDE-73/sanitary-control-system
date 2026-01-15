@@ -1,8 +1,9 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeCanvas } from "qrcode.react";
+import jsPDF from "jspdf";
 import type { AfiliadoListado } from "@/components/afiliados/afiliados-table";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { request } from "@/lib/request";
-import { ArrowLeft, IdCard, QrCode, RefreshCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  IdCard,
+  QrCode,
+  RefreshCcw,
+  Download,
+  Printer,
+} from "lucide-react";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -91,6 +99,7 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
   const [afiliado, setAfiliado] = useState<AfiliadoListado | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const loadAfiliado = async () => {
     setLoading(true);
@@ -169,6 +178,98 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
     [qrPayload]
   );
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownloadPdf = () => {
+    if (!afiliado) return;
+
+    // Tamaño de tarjeta estándar CR80: 85.6mm x 53.98mm
+    const cardWidth = 242.8; // pt
+    const cardHeight = 153; // pt
+    const margin = 12;
+    const backTopText = " "; // espacio reservado en la parte superior
+
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: [cardWidth, cardHeight],
+    });
+
+    // --- Frente ---
+    let cursorY = margin + 6;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Credencial sanitaria", margin, cursorY);
+    cursorY += 14;
+
+    // Foto placeholder
+    const photoX = margin;
+    const photoY = cursorY;
+    const photoW = 70;
+    const photoH = 90;
+    doc.setDrawColor(150);
+    doc.setLineWidth(0.8);
+    doc.rect(photoX, photoY, photoW, photoH, "D");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text("Foto del afiliado", photoX + 6, photoY + photoH / 2, {
+      align: "left",
+      baseline: "middle",
+    });
+
+    // Datos a la derecha de la foto
+    let dataX = photoX + photoW + 10;
+    cursorY = photoY + 4;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const line = (label: string, value: string) => {
+      doc.text(`${label}: ${value || "—"}`, dataX, cursorY);
+      cursorY += 12;
+    };
+
+    line("Nombre", fullName);
+    line("CURP", afiliado.curp);
+    line("No. Afiliación", afiliado.noAfiliacion ?? "Sin asignar");
+    line("Estatus", afiliado.estatus);
+    line("Ocupación", afiliado.ocupacion ?? "No especificada");
+    line("Teléfono", afiliado.telefono ?? afiliado.catalogoTelefono ?? "—");
+    line(
+      "Ciudad",
+      afiliado.ciudad ??
+        afiliado.catalogoCiudad ??
+        afiliado.lugarProcedencia ??
+        "—"
+    );
+    line(
+      "Trabajo",
+      afiliado.lugarTrabajoCodigo
+        ? `${afiliado.lugarTrabajoCodigo} - ${
+            afiliado.lugarTrabajoNombre ?? ""
+          }`
+        : afiliado.lugarTrabajoNombre ?? "—"
+    );
+
+    // --- Reverso ---
+    doc.addPage([cardWidth, cardHeight], "landscape");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(backTopText, margin, margin + 10);
+
+    // QR centrado en el reverso
+    const qrDataUrl = qrCanvasRef.current?.toDataURL("image/png");
+    if (qrDataUrl) {
+      const qrSize = 90;
+      const qrX = (cardWidth - qrSize) / 2;
+      const qrY = (cardHeight - qrSize) / 2;
+      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+    }
+
+    doc.save(`credencial-${afiliado.curp || afiliado.id}.pdf`);
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -226,10 +327,20 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
               </h1>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={loadAfiliado}>
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            Actualizar datos
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={loadAfiliado}>
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Actualizar datos
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimir
+            </Button>
+            <Button size="sm" onClick={handleDownloadPdf}>
+              <Download className="mr-2 h-4 w-4" />
+              Descargar PDF
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
@@ -353,7 +464,12 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
             <CardContent className="flex flex-col items-center gap-4">
               {qrValue ? (
                 <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
-                  <QRCodeSVG value={qrValue} size={220} />
+                  <QRCodeCanvas
+                    ref={qrCanvasRef}
+                    value={qrValue}
+                    size={220}
+                    includeMargin
+                  />
                 </div>
               ) : (
                 <Skeleton className="h-[220px] w-[220px]" />
