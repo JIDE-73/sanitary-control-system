@@ -13,6 +13,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,6 +31,7 @@ import {
 import { Eye, Loader2, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { request } from "@/lib/request";
+import type { UserRole } from "@/lib/types";
 
 export interface UsuarioListado {
   id: string;
@@ -84,10 +93,44 @@ export function UsuariosListado({
     Record<string, UsuarioDetalle>
   >({});
   const [detalleLoading, setDetalleLoading] = useState(false);
+  const [roles, setRoles] = useState<UserRole[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [editRolId, setEditRolId] = useState<string>("");
+  const [editActivo, setEditActivo] = useState<boolean>(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setLocalUsuarios(usuarios);
   }, [usuarios]);
+
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        setRolesLoading(true);
+        const response = await request("/admin/rol/getRoles", "GET");
+        if (Array.isArray(response?.roles)) {
+          setRoles(response.roles);
+        } else {
+          toast({
+            title: "No se pudieron cargar los roles",
+            description: response?.message || "Inténtalo más tarde.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error al obtener roles", error);
+        toast({
+          title: "Error al obtener roles",
+          description: "Revisa tu conexión o inténtalo más tarde.",
+          variant: "destructive",
+        });
+      } finally {
+        setRolesLoading(false);
+      }
+    };
+
+    fetchRoles();
+  }, [toast]);
 
   const runReload = async () => {
     if (!onReload) return;
@@ -165,10 +208,72 @@ export function UsuariosListado({
     if (open) {
       setSelectedId(usuario.id);
       setDetalle(null);
+      setEditRolId(usuario.rolId || "");
+      setEditActivo(usuario.activo);
       void fetchDetalle(usuario.id);
     } else {
       setSelectedId(null);
       setDetalle(null);
+    }
+  };
+
+  useEffect(() => {
+    if (detalle) {
+      setEditRolId(detalle.rolId || "");
+      setEditActivo(detalle.activo);
+    }
+  }, [detalle]);
+
+  const handleUpdate = async () => {
+    if (!selectedId) return;
+
+    setSaving(true);
+    try {
+      const payload = {
+        id: selectedId,
+        activo: editActivo,
+        rol_id: editRolId,
+      };
+
+      const response = await request(
+        "/admin/users/updateUser",
+        "PUT",
+        payload
+      );
+      if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Usuario actualizado",
+          description: "Los cambios se guardaron correctamente.",
+        });
+
+        // Optimistic local update
+        setLocalUsuarios((prev) =>
+          prev.map((u) =>
+            u.id === selectedId
+              ? { ...u, activo: editActivo, rolId: editRolId }
+              : u
+          )
+        );
+
+        if (onReload) {
+          await onReload();
+        }
+      } else {
+        toast({
+          title: "No se pudo actualizar",
+          description: response?.message || "Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error al actualizar usuario", error);
+      toast({
+        title: "Error al actualizar",
+        description: "Ocurrió un problema. Intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -263,138 +368,207 @@ export function UsuariosListado({
                           Cargando detalle...
                         </div>
                       ) : (
-                        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              ID
-                            </dt>
-                            <dd className="font-mono text-xs break-all">
-                              {detalle?.id ?? usuario.id}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Rol ID
-                            </dt>
-                            <dd className="font-mono text-xs break-all">
-                              {detalle?.rolId || usuario.rolId || "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Persona ID
-                            </dt>
-                            <dd className="font-mono text-xs break-all">
-                              {detalle?.persona?.id ||
-                                detalle?.personaId ||
-                                usuario.personaId ||
-                                "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Estatus
-                            </dt>
-                            <dd>
-                              <Badge
-                                variant={
-                                  estatusVariants[
-                                    detalle?.activo ?? usuario.activo
-                                      ? "activo"
-                                      : "inactivo"
-                                  ]
-                                }
-                              >
-                                {detalle?.activo ?? usuario.activo
-                                  ? "Activo"
-                                  : "Inactivo"}
-                              </Badge>
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Último acceso
-                            </dt>
-                            <dd className="font-medium">
-                              {formatFecha(
-                                detalle?.ultimoLogin ?? usuario.ultimoLogin
-                              )}
-                            </dd>
-                          </div>
+                        <div className="space-y-6">
+                          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                            <div className="flex flex-col gap-1">
+                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                ID
+                              </dt>
+                              <dd className="font-mono text-xs break-all">
+                                {detalle?.id ?? usuario.id}
+                              </dd>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                Rol ID
+                              </dt>
+                              <dd className="font-mono text-xs break-all">
+                                {detalle?.rolId || usuario.rolId || "—"}
+                              </dd>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                Persona ID
+                              </dt>
+                              <dd className="font-mono text-xs break-all">
+                                {detalle?.persona?.id ||
+                                  detalle?.personaId ||
+                                  usuario.personaId ||
+                                  "—"}
+                              </dd>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                Estatus
+                              </dt>
+                              <dd>
+                                <Badge
+                                  variant={
+                                    estatusVariants[
+                                      detalle?.activo ?? usuario.activo
+                                        ? "activo"
+                                        : "inactivo"
+                                    ]
+                                  }
+                                >
+                                  {detalle?.activo ?? usuario.activo
+                                    ? "Activo"
+                                    : "Inactivo"}
+                                </Badge>
+                              </dd>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                Último acceso
+                              </dt>
+                              <dd className="font-medium">
+                                {formatFecha(
+                                  detalle?.ultimoLogin ?? usuario.ultimoLogin
+                                )}
+                              </dd>
+                            </div>
 
-                          {detalle?.persona && (
-                            <>
-                              <div className="flex flex-col gap-1">
+                            {detalle?.persona && (
+                              <>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    CURP
+                                  </dt>
+                                  <dd className="font-mono text-xs break-all">
+                                    {detalle.persona.curp || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Nombre
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {[
+                                      detalle.persona.nombre,
+                                      detalle.persona.apellido_paterno,
+                                      detalle.persona.apellido_materno,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" ") || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Email
+                                  </dt>
+                                  <dd className="font-medium break-all">
+                                    {detalle.persona.email || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Teléfono
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {detalle.persona.telefono || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Dirección
+                                  </dt>
+                                  <dd className="font-medium break-all">
+                                    {detalle.persona.direccion || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Fecha de nacimiento
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {detalle.persona.fecha_nacimiento
+                                      ? detalle.persona.fecha_nacimiento.split(
+                                          "T"
+                                        )[0]
+                                      : "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Fecha de registro
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {detalle.persona.created_at
+                                      ? detalle.persona.created_at.split("T")[0]
+                                      : "—"}
+                                  </dd>
+                                </div>
+                              </>
+                            )}
+                          </dl>
+
+                          <div className="rounded-md border border-border p-4">
+                            <div className="mb-3 text-sm font-semibold">
+                              Actualizar usuario
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div className="space-y-2">
                                 <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  CURP
+                                  Rol
                                 </dt>
-                                <dd className="font-mono text-xs break-all">
-                                  {detalle.persona.curp || "—"}
-                                </dd>
+                                <Select
+                                  value={editRolId}
+                                  onValueChange={setEditRolId}
+                                  disabled={rolesLoading}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue
+                                      placeholder={
+                                        rolesLoading
+                                          ? "Cargando roles..."
+                                          : "Seleccionar rol"
+                                      }
+                                    />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {rolesLoading && (
+                                      <SelectItem value="loading" disabled>
+                                        Cargando roles...
+                                      </SelectItem>
+                                    )}
+                                    {!rolesLoading && roles.length === 0 && (
+                                      <SelectItem value="no-data" disabled>
+                                        No hay roles disponibles
+                                      </SelectItem>
+                                    )}
+                                    {!rolesLoading &&
+                                      roles.map((rol) => (
+                                        <SelectItem key={rol.id} value={rol.id}>
+                                          {rol.nombre}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
-                              <div className="flex flex-col gap-1">
-                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  Nombre
-                                </dt>
-                                <dd className="font-medium">
-                                  {[
-                                    detalle.persona.nombre,
-                                    detalle.persona.apellido_paterno,
-                                    detalle.persona.apellido_materno,
-                                  ]
-                                    .filter(Boolean)
-                                    .join(" ") || "—"}
-                                </dd>
+                              <div className="flex items-center gap-3">
+                                <Switch
+                                  id="usuario-activo"
+                                  checked={editActivo}
+                                  onCheckedChange={setEditActivo}
+                                />
+                                <label
+                                  htmlFor="usuario-activo"
+                                  className="text-sm"
+                                >
+                                  Usuario activo
+                                </label>
                               </div>
-                              <div className="flex flex-col gap-1">
-                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  Email
-                                </dt>
-                                <dd className="font-medium break-all">
-                                  {detalle.persona.email || "—"}
-                                </dd>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  Teléfono
-                                </dt>
-                                <dd className="font-medium">
-                                  {detalle.persona.telefono || "—"}
-                                </dd>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  Dirección
-                                </dt>
-                                <dd className="font-medium break-all">
-                                  {detalle.persona.direccion || "—"}
-                                </dd>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  Fecha de nacimiento
-                                </dt>
-                                <dd className="font-medium">
-                                  {detalle.persona.fecha_nacimiento
-                                    ? detalle.persona.fecha_nacimiento.split(
-                                        "T"
-                                      )[0]
-                                    : "—"}
-                                </dd>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  Fecha de registro
-                                </dt>
-                                <dd className="font-medium">
-                                  {detalle.persona.created_at
-                                    ? detalle.persona.created_at.split("T")[0]
-                                    : "—"}
-                                </dd>
-                              </div>
-                            </>
-                          )}
-                        </dl>
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                              <Button
+                                onClick={handleUpdate}
+                                disabled={saving || rolesLoading || !editRolId}
+                              >
+                                {saving ? "Guardando..." : "Guardar cambios"}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </DialogContent>
                   </Dialog>
