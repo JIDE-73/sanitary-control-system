@@ -11,14 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { request } from "@/lib/request";
-import {
-  ArrowLeft,
-  IdCard,
-  QrCode,
-  RefreshCcw,
-  Download,
-  Printer,
-} from "lucide-react";
+import { ArrowLeft, IdCard, QrCode, RefreshCcw, Download } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -178,10 +171,6 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
     [qrPayload]
   );
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handleDownloadPdf = () => {
     if (!afiliado) return;
 
@@ -331,10 +320,6 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
             <Button variant="outline" size="sm" onClick={loadAfiliado}>
               <RefreshCcw className="mr-2 h-4 w-4" />
               Actualizar datos
-            </Button>
-            <Button variant="outline" size="sm" onClick={handlePrint}>
-              <Printer className="mr-2 h-4 w-4" />
-              Imprimir
             </Button>
             <Button size="sm" onClick={handleDownloadPdf}>
               <Download className="mr-2 h-4 w-4" />
