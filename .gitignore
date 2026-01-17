@@ -19,8 +19,9 @@ yarn-error.log*
 # env files
 .env*
 
-/package-lock.json
+package-lock.json
 
+Dockerfile
 
 # vercel
 .vercel
