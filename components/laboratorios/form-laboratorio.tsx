@@ -15,12 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FlaskConical, Save, ArrowLeft, ShieldCheck } from "lucide-react";
+import { FlaskConical, Save, ArrowLeft } from "lucide-react";
 import type { LaboratorioListado, LaboratorioPayload } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
 interface FormLaboratorioProps {
   laboratorio?: LaboratorioListado;
-  onSubmit: (data: LaboratorioPayload) => void;
+  onSubmit: (data: LaboratorioPayload) => Promise<void> | void;
 }
 
 const initialForm: LaboratorioPayload = {
@@ -35,6 +36,7 @@ export function FormLaboratorio({
   onSubmit,
 }: FormLaboratorioProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [formData, setFormData] = useState<LaboratorioPayload>(() => {
     if (!laboratorio) return initialForm;
     return {
@@ -47,21 +49,77 @@ export function FormLaboratorio({
 
   const handleChange = <K extends keyof LaboratorioPayload>(
     field: K,
-    value: LaboratorioPayload[K]
+    value: LaboratorioPayload[K],
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const sanitize = (value?: string) => value?.trim() ?? "";
     const payload: LaboratorioPayload = {
       ...formData,
-      nombre_comercial: formData.nombre_comercial.trim(),
-      rfc: formData.rfc.trim().toUpperCase(),
-      email_contacto: formData.email_contacto.trim(),
+      nombre_comercial: sanitize(formData.nombre_comercial),
+      rfc: sanitize(formData.rfc).toUpperCase(),
+      email_contacto: sanitize(formData.email_contacto),
       certificado_organismo: Boolean(formData.certificado_organismo),
     };
-    onSubmit(payload);
+
+    const requiredFields: Array<{
+      key: keyof LaboratorioPayload;
+      label: string;
+    }> = [
+      { key: "nombre_comercial", label: "Nombre comercial" },
+      { key: "rfc", label: "RFC" },
+      { key: "email_contacto", label: "Email de contacto" },
+    ];
+
+    const missing = requiredFields.filter(({ key }) => {
+      const value = payload[key];
+      return typeof value !== "string" || value.length === 0;
+    });
+
+    if (missing.length > 0) {
+      toast({
+        title: "Campos obligatorios",
+        description: `Completa: ${missing.map((field) => field.label).join(", ")}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (payload.rfc.length < 12 || payload.rfc.length > 13) {
+      toast({
+        title: "RFC inválido",
+        description: "Debe contener 12 o 13 caracteres alfanuméricos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(payload.email_contacto)) {
+      toast({
+        title: "Email inválido",
+        description: "Ingresa un correo electrónico válido",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await onSubmit(payload);
+    } catch (error) {
+      toast({
+        title: "Error al registrar",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo enviar la información. Inténtalo nuevamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -99,7 +157,7 @@ export function FormLaboratorio({
                   e.target.value
                     .toUpperCase()
                     .replace(/[^A-Z0-9]/g, "")
-                    .slice(0, 13)
+                    .slice(0, 13),
                 )
               }
               placeholder="FVKD097865RS9"
@@ -136,12 +194,6 @@ export function FormLaboratorio({
               placeholder="contacto@laboratorio.com"
               required
             />
-          </div>
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              La edición y eliminación estarán disponibles próximamente.
-            </p>
           </div>
         </CardContent>
       </Card>
