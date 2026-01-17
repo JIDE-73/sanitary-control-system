@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Building2, MapPin, Save, ArrowLeft } from "lucide-react";
 import type { LugarTrabajo } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
 interface FormLugarProps {
   lugar?: LugarTrabajo;
@@ -25,10 +26,11 @@ interface FormLugarProps {
 
 export function FormLugar({ lugar, onSubmit }: FormLugarProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [formData, setFormData] = useState<Partial<LugarTrabajo>>(
     lugar || {
       estatus: "activo",
-    }
+    },
   );
 
   const handleChange = (field: keyof LugarTrabajo, value: string) => {
@@ -37,7 +39,80 @@ export function FormLugar({ lugar, onSubmit }: FormLugarProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+
+    const normalize = (value?: string) => (value ? value.trim() : "");
+    const digitsOnly = (value?: string) =>
+      value ? value.replace(/\D/g, "") : "";
+
+    type RequiredLugarField =
+      | "codigo"
+      | "nombre"
+      | "zonaTrabajo"
+      | "calle"
+      | "colonia"
+      | "codigoPostal"
+      | "ciudad"
+      | "estado"
+      | "telefono";
+
+    const sanitized: Partial<LugarTrabajo> = {
+      ...formData,
+      codigo: normalize(formData.codigo).toUpperCase(),
+      nombre: normalize(formData.nombre),
+      zonaTrabajo: normalize(formData.zonaTrabajo),
+      calle: normalize(formData.calle),
+      colonia: normalize(formData.colonia),
+      codigoPostal: digitsOnly(formData.codigoPostal),
+      ciudad: normalize(formData.ciudad),
+      estado: normalize(formData.estado),
+      telefono: digitsOnly(formData.telefono),
+    };
+
+    const requiredFields: Array<{ key: RequiredLugarField; label: string }> = [
+      { key: "codigo", label: "Código" },
+      { key: "nombre", label: "Nombre del establecimiento" },
+      { key: "zonaTrabajo", label: "Zona de trabajo" },
+      { key: "calle", label: "Calle" },
+      { key: "colonia", label: "Colonia" },
+      { key: "codigoPostal", label: "Código postal" },
+      { key: "ciudad", label: "Ciudad" },
+      { key: "estado", label: "Estado" },
+      { key: "telefono", label: "Teléfono" },
+    ];
+
+    const missing = requiredFields.filter(({ key }) => {
+      const value = sanitized[key];
+      return typeof value !== "string" || value.length === 0;
+    });
+
+    if (missing.length > 0) {
+      toast({
+        title: "Campos obligatorios",
+        description: `Completa: ${missing.map((f) => f.label).join(", ")}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (sanitized.codigoPostal && sanitized.codigoPostal.length !== 5) {
+      toast({
+        title: "Código postal inválido",
+        description: "Debe contener 5 dígitos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (sanitized.telefono && sanitized.telefono.length !== 10) {
+      toast({
+        title: "Teléfono inválido",
+        description: "Debes capturar 10 dígitos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    onSubmit(sanitized);
   };
 
   return (
