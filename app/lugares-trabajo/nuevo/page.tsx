@@ -27,7 +27,8 @@ export default function NuevoLugarPage() {
         "POST",
         payload
       );
-      if (response.status >= 200 && response.status < 300) {
+
+      if (response.status === 201) {
         router.push("/lugares-trabajo");
       } else {
         console.error(
