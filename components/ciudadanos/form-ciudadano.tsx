@@ -52,7 +52,7 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
 
   const handleChange = <K extends keyof CitizenPayload>(
     field: K,
-    value: CitizenPayload[K]
+    value: CitizenPayload[K],
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -68,23 +68,17 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
       email: formData.email?.trim() || undefined,
       telefono: formData.telefono.trim(),
       direccion: formData.direccion.trim(),
-      lugar_procedencia: formData.lugar_procedencia.trim(),
       ocupacion: formData.ocupacion?.trim() || undefined,
       genero: normalizeGenero(formData.genero),
       nivel_riesgo: formData.nivel_riesgo as NivelRiesgo,
     };
-
-    if (!payload.lugar_procedencia) {
-      console.error("Selecciona un lugar de procedencia válido");
-      return;
-    }
 
     try {
       setSubmitting(true);
       const response = await request(
         "/alcoholimetria/citizens/createCitizen",
         "POST",
-        payload
+        payload,
       );
 
       if (response.status === 201) {
@@ -94,6 +88,7 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
         console.error(response.message || "No se pudo registrar al ciudadano");
       }
     } catch (error) {
+      console.log(error);
       console.error("Error al enviar el formulario de ciudadano", error);
     } finally {
       setSubmitting(false);
@@ -121,7 +116,7 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
                   e.target.value
                     .toUpperCase()
                     .replace(/[^A-Z0-9]/g, "")
-                    .slice(0, 18)
+                    .slice(0, 18),
                 )
               }
               placeholder="XXXX000000XXXXXX00"
@@ -139,7 +134,7 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
               onChange={(e) =>
                 handleChange(
                   "nombre",
-                  e.target.value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, "")
+                  e.target.value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, ""),
                 )
               }
               pattern="^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]{2,60}$"
@@ -154,7 +149,7 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
               onChange={(e) =>
                 handleChange(
                   "apellido_paterno",
-                  e.target.value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, "")
+                  e.target.value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, ""),
                 )
               }
               pattern="^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]{2,60}$"
@@ -169,7 +164,7 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
               onChange={(e) =>
                 handleChange(
                   "apellido_materno",
-                  e.target.value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, "")
+                  e.target.value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, ""),
                 )
               }
               pattern="^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]{2,60}$"
@@ -233,7 +228,7 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
               onChange={(e) =>
                 handleChange(
                   "telefono",
-                  e.target.value.replace(/\D/g, "").slice(0, 10)
+                  e.target.value.replace(/\D/g, "").slice(0, 10),
                 )
               }
               placeholder="6641234567"
@@ -271,7 +266,7 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
               onChange={(e) =>
                 handleChange(
                   "ocupacion",
-                  e.target.value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s]/g, "")
+                  e.target.value.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s]/g, ""),
                 )
               }
               placeholder="Profesión u oficio"
