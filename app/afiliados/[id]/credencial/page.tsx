@@ -59,7 +59,7 @@ const normalizeAfiliado = (item: any): AfiliadoListado => ({
 const extractArray = (response: any) => {
   const candidate = Array.isArray(response?.data)
     ? response.data
-    : response?.data ?? response;
+    : (response?.data ?? response);
 
   if (Array.isArray(candidate)) return candidate;
 
@@ -92,7 +92,26 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
   const [afiliado, setAfiliado] = useState<AfiliadoListado | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const loadAssetAsDataUrl = async (path: string) => {
+    try {
+      const response = await fetch(path);
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (assetError) {
+      console.warn(`No se pudo cargar el recurso ${path}`, assetError);
+      return null;
+    }
+  };
 
   const loadAfiliado = async () => {
     setLoading(true);
@@ -100,7 +119,7 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
     try {
       const response = await request(
         `/sics/affiliates/getAffiliateById/${encodeURIComponent(curp)}`,
-        "GET"
+        "GET",
       );
       const data = extractArray(response);
       const item = data[0];
@@ -125,6 +144,25 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
     loadAfiliado();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curp]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadAssets = async () => {
+      const [logo, signature] = await Promise.all([
+        loadAssetAsDataUrl("/tijuana_sgm_dms_sin_fondo.png"),
+        loadAssetAsDataUrl("/doc_sign.jpeg"),
+      ]);
+
+      if (!mounted) return;
+      setLogoDataUrl(logo);
+      setSignatureDataUrl(signature);
+    };
+
+    loadAssets();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const fullName = useMemo(() => {
     if (!afiliado) return "";
@@ -168,17 +206,23 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
 
   const qrValue = useMemo(
     () => (qrPayload ? JSON.stringify(qrPayload) : ""),
-    [qrPayload]
+    [qrPayload],
   );
 
   const handleDownloadPdf = () => {
     if (!afiliado) return;
 
-    // Tamaño de tarjeta estándar CR80: 85.6mm x 53.98mm
-    const cardWidth = 242.8; // pt
-    const cardHeight = 153; // pt
-    const margin = 12;
-    const backTopText = " "; // espacio reservado en la parte superior
+    const cardWidth = 242.8;
+    const cardHeight = 153;
+    const margin = 14;
+    const headerHeight = 45;
+    const expeditionDate = (
+      afiliado.fechaRegistro ? new Date(afiliado.fechaRegistro) : new Date()
+    ).toLocaleDateString("es-MX", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
 
     const doc = new jsPDF({
       orientation: "landscape",
@@ -186,68 +230,122 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
       format: [cardWidth, cardHeight],
     });
 
-    // --- Frente ---
-    let cursorY = margin + 6;
+    // Fondo general
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, cardWidth, cardHeight, "F");
 
+    // Encabezado
+    doc.setFillColor(117, 13, 47);
+    doc.rect(0, 0, cardWidth, headerHeight, "F");
+    if (logoDataUrl) {
+      doc.addImage(logoDataUrl, "PNG", margin, 8, 90, headerHeight - 16);
+    }
+    doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("Credencial sanitaria", margin, cursorY);
-    cursorY += 14;
-
-    // Foto placeholder
-    const photoX = margin;
-    const photoY = cursorY;
-    const photoW = 70;
-    const photoH = 90;
-    doc.setDrawColor(150);
-    doc.setLineWidth(0.8);
-    doc.rect(photoX, photoY, photoW, photoH, "D");
+    doc.setFontSize(7);
+    doc.text("Dirección Municipal de Salud", cardWidth - margin, 20, {
+      align: "right",
+    });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    doc.text("Foto del afiliado", photoX + 6, photoY + photoH / 2, {
-      align: "left",
-      baseline: "middle",
+    doc.text("Sistema de Control Sanitario", cardWidth - margin, 34, {
+      align: "right",
     });
 
-    // Datos a la derecha de la foto
-    let dataX = photoX + photoW + 10;
-    cursorY = photoY + 4;
+    // Identificador y fecha
+    doc.setTextColor(23, 41, 64);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(5);
+    doc.text(
+      `# Afiliado: ${afiliado.noAfiliacion ?? "Sin asignar"}`,
+      margin,
+      headerHeight + 8,
+    );
+    doc.text(
+      `Fecha de expedición: ${expeditionDate}`,
+      margin,
+      headerHeight + 95,
+    );
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    const line = (label: string, value: string) => {
-      doc.text(`${label}: ${value || "—"}`, dataX, cursorY);
-      cursorY += 12;
+    doc.setFontSize(7);
+
+    // Foto
+    const photoX = margin;
+    const photoY = headerHeight + 10;
+    const photoW = 74;
+    const photoH = 78;
+    doc.setDrawColor(160, 170, 185);
+    doc.setLineWidth(1);
+    doc.roundedRect(photoX, photoY, photoW, photoH, 6, 6);
+
+    // Datos del afiliado
+    let infoX = photoX + photoW + 16;
+    let cursorY = photoY + 4;
+    doc.setTextColor(19, 32, 52);
+
+    const printField = (label: string, value?: string | null) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.text(label, infoX, cursorY);
+      cursorY += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.text(value && value.trim() ? value : "—", infoX, cursorY);
+      cursorY += 10;
     };
 
-    line("Nombre", fullName);
-    line("CURP", afiliado.curp);
-    line("No. Afiliación", afiliado.noAfiliacion ?? "Sin asignar");
-    line("Estatus", afiliado.estatus);
-    line("Ocupación", afiliado.ocupacion ?? "No especificada");
-    line("Teléfono", afiliado.telefono ?? afiliado.catalogoTelefono ?? "—");
-    line(
-      "Ciudad",
-      afiliado.ciudad ??
-        afiliado.catalogoCiudad ??
-        afiliado.lugarProcedencia ??
-        "—"
+    const infoFields = [
+      { label: "Nombre completo", value: fullName },
+      {
+        label: "Teléfono",
+        value: afiliado.telefono ?? afiliado.catalogoTelefono ?? "—",
+      },
+    ];
+
+    infoFields.forEach((field) => printField(field.label, field.value));
+
+    // Área de firma
+    const signatureW = 120;
+    const signatureH = 46;
+    const signatureX = cardWidth - signatureW - margin;
+    const signatureY = cardHeight - signatureH - 16;
+    if (signatureDataUrl) {
+      doc.addImage(
+        signatureDataUrl,
+        "JPEG",
+        signatureX + 10,
+        signatureY+2,
+        signatureW - 20,
+        signatureH -10,
+        undefined,
+        "FAST",
+        -359.99,
+      );
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(19, 32, 52);
+    doc.text(
+      "Dr. Sharai Bustamante Hernandez",
+      signatureX + signatureW / 2,
+      signatureY + signatureH - 2,
+      { align: "center" },
     );
-    line(
-      "Trabajo",
-      afiliado.lugarTrabajoCodigo
-        ? `${afiliado.lugarTrabajoCodigo} - ${
-            afiliado.lugarTrabajoNombre ?? ""
-          }`
-        : afiliado.lugarTrabajoNombre ?? "—"
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    doc.text(
+      "Jefa de control sanitario",
+      signatureX + signatureW / 2,
+      signatureY + signatureH + 9,
+      { align: "center" },
     );
 
-    // --- Reverso ---
+    // --- Reverso: QR permanece igual ---
     doc.addPage([cardWidth, cardHeight], "landscape");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.text(backTopText, margin, margin + 10);
+    doc.text(" ", margin, margin + 10);
 
-    // QR centrado en el reverso
     const qrDataUrl = qrCanvasRef.current?.toDataURL("image/png");
     if (qrDataUrl) {
       const qrSize = 90;
@@ -428,7 +526,7 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
                         ? `${afiliado.lugarTrabajoCodigo} - ${
                             afiliado.lugarTrabajoNombre ?? ""
                           }`
-                        : afiliado.lugarTrabajoNombre ?? "—"}
+                        : (afiliado.lugarTrabajoNombre ?? "—")}
                     </p>
                   </div>
                 </div>
@@ -457,7 +555,7 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
                   />
                 </div>
               ) : (
-                <Skeleton className="h-[220px] w-[220px]" />
+                <Skeleton className="h-55 w-55" />
               )}
               <p className="text-center text-xs text-muted-foreground">
                 El código QR incluye toda la información vigente del afiliado,
