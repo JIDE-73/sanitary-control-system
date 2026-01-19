@@ -222,6 +222,7 @@ export interface CertificateDoctor {
   firma_digital_path?: string;
   especialidad?: string;
   habilitado_para_firmar?: boolean;
+  persona?: CertificatePerson;
 }
 
 export interface AlcoholCertificate {
