@@ -27,6 +27,7 @@ export interface AffiliatePayload {
   fecha_inicio: string;
   fecha_inicio_tijuana: string;
   acta_nacimiento: boolean;
+  estatus: EstatusAfiliadoBackend;
 }
 
 export type NivelRiesgo = "BAJO" | "MEDIO" | "ALTO";
@@ -73,6 +74,13 @@ export type EstatusAfiliado =
   | "inactivo"
   | "suspendido"
   | "pendiente";
+
+export type EstatusAfiliadoBackend =
+  | "VIGENTE"
+  | "PENDIENTE_RENOVACION"
+  | "SUSPENSION_TEMPORAL"
+  | "CANCELACION_TEMPORAL"
+  | "CANCELACION_DEFINITIVA";
 
 export type ResultadoVDRL = "positivo" | "negativo" | "pendiente";
 

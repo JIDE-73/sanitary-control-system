@@ -21,6 +21,7 @@ import type {
   Afiliado,
   AffiliatePayload,
   EstadoCivil,
+  EstatusAfiliadoBackend,
   GeneroBackend,
   LugarTrabajo,
 } from "@/lib/types";
@@ -146,6 +147,7 @@ export function FormAfiliado({
       ? afiliadoData.fechaInicioTijuana.slice(0, 10)
       : "",
     acta_nacimiento: Boolean(afiliadoData?.actaNacimiento),
+    estatus: (afiliadoData?.estatus as EstatusAfiliadoBackend | undefined) ?? "VIGENTE",
   });
 
   const [formData, setFormData] = useState<AffiliatePayload>(() =>
@@ -192,6 +194,7 @@ export function FormAfiliado({
       fecha_inicio_tijuana: formData.fecha_inicio_tijuana,
       acta_nacimiento: Boolean(formData.acta_nacimiento),
       genero: formData.genero,
+      estatus: formData.estatus,
     };
 
     if (!payload.lugar_trabajo) {
@@ -341,6 +344,26 @@ export function FormAfiliado({
                 <SelectItem value="DIVORCIADO">Divorciado</SelectItem>
                 <SelectItem value="VIUDO">Viudo</SelectItem>
                 <SelectItem value="UNION_LIBRE">Unión libre</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="estatus">Estatus *</Label>
+            <Select
+              value={formData.estatus}
+              onValueChange={(value) =>
+                handleChange("estatus", value as EstatusAfiliadoBackend)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar estatus" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="VIGENTE">Vigente</SelectItem>
+                <SelectItem value="PENDIENTE_RENOVACION">Pendiente Renovación</SelectItem>
+                <SelectItem value="SUSPENSION_TEMPORAL">Suspensión Temporal</SelectItem>
+                <SelectItem value="CANCELACION_TEMPORAL">Cancelación Temporal</SelectItem>
+                <SelectItem value="CANCELACION_DEFINITIVA">Cancelación Definitiva</SelectItem>
               </SelectContent>
             </Select>
           </div>
