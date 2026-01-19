@@ -887,6 +887,41 @@ export function CertificadosTable() {
         { text: checkboxMark(certificate.extranjeras), bold: true }
       ], marginX, y);
 
+      // Campos de firma al final
+      ensureSpace(30);
+      y += 10;
+      
+      // Calcular posiciones X para los 3 campos de firma
+      const availableWidth = pageWidth - marginX * 2;
+      const columnWidth = availableWidth / 3;
+      const column1X = marginX;
+      const column2X = marginX + columnWidth;
+      const column3X = marginX + columnWidth * 2;
+      
+      // Línea para firmas
+      const lineY = y;
+      doc.setLineWidth(0.1);
+      doc.line(column1X, lineY, column1X + columnWidth - 10, lineY);
+      doc.line(column2X, lineY, column2X + columnWidth - 10, lineY);
+      doc.line(column3X, lineY, column3X + columnWidth - 10, lineY);
+      
+      y += 8;
+      
+      // Títulos de los campos de firma
+      doc.setFont(baseFont, "normal");
+      doc.setFontSize(9);
+      
+      // Juez municipal (izquierda)
+      doc.text("Juez municipal", column1X, y, { align: "left" });
+      
+      // Atentamente (centro)
+      doc.text("Atentamente", column2X, y, { align: "left" });
+      
+      // Conductor (derecha)
+      doc.text("Conductor", column3X, y, { align: "left" });
+      
+      y += 5;
+
       doc.save(`certificado-${safe(certificate.id, "sin-folio")}.pdf`);
     } catch (err) {
       console.error("No se pudo generar el PDF del certificado", err);
