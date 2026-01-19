@@ -12,8 +12,10 @@ import { SearchCiudadano } from "@/components/ciudadanos/search-ciudadano";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
 import { request } from "@/lib/request";
+import { useAuth } from "@/components/auth/auth-context";
 
 export default function CiudadanoPage() {
+  const { hasPermission } = useAuth();
   const [ciudadanos, setCiudadanos] = useState<CiudadanoListado[]>([]);
   const [filteredCiudadanos, setFilteredCiudadanos] = useState<
     CiudadanoListado[]
@@ -125,6 +127,8 @@ export default function CiudadanoPage() {
     [filteredCiudadanos]
   );
 
+  const canCreate = hasPermission("ciudadanos", "create");
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -136,12 +140,14 @@ export default function CiudadanoPage() {
               {totalCiudadanos ? `(${totalCiudadanos})` : ""}
             </p>
           </div>
-          <Button asChild>
-            <Link href="/ciudadano/nuevo">
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Ciudadano
-            </Link>
-          </Button>
+          {canCreate && (
+            <Button asChild>
+              <Link href="/ciudadano/nuevo">
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo Ciudadano
+              </Link>
+            </Button>
+          )}
         </div>
 
         <SearchCiudadano onSearch={handleSearch} />

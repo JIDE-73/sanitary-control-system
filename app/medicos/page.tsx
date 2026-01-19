@@ -9,8 +9,10 @@ import { UserPlus, Search } from "lucide-react";
 import Link from "next/link";
 import { request } from "@/lib/request";
 import type { Medico } from "@/lib/types";
+import { useAuth } from "@/components/auth/auth-context";
 
 export default function MedicosPage() {
+  const { hasPermission } = useAuth();
   const [medicos, setMedicos] = useState<Medico[]>([]);
   const [filteredMedicos, setFilteredMedicos] = useState<Medico[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,6 +131,8 @@ export default function MedicosPage() {
 
   const totalMedicos = useMemo(() => filteredMedicos.length, [filteredMedicos]);
 
+  const canCreate = hasPermission("medicos", "create");
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -140,12 +144,14 @@ export default function MedicosPage() {
               {totalMedicos ? `(${totalMedicos})` : ""}
             </p>
           </div>
-          <Link href="/medicos/nuevo">
-            <Button>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Nuevo Médico
-            </Button>
-          </Link>
+          {canCreate && (
+            <Link href="/medicos/nuevo">
+              <Button>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Nuevo Médico
+              </Button>
+            </Link>
+          )}
         </div>
 
         <div className="flex max-w-xl gap-2">

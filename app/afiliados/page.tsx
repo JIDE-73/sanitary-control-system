@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
 import Link from "next/link";
 import { request } from "@/lib/request";
+import { useAuth } from "@/components/auth/auth-context";
 
 export default function AfiliadosPage() {
+  const { hasPermission } = useAuth();
   const [afiliados, setAfiliados] = useState<AfiliadoListado[]>([]);
   const [filteredAfiliados, setFilteredAfiliados] = useState<AfiliadoListado[]>(
     []
@@ -165,6 +167,8 @@ export default function AfiliadosPage() {
     [filteredAfiliados]
   );
 
+  const canCreate = hasPermission("afiliados", "create");
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -177,12 +181,14 @@ export default function AfiliadosPage() {
               {totalAfiliados ? `(${totalAfiliados})` : ""}
             </p>
           </div>
-          <Link href="/afiliados/nuevo">
-            <Button>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Nuevo Afiliado
-            </Button>
-          </Link>
+          {canCreate && (
+            <Link href="/afiliados/nuevo">
+              <Button>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Nuevo Afiliado
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Search */}

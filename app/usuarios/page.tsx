@@ -11,9 +11,11 @@ import {
 } from "@/components/usuarios/ususarios-table";
 import { request } from "@/lib/request";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/components/auth/auth-context";
 
 export default function UsuariosPage() {
   const { toast } = useToast();
+  const { hasPermission } = useAuth();
   const [usuarios, setUsuarios] = useState<UsuarioListado[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -68,6 +70,8 @@ export default function UsuariosPage() {
     loadUsuarios();
   }, [loadUsuarios]);
 
+  const canCreate = hasPermission("usuarios", "create");
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -78,12 +82,14 @@ export default function UsuariosPage() {
               Gestiona los usuarios del sistema y crea nuevos registros.
             </p>
           </div>
-          <Button asChild>
-            <Link href="/usuarios/nuevo">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Nuevo Usuario
-            </Link>
-          </Button>
+          {canCreate && (
+            <Button asChild>
+              <Link href="/usuarios/nuevo">
+                <UserPlus className="mr-2 h-4 w-4" />
+                Nuevo Usuario
+              </Link>
+            </Button>
+          )}
         </div>
 
         <UsuariosListado

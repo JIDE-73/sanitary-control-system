@@ -9,8 +9,10 @@ import { FlaskConical, Search, Plus, TestTube } from "lucide-react";
 import Link from "next/link";
 import { request } from "@/lib/request";
 import type { LaboratorioListado } from "@/lib/types";
+import { useAuth } from "@/components/auth/auth-context";
 
 export default function LaboratoriosPage() {
+  const { hasPermission } = useAuth();
   const [laboratorios, setLaboratorios] = useState<LaboratorioListado[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,6 +61,8 @@ export default function LaboratoriosPage() {
     loadLaboratorios();
   }, []);
 
+  const canCreate = hasPermission("laboratorios", "create");
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -76,12 +80,14 @@ export default function LaboratoriosPage() {
                 Gestionar exámenes
               </Button>
             </Link>
-            <Link href="/laboratorios/nuevo">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo Laboratorio
-              </Button>
-            </Link>
+            {canCreate && (
+              <Link href="/laboratorios/nuevo">
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nuevo Laboratorio
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 

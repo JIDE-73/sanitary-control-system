@@ -21,17 +21,20 @@ import {
   NotebookPen,
 } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/components/auth/auth-context";
 
 const navigation = [
   {
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    module: "dashboard",
   },
   {
     name: "Afiliados",
     href: "/afiliados",
     icon: Users,
+    module: "afiliados",
     submenu: [
       { name: "Buscar Afiliado", href: "/afiliados" },
       { name: "Nuevo Afiliado", href: "/afiliados/nuevo" },
@@ -42,6 +45,7 @@ const navigation = [
     name: "Ciudadanos",
     href: "/ciudadano",
     icon: User,
+    module: "ciudadanos",
     submenu: [
       { name: "Listado", href: "/ciudadano" },
       { name: "Nuevo Ciudadano", href: "/ciudadano/nuevo" },
@@ -51,6 +55,7 @@ const navigation = [
     name: "Usuarios",
     href: "/usuarios",
     icon: KeyRound,
+    module: "usuarios",
     submenu: [
       { name: "Listado", href: "/usuarios" },
       { name: "Nuevo Usuario", href: "/usuarios/nuevo" },
@@ -62,6 +67,7 @@ const navigation = [
     name: "Médicos",
     href: "/medicos",
     icon: Stethoscope,
+    module: "medicos",
     submenu: [
       { name: "Lista de Médicos", href: "/medicos" },
       { name: "Nuevo Médico", href: "/medicos/nuevo" },
@@ -71,11 +77,13 @@ const navigation = [
     name: "Lugares de Trabajo",
     href: "/lugares-trabajo",
     icon: Building2,
+    module: "lugares_trabajo",
   },
   {
     name: "Laboratorios",
     href: "/laboratorios",
     icon: FlaskConical,
+    module: "laboratorios",
     submenu: [
       { name: "Listado", href: "/laboratorios" },
       { name: "Nuevo Laboratorio", href: "/laboratorios/nuevo" },
@@ -85,6 +93,7 @@ const navigation = [
     name: "Notas Médicas CS",
     href: "/notas-medicas",
     icon: ClipboardList,
+    module: "notas_medicas_cs",
     submenu: [
       { name: "Nueva Nota Médica", href: "/notas-medicas/nueva" },
       { name: "Ordenar Examen", href: "/examenes/nuevo" },
@@ -95,6 +104,7 @@ const navigation = [
     name: "Notas Médicas ALM",
     href: "/notas-medicas-alm",
     icon: NotebookPen,
+    module: "notas_medicas_alm",
     submenu: [
       { name: "Nueva Nota ALM", href: "/notas-medicas-alm/nueva" },
       { name: "Historial ALM", href: "/notas-medicas-alm" },
@@ -104,12 +114,14 @@ const navigation = [
     name: "Exámenes CS",
     href: "/examenes",
     icon: TestTube,
+    module: "examenes_cs",
     submenu: [{ name: "Historial", href: "/examenes" }],
   },
   {
     name: "Certificados ALM",
     href: "/certificados",
     icon: FileText,
+    module: "certificados_alm",
     submenu: [
       { name: "Emitir Certificado", href: "/certificados/nuevo" },
       { name: "Historial", href: "/certificados" },
@@ -129,6 +141,18 @@ interface SidebarNavProps {
 export function SidebarNav({ isOpen }: SidebarNavProps) {
   const pathname = usePathname();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
+  
+  // Safe access to auth context
+  let hasPermission: (module: string, action: string) => boolean = () => false;
+  let isAuthenticated = false;
+  
+  try {
+    const auth = useAuth();
+    hasPermission = auth.hasPermission;
+    isAuthenticated = auth.isAuthenticated;
+  } catch {
+    // AuthProvider not available yet, use defaults
+  }
 
   const toggleMenu = (name: string) => {
     setOpenMenus((prev) =>
@@ -164,8 +188,13 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {navigation.map((item) => (
-            <div key={item.name}>
+          {navigation.map((item) => {
+            const canReadModule =
+              !item.module || (isAuthenticated && hasPermission(item.module, "read"));
+            if (!canReadModule) return null;
+
+            return (
+              <div key={item.name}>
               {item.submenu ? (
                 <>
                   <button
@@ -221,8 +250,9 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
                   {item.name}
                 </Link>
               )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Bottom Navigation */}

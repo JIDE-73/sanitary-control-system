@@ -1,8 +1,7 @@
 "use client";
 
-import { Bell, ChevronLeft, Menu, Search, User } from "lucide-react";
+import { Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth/auth-context";
 
 interface HeaderProps {
   isSidebarOpen: boolean;
@@ -18,6 +19,18 @@ interface HeaderProps {
 }
 
 export function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
+  const router = useRouter();
+  const { user, logout } = useAuth();
+
+  const displayName =
+    user?.persona?.nombre || user?.nombre_usuario || "Usuario";
+  const displayEmail = user?.persona?.email || "";
+
+  const handleLogout = () => {
+    logout();
+    router.push("/");
+  };
+
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-end border-b border-border bg-card px-6 pr-6">
       {/* Actions */}
@@ -38,17 +51,22 @@ export function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">Administrador</p>
-                <p className="text-xs text-muted-foreground">
-                  admin@salud.gob.mx
-                </p>
+                <p className="text-sm font-medium">{displayName}</p>
+                {displayEmail ? (
+                  <p className="text-xs text-muted-foreground">
+                    {displayEmail}
+                  </p>
+                ) : null}
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>Mi Perfil</DropdownMenuItem>
             <DropdownMenuItem>Preferencias</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={handleLogout}
+            >
               Cerrar Sesión
             </DropdownMenuItem>
           </DropdownMenuContent>

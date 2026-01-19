@@ -5,8 +5,12 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { ExamenesTable } from "@/components/examenes/examenes-table";
 import { Button } from "@/components/ui/button";
 import { TestTube } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-context";
 
 export default function ExamenesPage() {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("examenes_cs", "create");
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -19,12 +23,14 @@ export default function ExamenesPage() {
               Historial y seguimiento de exámenes de laboratorio
             </p>
           </div>
-          <Link href="/examenes/nuevo">
-            <Button>
-              <TestTube className="mr-2 h-4 w-4" />
-              Ordenar Examen
-            </Button>
-          </Link>
+          {canCreate && (
+            <Link href="/examenes/nuevo">
+              <Button>
+                <TestTube className="mr-2 h-4 w-4" />
+                Ordenar Examen
+              </Button>
+            </Link>
+          )}
         </div>
 
         <ExamenesTable />

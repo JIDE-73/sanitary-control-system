@@ -14,10 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { request } from "@/lib/request";
+import { useAuth } from "@/components/auth/auth-context";
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { setUserFromLoginResponse } = useAuth();
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -66,6 +68,9 @@ export default function LoginPage() {
         });
         return;
       }
+
+      // Guardar información de usuario y permisos
+      setUserFromLoginResponse(response);
 
       toast({
         title: response?.message || "Sesión iniciada",

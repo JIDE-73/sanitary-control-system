@@ -338,3 +338,37 @@ export interface LaboratorioListado {
   certificado_organismo: boolean;
   email_contacto: string;
 }
+
+// Autenticación y permisos
+
+export type PermissionAction = "create" | "read" | "update" | "delete";
+
+export type ModulePermissionMap = {
+  [module: string]: PermissionAction[];
+};
+
+export interface RolePermissions {
+  modulos: ModulePermissionMap;
+  sistema?: ModulePermissionMap;
+}
+
+export interface AuthUserPersona {
+  Medico: any | null;
+  nombre: string;
+  apellido_materno: string;
+  apellido_paterno: string;
+  direccion: string;
+  email: string;
+}
+
+export interface AuthUser {
+  id: string;
+  nombre_usuario: string;
+  activo: boolean;
+  rol: {
+    id: string;
+    nombre: string;
+    permisos: RolePermissions;
+  };
+  persona: AuthUserPersona;
+}
