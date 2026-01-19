@@ -549,7 +549,6 @@ export function FormCertificado({
             <div className="flex gap-2">
               <Input
                 id="persona_id"
-                placeholder="ID, CURP o nombre completo"
                 value={formData.persona_id}
                 onChange={(e) =>
                   handleInputChange("persona_id", e.target.value)
@@ -571,7 +570,6 @@ export function FormCertificado({
             <div className="flex gap-2">
               <Input
                 id="medico_id"
-                placeholder="ID, cédula o nombre del médico"
                 value={formData.medico_id}
                 onChange={(e) => handleInputChange("medico_id", e.target.value)}
                 required
@@ -610,7 +608,6 @@ export function FormCertificado({
             <Label htmlFor="nombre">Nombre completo *</Label>
             <Input
               id="nombre"
-              placeholder="Nombre de la persona"
               value={formData.nombre}
               onChange={(e) => handleInputChange("nombre", e.target.value)}
               required
@@ -620,7 +617,6 @@ export function FormCertificado({
             <Label htmlFor="identifica_con">Se identifica con</Label>
             <Input
               id="identifica_con"
-              placeholder="Documento presentado"
               value={formData.identifica_con}
               onChange={(e) =>
                 handleInputChange("identifica_con", e.target.value)
@@ -644,7 +640,7 @@ export function FormCertificado({
               onValueChange={(value) => handleInputChange("genero", value)}
             >
               <SelectTrigger id="genero">
-                <SelectValue placeholder="Seleccionar género" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="masculino">Masculino</SelectItem>
@@ -657,7 +653,6 @@ export function FormCertificado({
             <Label htmlFor="nacionalidad">Nacionalidad</Label>
             <Input
               id="nacionalidad"
-              placeholder="Nacionalidad"
               value={formData.nacionalidad}
               onChange={(e) =>
                 handleInputChange("nacionalidad", e.target.value)
@@ -700,7 +695,6 @@ export function FormCertificado({
             <Label htmlFor="direccion">Domicilio</Label>
             <Input
               id="direccion"
-              placeholder="Dirección de residencia"
               value={formData.direccion}
               onChange={(e) => handleInputChange("direccion", e.target.value)}
             />
@@ -717,13 +711,16 @@ export function FormCertificado({
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Input
-              placeholder="Estado de conciencia"
-              value={formData.estado_conciencia}
-              onChange={(e) =>
-                handleInputChange("estado_conciencia", e.target.value)
-              }
-            />
+            <div className="space-y-2">
+              <Label htmlFor="estado_conciencia">Estado de conciencia</Label>
+              <Input
+                id="estado_conciencia"
+                value={formData.estado_conciencia}
+                onChange={(e) =>
+                  handleInputChange("estado_conciencia", e.target.value)
+                }
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="aliento">Aliento</Label>
               <Select
@@ -731,7 +728,7 @@ export function FormCertificado({
                 onValueChange={(value) => handleInputChange("aliento", value)}
               >
                 <SelectTrigger id="aliento">
-                  <SelectValue placeholder="Selecciona el tipo de aliento" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="alcoholico">Alcohólico</SelectItem>
@@ -741,27 +738,36 @@ export function FormCertificado({
                 </SelectContent>
               </Select>
             </div>
-            <Input
-              placeholder="Equilibrio a la marcha"
-              value={formData.equilibrio_marcha}
-              onChange={(e) =>
-                handleInputChange("equilibrio_marcha", e.target.value)
-              }
-            />
-            <Input
-              placeholder="Equilibrio vertical de reposo"
-              value={formData.equilibrio_vertical}
-              onChange={(e) =>
-                handleInputChange("equilibrio_vertical", e.target.value)
-              }
-            />
-            <Input
-              placeholder="Levantar objetos del piso"
-              value={formData.levantar_objetos}
-              onChange={(e) =>
-                handleInputChange("levantar_objetos", e.target.value)
-              }
-            />
+            <div className="space-y-2">
+              <Label htmlFor="equilibrio_marcha">Equilibrio a la marcha</Label>
+              <Input
+                id="equilibrio_marcha"
+                value={formData.equilibrio_marcha}
+                onChange={(e) =>
+                  handleInputChange("equilibrio_marcha", e.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="equilibrio_vertical">Equilibrio vertical de reposo</Label>
+              <Input
+                id="equilibrio_vertical"
+                value={formData.equilibrio_vertical}
+                onChange={(e) =>
+                  handleInputChange("equilibrio_vertical", e.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="levantar_objetos">Levantar objetos del piso</Label>
+              <Input
+                id="levantar_objetos"
+                value={formData.levantar_objetos}
+                onChange={(e) =>
+                  handleInputChange("levantar_objetos", e.target.value)
+                }
+              />
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -909,40 +915,58 @@ export function FormCertificado({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Input
-              placeholder="Facies"
-              value={formData.facies}
-              onChange={(e) => handleInputChange("facies", e.target.value)}
-            />
-            <Input
-              placeholder="Vómito"
-              value={formData.vomito}
-              onChange={(e) => handleInputChange("vomito", e.target.value)}
-            />
-            <Input
-              placeholder="Conjuntivas"
-              value={formData.conjuntivas}
-              onChange={(e) => handleInputChange("conjuntivas", e.target.value)}
-            />
-            <Input
-              placeholder="Signo de Romberg"
-              value={formData.signo_romberg}
-              onChange={(e) =>
-                handleInputChange("signo_romberg", e.target.value)
-              }
-            />
-            <Input
-              placeholder="Prueba de tándem"
-              value={formData.prueba_tandem}
-              onChange={(e) =>
-                handleInputChange("prueba_tandem", e.target.value)
-              }
-            />
-            <Input
-              placeholder="Pupilas"
-              value={formData.pupilas}
-              onChange={(e) => handleInputChange("pupilas", e.target.value)}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="facies">Facies</Label>
+              <Input
+                id="facies"
+                value={formData.facies}
+                onChange={(e) => handleInputChange("facies", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vomito">Vómito</Label>
+              <Input
+                id="vomito"
+                value={formData.vomito}
+                onChange={(e) => handleInputChange("vomito", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="conjuntivas">Conjuntivas</Label>
+              <Input
+                id="conjuntivas"
+                value={formData.conjuntivas}
+                onChange={(e) => handleInputChange("conjuntivas", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="signo_romberg">Signo de Romberg</Label>
+              <Input
+                id="signo_romberg"
+                value={formData.signo_romberg}
+                onChange={(e) =>
+                  handleInputChange("signo_romberg", e.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prueba_tandem">Prueba de tándem</Label>
+              <Input
+                id="prueba_tandem"
+                value={formData.prueba_tandem}
+                onChange={(e) =>
+                  handleInputChange("prueba_tandem", e.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pupilas">Pupilas</Label>
+              <Input
+                id="pupilas"
+                value={formData.pupilas}
+                onChange={(e) => handleInputChange("pupilas", e.target.value)}
+              />
+            </div>
           </div>
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
@@ -1109,7 +1133,6 @@ export function FormCertificado({
             <Label htmlFor="temperatura">Temperatura</Label>
             <Input
               id="temperatura"
-              placeholder="Temperatura"
               value={formData.temperatura}
               onChange={(e) => handleInputChange("temperatura", e.target.value)}
             />
@@ -1131,7 +1154,6 @@ export function FormCertificado({
               </Label>
               <Input
                 id="determinacion_alcohol"
-                placeholder="Ej. 0.85 Br AC"
                 value={formData.determinacion_alcohol}
                 onChange={(e) =>
                   handleInputChange("determinacion_alcohol", e.target.value)
@@ -1142,7 +1164,6 @@ export function FormCertificado({
               <Label htmlFor="observacion">Observación</Label>
               <Input
                 id="observacion"
-                placeholder="Impacto en la capacidad para conducir"
                 value={formData.observacion}
                 onChange={(e) =>
                   handleInputChange("observacion", e.target.value)
@@ -1186,13 +1207,12 @@ export function FormCertificado({
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-2">
+            <div className="space-y-2">
             <Label htmlFor="determinacion_alcohol1">
               Resultado de alcoholímetro
             </Label>
             <Input
               id="determinacion_alcohol1"
-              placeholder="Determinación de alcohol"
               value={formData.determinacion_alcohol1}
               onChange={(e) =>
                 handleInputChange("determinacion_alcohol1", e.target.value)
