@@ -528,7 +528,7 @@ export function FormCertificado({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="h-5 w-5 text-primary" />
-            1. Metadatos / Identificación general
+            DATOS DE IDENTIFICACIÓN DEL PACIENTE
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -601,7 +601,7 @@ export function FormCertificado({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">2. Datos del paciente</CardTitle>
+          <CardTitle className="text-lg">DATOS DE IDENTIFICACIÓN DEL PACIENTE</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
@@ -706,7 +706,7 @@ export function FormCertificado({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <User className="h-5 w-5 text-primary" />
-            3. Exploración física – Estado general
+            CARACTERÍSTICAS DEL HABLA
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -814,7 +814,7 @@ export function FormCertificado({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            4. Exploración física – Coordinación / Caídas
+            PRUEBA DE COORDINACIÓN DIGITAL CON AMBAS MANOS
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -910,7 +910,7 @@ export function FormCertificado({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            5. Exploración física – Signos neurológicos
+            EXPLORACIÓN FÍSICA
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1003,7 +1003,7 @@ export function FormCertificado({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            6. Coordinación digital (dedo–dedo / dedo–nariz)
+            PRUEBA DE COORDINACIÓN DIGITAL CON AMBAS MANOS
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -1046,7 +1046,7 @@ export function FormCertificado({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">7. Habla</CardTitle>
+          <CardTitle className="text-lg">CARACTERÍSTICAS DEL HABLA</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4">
           {[
@@ -1143,7 +1143,7 @@ export function FormCertificado({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            9. Alcoholemia y observaciones
+            OBSERVACIONES
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1203,7 +1203,7 @@ export function FormCertificado({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            10. Resultado de alcoholímetro
+            PRUEBAS DE RESULTADO DE ALCOHOLÍMETRO
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -1259,7 +1259,7 @@ export function FormCertificado({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">11. Cuadro clínico</CardTitle>
+          <CardTitle className="text-lg">EN BASE A LO ANTERIORMENTE EXPUESTO, EL CIUDADANO PRESENTA UN CUADRO CLÍNICO DE:</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="flex items-center gap-2">
@@ -1321,7 +1321,7 @@ export function FormCertificado({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">12. Solicitante</CardTitle>
+          <CardTitle className="text-lg">DATOS DE IDENTIFICACIÓN DEL SOLICITANTE</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
@@ -1382,7 +1382,7 @@ export function FormCertificado({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">13. Vehículo</CardTitle>
+          <CardTitle className="text-lg">DATOS COMPLEMENTARIOS</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
