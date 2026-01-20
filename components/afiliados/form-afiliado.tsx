@@ -25,7 +25,8 @@ import type {
   GeneroBackend,
   LugarTrabajo,
 } from "@/lib/types";
-import { request } from "@/lib/request";
+import { request1, uploadRequest } from "@/lib/request";
+import { AvatarUpload } from "./avatar-upload";
 
 const MEXICO_STATES = [
   "Aguascalientes",
@@ -148,6 +149,7 @@ export function FormAfiliado({
       : "",
     acta_nacimiento: Boolean(afiliadoData?.actaNacimiento),
     estatus: (afiliadoData?.estatus as EstatusAfiliadoBackend | undefined) ?? "VIGENTE",
+    avatar: afiliadoData?.avatar ?? undefined,
   });
 
   const [formData, setFormData] = useState<AffiliatePayload>(() =>
@@ -177,27 +179,8 @@ export function FormAfiliado({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload: AffiliatePayload = {
-      ...formData,
-      curp: formData.curp.trim().toUpperCase(),
-      nombre: formData.nombre.trim(),
-      apellido_paterno: formData.apellido_paterno.trim(),
-      apellido_materno: formData.apellido_materno?.trim() || undefined,
-      direccion: formData.direccion.trim(),
-      telefono: formData.telefono.trim(),
-      email: formData.email?.trim() || undefined,
-      lugar_procedencia: formData.lugar_procedencia.trim(),
-      estado_civil: formData.estado_civil,
-      lugar_trabajo: formData.lugar_trabajo,
-      fecha_nacimiento: formData.fecha_nacimiento,
-      fecha_inicio: formData.fecha_inicio,
-      fecha_inicio_tijuana: formData.fecha_inicio_tijuana,
-      acta_nacimiento: Boolean(formData.acta_nacimiento),
-      genero: formData.genero,
-      estatus: formData.estatus,
-    };
 
-    if (!payload.lugar_trabajo) {
+    if (!formData.lugar_trabajo) {
       console.error("Selecciona un lugar de trabajo válido");
       return;
     }
@@ -207,14 +190,88 @@ export function FormAfiliado({
       const endpoint = isEdit
         ? `/sics/affiliates/updateAffiliate/${afiliado?.id}`
         : "/sics/affiliates/createAffiliate";
-      const method = isEdit ? "PUT" : "POST";
-      const response = await request(endpoint, method, payload);
 
-      if (response.status >= 200 && response.status < 300) {
-        onSubmit(payload);
-        router.push(`/afiliados`);
+      // Si hay un archivo de avatar, usar FormData
+      if (formData.avatar instanceof File) {
+        const formDataToSend = new FormData();
+        
+        // Agregar todos los campos del formulario
+        formDataToSend.append("curp", formData.curp.trim().toUpperCase());
+        formDataToSend.append("nombre", formData.nombre.trim());
+        formDataToSend.append("apellido_paterno", formData.apellido_paterno.trim());
+        if (formData.apellido_materno?.trim()) {
+          formDataToSend.append("apellido_materno", formData.apellido_materno.trim());
+        }
+        formDataToSend.append("fecha_nacimiento", formData.fecha_nacimiento);
+        formDataToSend.append("genero", formData.genero);
+        formDataToSend.append("direccion", formData.direccion.trim());
+        formDataToSend.append("telefono", formData.telefono.trim());
+        if (formData.email?.trim()) {
+          formDataToSend.append("email", formData.email.trim());
+        }
+        formDataToSend.append("lugar_procedencia", formData.lugar_procedencia.trim());
+        formDataToSend.append("estado_civil", formData.estado_civil);
+        formDataToSend.append("lugar_trabajo", formData.lugar_trabajo);
+        formDataToSend.append("fecha_inicio", formData.fecha_inicio);
+        formDataToSend.append("fecha_inicio_tijuana", formData.fecha_inicio_tijuana);
+        formDataToSend.append("acta_nacimiento", String(formData.acta_nacimiento));
+        formDataToSend.append("estatus", formData.estatus);
+        
+        // Agregar el archivo de imagen
+        formDataToSend.append("avatar", formData.avatar);
+
+        // Para edición, necesitamos usar PUT, pero uploadRequest solo hace POST
+        // Necesitamos hacer un fetch personalizado para PUT con FormData
+        const baseUrl = `${process.env.NEXT_PUBLIC_URL}`;
+        const response = isEdit
+          ? await fetch(`${baseUrl}${endpoint}`, {
+              method: "PUT",
+              body: formDataToSend,
+              credentials: "include",
+            }).then(async (res) => ({
+              status: res.status,
+              ...(await res.json()),
+            }))
+          : await uploadRequest(endpoint, formDataToSend);
+
+        if (response.status >= 200 && response.status < 300) {
+          onSubmit(formData);
+          router.push(`/afiliados`);
+        } else {
+          console.error(response.message || "No se pudo registrar el afiliado");
+        }
       } else {
-        console.error(response.message || "No se pudo registrar el afiliado");
+        // Si no hay archivo, usar el método normal con JSON
+        const payload: AffiliatePayload = {
+          ...formData,
+          curp: formData.curp.trim().toUpperCase(),
+          nombre: formData.nombre.trim(),
+          apellido_paterno: formData.apellido_paterno.trim(),
+          apellido_materno: formData.apellido_materno?.trim() || undefined,
+          direccion: formData.direccion.trim(),
+          telefono: formData.telefono.trim(),
+          email: formData.email?.trim() || undefined,
+          lugar_procedencia: formData.lugar_procedencia.trim(),
+          estado_civil: formData.estado_civil,
+          lugar_trabajo: formData.lugar_trabajo,
+          fecha_nacimiento: formData.fecha_nacimiento,
+          fecha_inicio: formData.fecha_inicio,
+          fecha_inicio_tijuana: formData.fecha_inicio_tijuana,
+          acta_nacimiento: Boolean(formData.acta_nacimiento),
+          genero: formData.genero,
+          estatus: formData.estatus,
+          avatar: typeof formData.avatar === "string" ? formData.avatar : undefined,
+        };
+
+        const method = isEdit ? "PUT" : "POST";
+        const response = await request1(endpoint, method, payload);
+
+        if (response.status >= 200 && response.status < 300) {
+          onSubmit(payload);
+          router.push(`/afiliados`);
+        } else {
+          console.error(response.message || "No se pudo registrar el afiliado");
+        }
       }
     } catch (error) {
       console.error("Error al enviar el formulario de afiliado", error);
@@ -366,6 +423,13 @@ export function FormAfiliado({
                 <SelectItem value="CANCELACION_DEFINITIVA">Cancelación Definitiva</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2 lg:col-span-3">
+            <AvatarUpload
+              value={formData.avatar}
+              onChange={(file) => handleChange("avatar", file || undefined)}
+              label="Avatar"
+            />
           </div>
         </CardContent>
       </Card>

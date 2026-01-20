@@ -28,6 +28,7 @@ export interface AffiliatePayload {
   fecha_inicio_tijuana: string;
   acta_nacimiento: boolean;
   estatus: EstatusAfiliadoBackend;
+  avatar?: File | string;
 }
 
 export type NivelRiesgo = "BAJO" | "MEDIO" | "ALTO";
@@ -113,6 +114,7 @@ export interface Afiliado {
   fechaInicio?: string;
   fechaInicioTijuana?: string;
   actaNacimiento?: boolean;
+  avatar?: string;
   // Fechas del sistema
   fechaRegistro: string;
   fechaActualizacion: string;

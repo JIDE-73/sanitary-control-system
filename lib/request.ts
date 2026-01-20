@@ -19,6 +19,19 @@ const request = async (url: string, method: string, body?: any) => {
   return { status: response.status, ...(await response.json()) };
 };
 
+const request1 = async (url: string, method: string, body?: any) => {
+  const hasJsonBody = body !== undefined && method !== "GET";
+
+  const response = await fetch(`${baseUrl}${url}`, {
+    method,
+    body: hasJsonBody ? JSON.stringify(body) : undefined,
+    credentials: "include",
+  });
+
+  // Preserve HTTP status even if API payload includes its own `status` field
+  return { status: response.status, ...(await response.json()) };
+};
+
 const uploadRequest = async (url: string, formData: FormData) => {
   const response = await fetch(`${baseUrl}${url}`, {
     method: "POST",
@@ -30,4 +43,4 @@ const uploadRequest = async (url: string, formData: FormData) => {
   return { ...data, status: response.status };
 };
 
-export { request, uploadRequest };
+export { request, request1, uploadRequest };
