@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { request } from "@/lib/request";
-import { Eye, Edit, IdCard, Loader2, RefreshCcw, Trash2 } from "lucide-react";
+import { Eye, Edit, IdCard, Loader2, RefreshCcw, Trash2, FolderOpen } from "lucide-react";
+import { ExpedienteDialog } from "./expediente-dialog";
 
 export interface AfiliadoListado {
   id: string;
@@ -90,6 +91,8 @@ export function AfiliadosTable({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isReloading, setIsReloading] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [expedienteOpen, setExpedienteOpen] = useState(false);
+  const [selectedAfiliado, setSelectedAfiliado] = useState<AfiliadoListado | null>(null);
   const reloadRef = useRef<(() => Promise<void> | void) | undefined>(onReload);
 
   useEffect(() => {
@@ -194,6 +197,11 @@ export function AfiliadosTable({
     router.push(`/afiliados/${identifier}/credencial`);
   };
 
+  const handleExpediente = (afiliado: AfiliadoListado) => {
+    setSelectedAfiliado(afiliado);
+    setExpedienteOpen(true);
+  };
+
   return (
     <div className="rounded-lg border border-border">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -280,12 +288,20 @@ export function AfiliadosTable({
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Ver expediente de archivos"
+                      onClick={() => handleExpediente(afiliado)}
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                    </Button>
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
-                          title="Ver expediente"
+                          title="Ver información"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -556,6 +572,14 @@ export function AfiliadosTable({
           )}
         </TableBody>
       </Table>
+      
+      {selectedAfiliado && (
+        <ExpedienteDialog
+          afiliado={selectedAfiliado}
+          open={expedienteOpen}
+          onOpenChange={setExpedienteOpen}
+        />
+      )}
     </div>
   );
 }
