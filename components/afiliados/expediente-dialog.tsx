@@ -17,20 +17,33 @@ import { request, uploadRequest } from "@/lib/request";
 import {
   Upload,
   FileText,
-  Image as ImageIcon,
   Loader2,
-  Trash2,
   Download,
   Eye,
+  FileCheck,
+  UserCheck,
+  ClipboardList,
+  Receipt,
+  Trash2,
 } from "lucide-react";
 import type { AfiliadoListado } from "./afiliados-table";
 
-interface ExpedienteFile {
+interface ExpedienteRecord {
   id: string;
-  nombre: string;
-  tipo: string;
-  url: string;
-  fechaSubida?: string;
+  persona_id: string;
+  historia_clinica_file: string;
+  consentimiento_informado_file: string;
+  ficha_identificacion_file: string;
+  recibo_pago_file: string;
+  createdAt: string;
+  updateAt: string;
+}
+
+interface ExpedienteFile {
+  key: "historia_clinica_file" | "consentimiento_informado_file" | "ficha_identificacion_file" | "recibo_pago_file";
+  label: string;
+  icon: typeof FileText;
+  filePath?: string;
 }
 
 interface ExpedienteDialogProps {
@@ -41,37 +54,71 @@ interface ExpedienteDialogProps {
 
 const baseUrl = process.env.NEXT_PUBLIC_URL;
 
+const FILE_TYPES: ExpedienteFile[] = [
+  {
+    key: "historia_clinica_file",
+    label: "Historia Clínica",
+    icon: ClipboardList,
+  },
+  {
+    key: "consentimiento_informado_file",
+    label: "Consentimiento Informado",
+    icon: UserCheck,
+  },
+  {
+    key: "ficha_identificacion_file",
+    label: "Ficha de Identificación",
+    icon: FileCheck,
+  },
+  {
+    key: "recibo_pago_file",
+    label: "Recibo de Pago",
+    icon: Receipt,
+  },
+];
+
 export function ExpedienteDialog({
   afiliado,
   open,
   onOpenChange,
 }: ExpedienteDialogProps) {
   const { toast } = useToast();
-  const [files, setFiles] = useState<ExpedienteFile[]>([]);
+  const [record, setRecord] = useState<ExpedienteRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
+  const [previewFile, setPreviewFile] = useState<string | null>(null);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const loadFiles = async () => {
+  const loadRecord = async () => {
     setLoading(true);
     try {
+      const recordId = record?.id || afiliado.id;
+      
       const response = await request(
-        `/sics/affiliates/getAffiliateFiles/${afiliado.id}`,
+        `/sics/record/getRecordByID/${recordId}`,
         "GET"
       );
 
       if (response.status >= 200 && response.status < 300) {
-        const filesData = response.files || response.data || [];
-        setFiles(Array.isArray(filesData) ? filesData : []);
+        const recordData = response.record || response.data;
+        if (recordData) {
+          setRecord(recordData);
+        } else {
+          setRecord(null);
+        }
+      } else if (response.status === 404) {
+        // No existe el record aún
+        setRecord(null);
       } else {
-        // Si no existe el endpoint aún, usar array vacío
-        setFiles([]);
+        setRecord(null);
       }
     } catch (error) {
-      console.error("Error al cargar archivos", error);
-      setFiles([]);
+      console.error("Error al cargar expediente", error);
+      // Si es un 404, no hay record (es normal para expedientes nuevos)
+      // Para otros errores, mostramos null
+      setRecord(null);
     } finally {
       setLoading(false);
     }
@@ -79,66 +126,52 @@ export function ExpedienteDialog({
 
   useEffect(() => {
     if (open) {
-      loadFiles();
+      loadRecord();
+      setSelectedFiles({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, afiliado.id]);
 
-  const MAX_FILES = 4;
-  
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const currentFilesCount = files.length;
-    const currentSelectedCount = selectedFiles.length;
-    const totalFilesCount = currentFilesCount + currentSelectedCount;
-    const availableSlots = MAX_FILES - totalFilesCount;
-    const canUpload = availableSlots > 0;
-    
-    if (!canUpload) {
+  const handleFileSelect = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    fileKey: string
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Solo permitir PDFs
+    if (file.type !== "application/pdf") {
       toast({
         variant: "destructive",
-        title: "Límite alcanzado",
-        description: "Ya se han alcanzado los 4 archivos permitidos. Elimina uno para subir otro.",
+        title: "Archivo inválido",
+        description: "Solo se permiten archivos PDF.",
       });
       e.target.value = "";
       return;
     }
 
-    const selected = Array.from(e.target.files || []);
-    const validFiles = selected.filter((file) => {
-      const isImage = file.type.startsWith("image/");
-      const isPdf = file.type === "application/pdf";
-      return isImage || isPdf;
-    });
-
-    if (validFiles.length !== selected.length) {
-      toast({
-        variant: "destructive",
-        title: "Archivos inválidos",
-        description: "Solo se permiten imágenes y archivos PDF.",
-      });
-    }
-
-    // Limitar la cantidad de archivos que se pueden seleccionar
-    // Teniendo en cuenta los archivos ya seleccionados
-    const filesToAdd = validFiles.slice(0, availableSlots);
-    
-    if (filesToAdd.length < validFiles.length) {
-      toast({
-        variant: "destructive",
-        title: "Demasiados archivos",
-        description: `Solo puedes seleccionar ${availableSlots} archivo(s) más (total máximo: ${MAX_FILES}). Se han seleccionado ${filesToAdd.length} archivo(s).`,
-      });
-    }
-
-    if (filesToAdd.length > 0) {
-      setSelectedFiles((prev) => [...prev, ...filesToAdd]);
-    }
-    
+    setSelectedFiles((prev) => ({ ...prev, [fileKey]: file }));
     e.target.value = "";
   };
 
-  const handleUpload = async () => {
-    if (selectedFiles.length === 0) {
+  const removeSelectedFile = (fileKey: string) => {
+    setSelectedFiles((prev) => {
+      const newFiles = { ...prev };
+      delete newFiles[fileKey];
+      return newFiles;
+    });
+  };
+
+  const handleUpload = async (fileKey?: string) => {
+    // Si se especifica un fileKey, solo subir ese archivo
+    // Si no, subir todos los archivos seleccionados (4 archivos al mismo tiempo)
+    const filesToUpload = fileKey
+      ? { [fileKey]: selectedFiles[fileKey] }
+      : selectedFiles;
+
+    const fileKeys = Object.keys(filesToUpload);
+    
+    if (fileKeys.length === 0) {
       toast({
         variant: "destructive",
         title: "No hay archivos",
@@ -147,37 +180,72 @@ export function ExpedienteDialog({
       return;
     }
 
-    // Verificar que no se exceda el límite
-    const currentFilesCount = files.length;
-    if (currentFilesCount + selectedFiles.length > MAX_FILES) {
+    // Si no hay fileKey, se deben subir los 4 archivos al mismo tiempo
+    if (!fileKey && fileKeys.length < 4) {
+      const missingFiles = FILE_TYPES.filter(
+        (ft) => !filesToUpload[ft.key]
+      );
       toast({
         variant: "destructive",
-        title: "Límite excedido",
-        description: `Solo puedes tener ${MAX_FILES} archivos. Actualmente tienes ${currentFilesCount} y estás intentando subir ${selectedFiles.length}.`,
+        title: "Archivos incompletos",
+        description: `Debes seleccionar los 4 archivos para crear el expediente completo. Faltan: ${missingFiles.map((f) => f.label).join(", ")}`,
       });
       return;
     }
 
     setUploading(true);
+    if (fileKey) {
+      setUploadingField(fileKey);
+    }
+
     try {
       const formData = new FormData();
-      selectedFiles.forEach((file) => {
-        formData.append("files", file);
-      });
-      formData.append("affiliateId", afiliado.id);
+      formData.append("persona_id", afiliado.id);
 
-      const response = await uploadRequest(
-        `/sics/affiliates/uploadAffiliateFiles`,
-        formData
-      );
+      fileKeys.forEach((key) => {
+        const file = filesToUpload[key];
+        if (file) {
+          formData.append(key, file);
+        }
+      });
+
+      // Si ya existe un record, usar UPDATE (PUT)
+      // Si no existe, usar CREATE (POST)
+      const isUpdate = !!record;
+      const endpoint = isUpdate
+        ? `/sics/updateRecord/${afiliado.id}`
+        : `/sics/record/createRecord`;
+      const method = isUpdate ? "PUT" : "POST";
+
+      const response = await uploadRequest(endpoint, formData, method);
 
       if (response.status >= 200 && response.status < 300) {
         toast({
-          title: "Archivos subidos",
-          description: `${selectedFiles.length} archivo(s) subido(s) correctamente.`,
+          title: isUpdate
+            ? fileKey
+              ? "Archivo actualizado"
+              : "Expediente actualizado"
+            : "Expediente creado",
+          description: isUpdate
+            ? fileKey
+              ? "El archivo fue actualizado correctamente."
+              : "El expediente fue actualizado correctamente."
+            : "El expediente fue creado correctamente.",
         });
-        setSelectedFiles([]);
-        await loadFiles();
+
+        // Si el response incluye el record creado/actualizado, guardarlo
+        const newRecord = response.record || response.data;
+        if (newRecord) {
+          setRecord(newRecord);
+        } else {
+          // Si no viene en el response, recargar
+          await loadRecord();
+        }
+
+        // Limpiar archivos subidos
+        fileKeys.forEach((key) => {
+          removeSelectedFile(key);
+        });
       } else {
         toast({
           variant: "destructive",
@@ -194,83 +262,71 @@ export function ExpedienteDialog({
       });
     } finally {
       setUploading(false);
+      setUploadingField(null);
     }
   };
 
-  const handleDelete = async (fileId: string) => {
-    if (!window.confirm("¿Estás seguro de eliminar este archivo?")) {
+  const handleDownload = (filePath: string, fileName: string) => {
+    const url = getFileUrl(filePath);
+    window.open(url, "_blank");
+  };
+
+  const getFileUrl = (filePath: string) => {
+    return `${baseUrl}/${filePath}`;
+  };
+
+  const handleDelete = async () => {
+    if (!record) {
       return;
     }
 
-    setDeletingId(fileId);
+    // Confirmación con alerta
+    const confirmed = window.confirm(
+      "¿Estás seguro de que deseas eliminar todo el expediente?\n\n" +
+      "Esta acción eliminará permanentemente todos los archivos:\n" +
+      "- Historia Clínica\n" +
+      "- Consentimiento Informado\n" +
+      "- Ficha de Identificación\n" +
+      "- Recibo de Pago\n\n" +
+      "Esta acción no se puede deshacer."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleting(true);
     try {
       const response = await request(
-        `/sics/affiliates/deleteAffiliateFile/${fileId}`,
+        `/sics/record/deleteRecord/${afiliado.id}`,
         "DELETE"
       );
 
       if (response.status >= 200 && response.status < 300) {
         toast({
-          title: "Archivo eliminado",
-          description: "El archivo fue eliminado correctamente.",
+          title: "Expediente eliminado",
+          description: "El expediente fue eliminado correctamente.",
         });
-        await loadFiles();
+        setRecord(null);
+        setSelectedFiles({});
       } else {
         toast({
           variant: "destructive",
           title: "Error al eliminar",
-          description: response?.message || "No se pudo eliminar el archivo.",
+          description: response?.message || "No se pudo eliminar el expediente.",
         });
       }
     } catch (error) {
-      console.error("Error al eliminar archivo", error);
+      console.error("Error al eliminar expediente", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Ocurrió un error al eliminar el archivo.",
+        description: "Ocurrió un error al eliminar el expediente.",
       });
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   };
-
-  const handleDownload = (file: ExpedienteFile) => {
-    window.open(file.url, "_blank");
-  };
-
-  const isImage = (tipo: string) => {
-    return tipo.startsWith("image/");
-  };
-
-  const isPdf = (tipo: string) => {
-    return tipo === "application/pdf" || tipo.includes("pdf");
-  };
-
-  const getFileIcon = (tipo: string) => {
-    if (isImage(tipo)) return ImageIcon;
-    if (isPdf(tipo)) return FileText;
-    return FileText;
-  };
-
-  const removeSelectedFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const getFileUrl = (file: ExpedienteFile) => {
-    // Si la URL ya es completa, usarla directamente
-    if (file.url.startsWith("http")) {
-      return file.url;
-    }
-    // Si es una ruta relativa, construir la URL completa
-    return `${baseUrl}${file.url.startsWith("/") ? "" : "/"}${file.url}`;
-  };
-
-  // Variables para el render - incluyendo archivos seleccionados
-  const currentFilesCount = files.length;
-  const selectedFilesCount = selectedFiles.length;
-  const totalFilesCount = currentFilesCount + selectedFilesCount;
-  const availableSlots = MAX_FILES - totalFilesCount;
-  const canUpload = availableSlots > 0;
 
   return (
     <>
@@ -281,107 +337,49 @@ export function ExpedienteDialog({
               Expediente - {afiliado.nombres} {afiliado.apellidoPaterno}
             </DialogTitle>
             <DialogDescription>
-              Gestiona los archivos del expediente (imágenes y documentos PDF)
+              Gestiona los archivos del expediente médico (todos los documentos deben ser PDF)
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 flex flex-col gap-4 min-h-0">
-            {/* Sección de carga */}
-            <div className="border rounded-lg p-4 space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="file-upload">Agregar archivos</Label>
-                  <span className="text-sm text-muted-foreground">
-                    {totalFilesCount}/{MAX_FILES} espacios ocupados
-                    {selectedFilesCount > 0 && (
-                      <span className="ml-1 text-primary">
-                        ({selectedFilesCount} seleccionado{selectedFilesCount > 1 ? 's' : ''})
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    id="file-upload"
-                    type="file"
-                    accept="image/*,.pdf"
-                    multiple
-                    onChange={handleFileSelect}
-                    className="flex-1"
-                    disabled={!canUpload}
-                  />
-                  <Button
-                    onClick={handleUpload}
-                    disabled={selectedFiles.length === 0 || uploading || !canUpload}
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Subiendo...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Subir
-                      </>
-                    )}
-                  </Button>
-                </div>
-                {!canUpload && (
-                  <p className="text-sm text-muted-foreground">
-                    Límite de {MAX_FILES} archivos alcanzado. Elimina un archivo para subir otro.
-                  </p>
-                )}
-              </div>
-
-              {selectedFiles.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Archivos seleccionados ({selectedFiles.length})</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedFiles.map((file, index) => {
-                      const Icon = getFileIcon(file.type);
-                      return (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md text-sm"
-                        >
-                          <Icon className="h-4 w-4" />
-                          <span className="max-w-[200px] truncate">
-                            {file.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeSelectedFile(index)}
-                            className="ml-1 text-destructive hover:text-destructive/80"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Lista de archivos */}
+            {/* Lista de archivos del expediente */}
             <div className="flex-1 min-h-0 flex flex-col">
               <div className="flex items-center justify-between mb-2">
-                <Label>
-                  Archivos del expediente ({files.length})
-                </Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={loadFiles}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Actualizar"
+                <Label>Archivos del expediente</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadRecord}
+                    disabled={loading || deleting}
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Actualizar"
+                    )}
+                  </Button>
+                  {record && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDelete}
+                      disabled={loading || deleting || uploading}
+                    >
+                      {deleting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Eliminando...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar Expediente
+                        </>
+                      )}
+                    </Button>
                   )}
-                </Button>
+                </div>
               </div>
 
               <ScrollArea className="flex-1 border rounded-lg">
@@ -389,98 +387,162 @@ export function ExpedienteDialog({
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ) : files.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">
-                      No hay archivos en el expediente
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Selecciona archivos arriba para agregarlos
-                    </p>
-                  </div>
                 ) : (
                   <div className="p-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      {files.map((file) => {
-                        const Icon = getFileIcon(file.tipo);
-                        const fileUrl = getFileUrl(file);
-                        const isImg = isImage(file.tipo);
+                    <div className="space-y-4">
+                      {FILE_TYPES.map((fileType) => {
+                        const Icon = fileType.icon;
+                        const filePath = record?.[fileType.key];
+                        const selectedFile = selectedFiles[fileType.key];
+                        const hasFile = !!filePath;
+                        const isUploading = uploadingField === fileType.key;
 
                         return (
                           <div
-                            key={file.id}
-                            className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                            key={fileType.key}
+                            className="border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow"
                           >
-                            {isImg ? (
-                              <div
-                                className="aspect-video bg-muted cursor-pointer relative group"
-                                onClick={() => setPreviewImage(fileUrl)}
-                              >
-                                <img
-                                  src={fileUrl}
-                                  alt={file.nombre}
-                                  className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                  <Eye className="h-8 w-8 text-white" />
-                                </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Icon className="h-5 w-5 text-muted-foreground" />
+                                <Label className="text-base font-medium">
+                                  {fileType.label}
+                                </Label>
                               </div>
-                            ) : (
-                              <div className="aspect-video bg-muted flex items-center justify-center">
-                                <Icon className="h-12 w-12 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div className="p-3 space-y-2">
-                              <p className="text-sm font-medium truncate">
-                                {file.nombre}
-                              </p>
-                              {file.fechaSubida && (
+                              {record?.createdAt && (
                                 <p className="text-xs text-muted-foreground">
-                                  {new Date(file.fechaSubida).toLocaleDateString(
+                                  {new Date(record.createdAt).toLocaleDateString(
                                     "es-MX"
                                   )}
                                 </p>
                               )}
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1"
-                                  onClick={() => handleDownload(file)}
-                                >
-                                  <Download className="h-3 w-3 mr-1" />
-                                  Descargar
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDelete(file.id)}
-                                  disabled={deletingId === file.id}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  {deletingId === file.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              </div>
                             </div>
+
+                            <div className="flex gap-2">
+                              <Input
+                                id={`file-${fileType.key}`}
+                                type="file"
+                                accept=".pdf,application/pdf"
+                                onChange={(e) => handleFileSelect(e, fileType.key)}
+                                className="flex-1"
+                                disabled={uploading || isUploading}
+                              />
+                              <Button
+                                onClick={() => handleUpload(fileType.key)}
+                                disabled={
+                                  !selectedFile || uploading || isUploading
+                                }
+                                size="sm"
+                              >
+                                {isUploading ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Subiendo...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    {hasFile ? "Actualizar" : "Subir"}
+                                  </>
+                                )}
+                              </Button>
+                              {hasFile && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleDownload(
+                                        filePath,
+                                        `${fileType.label}.pdf`
+                                      )
+                                    }
+                                    disabled={uploading}
+                                  >
+                                    <Download className="mr-2 h-3 w-3" />
+                                    Descargar
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPreviewFile(filePath)}
+                                    disabled={uploading}
+                                  >
+                                    <Eye className="mr-2 h-3 w-3" />
+                                    Ver
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+
+                            {selectedFile && (
+                              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm">
+                                <FileText className="h-4 w-4" />
+                                <span className="flex-1 truncate">
+                                  {selectedFile.name}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeSelectedFile(fileType.key)}
+                                  className="text-destructive hover:text-destructive/80"
+                                  disabled={uploading}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            )}
+
+                            {hasFile && (
+                              <p className="text-xs text-muted-foreground">
+                                Archivo existente: {filePath.split("/").pop()}
+                              </p>
+                            )}
                           </div>
                         );
                       })}
-                      {/* Espacios vacíos */}
-                      {Array.from({ length: MAX_FILES - files.length }).map((_, index) => (
-                        <div
-                          key={`empty-${index}`}
-                          className="border-2 border-dashed rounded-lg aspect-video bg-muted/30 flex flex-col items-center justify-center text-muted-foreground"
-                        >
-                          <FileText className="h-12 w-12 mb-2 opacity-30" />
-                          <p className="text-sm opacity-50">Espacio disponible</p>
-                        </div>
-                      ))}
                     </div>
+
+                    {!record && !loading && (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">
+                          No hay expediente creado aún
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Sube los archivos requeridos para crear el expediente
+                        </p>
+                      </div>
+                    )}
+
+                    {Object.keys(selectedFiles).length > 0 && (
+                      <div className="mt-4 pt-4 border-t">
+                        <Button
+                          onClick={() => handleUpload()}
+                          disabled={uploading || Object.keys(selectedFiles).length < 4 || deleting}
+                          className="w-full"
+                          size="lg"
+                        >
+                          {uploading ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {record ? "Actualizando expediente..." : "Creando expediente..."}
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="mr-2 h-4 w-4" />
+                              {record
+                                ? "Actualizar todos los archivos"
+                                : "Crear expediente completo"}
+                            </>
+                          )}
+                        </Button>
+                        {Object.keys(selectedFiles).length < 4 && (
+                          <p className="text-xs text-muted-foreground text-center mt-2">
+                            Selecciona los 4 archivos para crear el expediente completo
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </ScrollArea>
@@ -489,23 +551,26 @@ export function ExpedienteDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Dialog para vista previa de imágenes */}
-      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Vista previa</DialogTitle>
-          </DialogHeader>
-          {previewImage && (
+      {/* Dialog para vista previa de PDF */}
+      {previewFile && (
+        <Dialog
+          open={!!previewFile}
+          onOpenChange={() => setPreviewFile(null)}
+        >
+          <DialogContent className="sm:max-w-4xl max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle>Vista previa</DialogTitle>
+            </DialogHeader>
             <div className="flex items-center justify-center max-h-[70vh]">
-              <img
-                src={previewImage}
-                alt="Vista previa"
-                className="max-w-full max-h-full object-contain rounded-lg"
+              <iframe
+                src={getFileUrl(previewFile)}
+                className="w-full h-[70vh] border rounded-lg"
+                title="Vista previa del archivo"
               />
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

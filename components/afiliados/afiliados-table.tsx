@@ -58,6 +58,7 @@ export interface AfiliadoListado {
   catalogoCiudad?: string;
   catalogoEstado?: string;
   catalogoTelefono?: string;
+  foto?: string | null;
 }
 
 interface AfiliadosTableProps {

@@ -13,48 +13,58 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { request } from "@/lib/request";
 import { ArrowLeft, IdCard, QrCode, RefreshCcw, Download } from "lucide-react";
 
+const baseUrl = process.env.NEXT_PUBLIC_URL;
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-const normalizeAfiliado = (item: any): AfiliadoListado => ({
-  id: String(item?.persona_id ?? item?.persona?.id ?? item?.id ?? ""),
-  noAfiliacion:
-    item?.no_Afiliacion ?? item?.no_afiliacion ?? item?.noAfiliacion,
-  sidmoCodigo: item?.sidmo_codigo ?? null,
-  curp: item?.persona?.curp ?? "",
-  nombres: item?.persona?.nombre ?? "",
-  apellidoPaterno: item?.persona?.apellido_paterno ?? "",
-  apellidoMaterno: item?.persona?.apellido_materno ?? "",
-  genero: (item?.persona?.genero ?? "masculino") as AfiliadoListado["genero"],
-  telefono: item?.persona?.telefono ?? "",
-  ciudad:
-    item?.catalogo?.ciudad ??
-    item?.persona?.ciudad ??
-    item?.lugar_procedencia ??
-    "",
-  lugarTrabajoId:
-    item?.catalogo?.id ?? item?.persona?.catalogo_id ?? item?.lugar_trabajo,
-  lugarTrabajoCodigo: item?.catalogo?.codigo ?? item?.lugar_trabajo,
-  lugarTrabajoNombre: item?.catalogo?.nombre,
-  estatus: (item?.estatus ?? "activo") as AfiliadoListado["estatus"],
-  fechaNacimiento: item?.persona?.fecha_nacimiento,
-  fechaInicio: item?.fecha_inicio,
-  fechaInicioTijuana: item?.fecha_inicio_tijuana,
-  estadoCivil: item?.estado_civil,
-  actaNacimiento: item?.acta_nacimiento,
-  lugarProcedencia: item?.lugar_procedencia,
-  email: item?.persona?.email,
-  direccion: item?.persona?.direccion,
-  fechaRegistro: item?.persona?.created_at,
-  ocupacion: item?.persona?.ocupacion ?? item?.ocupacion,
-  catalogoCalle: item?.catalogo?.calle,
-  catalogoColonia: item?.catalogo?.colonia,
-  catalogoCodigoPostal: item?.catalogo?.codigo_postal,
-  catalogoCiudad: item?.catalogo?.ciudad,
-  catalogoEstado: item?.catalogo?.estado,
-  catalogoTelefono: item?.catalogo?.telefono,
-});
+const normalizeAfiliado = (item: any): AfiliadoListado => {
+  // Normalizar estatus a minúsculas
+  const estatus = item?.estatus 
+    ? (item.estatus.toLowerCase() === "vigente" ? "activo" : item.estatus.toLowerCase())
+    : "activo";
+
+  return {
+    id: String(item?.persona_id ?? item?.persona?.id ?? item?.id ?? ""),
+    noAfiliacion:
+      item?.no_Afiliacion ?? item?.no_afiliacion ?? item?.noAfiliacion,
+    sidmoCodigo: item?.sidmo_codigo ?? null,
+    curp: item?.persona?.curp ?? "",
+    nombres: item?.persona?.nombre ?? "",
+    apellidoPaterno: item?.persona?.apellido_paterno ?? "",
+    apellidoMaterno: item?.persona?.apellido_materno ?? "",
+    genero: (item?.persona?.genero ?? "masculino") as AfiliadoListado["genero"],
+    telefono: item?.persona?.telefono ?? "",
+    ciudad:
+      item?.catalogo?.ciudad ??
+      item?.persona?.ciudad ??
+      item?.lugar_procedencia ??
+      "",
+    lugarTrabajoId:
+      item?.catalogo?.id ?? item?.persona?.catalogo_id ?? item?.lugar_trabajo,
+    lugarTrabajoCodigo: item?.catalogo?.codigo ?? item?.lugar_trabajo,
+    lugarTrabajoNombre: item?.catalogo?.nombre,
+    estatus: estatus as AfiliadoListado["estatus"],
+    fechaNacimiento: item?.persona?.fecha_nacimiento,
+    fechaInicio: item?.fecha_inicio,
+    fechaInicioTijuana: item?.fecha_inicio_tijuana,
+    estadoCivil: item?.estado_civil,
+    actaNacimiento: item?.acta_nacimiento,
+    lugarProcedencia: item?.lugar_procedencia,
+    email: item?.persona?.email,
+    direccion: item?.persona?.direccion,
+    fechaRegistro: item?.persona?.created_at,
+    ocupacion: item?.persona?.ocupacion ?? item?.ocupacion,
+    catalogoCalle: item?.catalogo?.calle,
+    catalogoColonia: item?.catalogo?.colonia,
+    catalogoCodigoPostal: item?.catalogo?.codigo_postal,
+    catalogoCiudad: item?.catalogo?.ciudad,
+    catalogoEstado: item?.catalogo?.estado,
+    catalogoTelefono: item?.catalogo?.telefono,
+    foto: item?.persona?.foto ?? null,
+  };
+};
 
 const extractArray = (response: any) => {
   const candidate = Array.isArray(response?.data)
@@ -94,6 +104,7 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const loadAssetAsDataUrl = async (path: string) => {
@@ -163,6 +174,28 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
       mounted = false;
     };
   }, []);
+
+  // Cargar foto del afiliado cuando cambie
+  useEffect(() => {
+    let mounted = true;
+    const loadPhoto = async () => {
+      if (!afiliado?.foto) {
+        setPhotoDataUrl(null);
+        return;
+      }
+
+      const photoUrl = `${baseUrl}/${afiliado.foto}`;
+      const photo = await loadAssetAsDataUrl(photoUrl);
+      
+      if (!mounted) return;
+      setPhotoDataUrl(photo);
+    };
+
+    loadPhoto();
+    return () => {
+      mounted = false;
+    };
+  }, [afiliado?.foto]);
 
   const fullName = useMemo(() => {
     if (!afiliado) return "";
@@ -277,6 +310,15 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
     doc.setDrawColor(160, 170, 185);
     doc.setLineWidth(1);
     doc.roundedRect(photoX, photoY, photoW, photoH, 6, 6);
+    
+    // Agregar la foto del afiliado si está disponible
+    if (photoDataUrl) {
+      try {
+        doc.addImage(photoDataUrl, "JPEG", photoX + 2, photoY + 2, photoW - 4, photoH - 4, undefined, "FAST");
+      } catch (error) {
+        console.warn("No se pudo agregar la foto al PDF", error);
+      }
+    }
 
     // Datos del afiliado
     let infoX = photoX + photoW + 16;
@@ -443,8 +485,18 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-start">
-                <div className="flex h-48 w-36 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/50 bg-muted/30 px-3 text-center text-xs text-muted-foreground">
-                  Espacio reservado para la fotografía del afiliado
+                <div className="relative flex h-48 w-36 items-center justify-center overflow-hidden rounded-lg border-2 border-muted-foreground/50 bg-muted/30">
+                  {photoDataUrl ? (
+                    <img
+                      src={photoDataUrl}
+                      alt={`Foto de ${fullName}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="px-3 text-center text-xs text-muted-foreground">
+                      Espacio reservado para la fotografía del afiliado
+                    </div>
+                  )}
                 </div>
                 <div className="grid flex-1 grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                   <div>
