@@ -208,7 +208,10 @@ export function NotasMedicasTable({
               <div>
                 <p className="text-muted-foreground">Fecha</p>
                 <p className="font-medium">
-                  {`${selectedNota?.consulta_fecha}`}
+                  {selectedNota?.consulta_fecha? new Date(selectedNota.consulta_fecha).toLocaleDateString(
+                            "es-MX"
+                          )
+                        : "-"}
                 </p>
               </div>
               <div>
