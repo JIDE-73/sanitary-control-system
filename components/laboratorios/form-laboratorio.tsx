@@ -89,10 +89,11 @@ export function FormLaboratorio({
       return;
     }
 
-    if (payload.rfc.length < 12 || payload.rfc.length > 13) {
+    const rfcRegex = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/;
+    if (!rfcRegex.test(payload.rfc)) {
       toast({
         title: "RFC inválido",
-        description: "Debe contener 12 o 13 caracteres alfanuméricos",
+        description: "El RFC debe tener el formato correcto: 3-4 letras, 6 dígitos y 3 caracteres alfanuméricos (12 o 13 caracteres total)",
         variant: "destructive",
       });
       return;
@@ -163,7 +164,7 @@ export function FormLaboratorio({
               placeholder="FVKD097865RS9"
               minLength={12}
               maxLength={13}
-              pattern="[A-Z0-9]{12,13}"
+              pattern="[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}"
               required
             />
           </div>
