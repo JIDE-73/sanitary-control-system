@@ -1,6 +1,7 @@
 import { MainLayout } from "@/components/layout/main-layout";
 import { StatsCards } from "@/components/dashboard/stats-cards";
-import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { StatisticsCharts } from "@/components/dashboard/statistics-charts";
+import { TestResultsChart } from "@/components/dashboard/test-results-chart";
 import { CertificatesExpiring } from "@/components/dashboard/certificates-expiring";
 import { RequireModuleAccess } from "@/components/auth/auth-context";
 
@@ -20,11 +21,14 @@ export default function DashboardPage() {
           {/* Stats */}
           <StatsCards />
 
-          {/* Main Content Grid */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <RecentActivity />
-            <CertificatesExpiring />
-          </div>
+          {/* Statistics Charts */}
+          <StatisticsCharts />
+
+          {/* Test Results Charts */}
+          <TestResultsChart />
+
+          {/* Certificates Expiring */}
+
         </div>
       </MainLayout>
     </RequireModuleAccess>
