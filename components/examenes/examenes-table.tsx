@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Table,
   TableBody,
@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Info } from "lucide-react";
+import { TestTube, User } from "lucide-react";
 import { request } from "@/lib/request";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -20,9 +20,19 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const ESTATUS_OPCIONES = ["positivo", "negativo", "pendiente"] as const;
+type Estatus = (typeof ESTATUS_OPCIONES)[number];
 
 type ExamItem = {
   id: string;
@@ -30,6 +40,7 @@ type ExamItem = {
   fechaOrden?: string;
   fechaProximoExamen?: string;
   dilucionVDRL?: string;
+  estatus?: string;
 };
 
 type AfiliadoExamen = {
@@ -64,9 +75,24 @@ const extractArray = (response: any) => {
     ) {
       return [candidate];
     }
+    if ("exams" in candidate && Array.isArray((candidate as any).exams)) {
+      return (candidate as any).exams;
+    }
   }
 
   return [];
+};
+
+const mapExamen = (ex: any): ExamItem => {
+  const estatus = ex?.estatus ?? ex?.dilucion_VDRL;
+  return {
+    id: ex?.id ?? crypto.randomUUID(),
+    examenId: ex?.examen ?? ex?.examenId,
+    fechaOrden: ex?.fecha_orden ?? ex?.fechaOrden,
+    fechaProximoExamen: ex?.fecha_proximo_examen ?? ex?.fechaProximoExamen,
+    dilucionVDRL: estatus ?? ex?.dilucion_VDRL,
+    estatus: estatus ?? ex?.dilucion_VDRL,
+  };
 };
 
 const normalizeAfiliado = (item: any): AfiliadoExamen => {
@@ -78,13 +104,9 @@ const normalizeAfiliado = (item: any): AfiliadoExamen => {
     .trim();
 
   const examenes = Array.isArray(persona.Examen)
-    ? persona.Examen.map((ex: any) => ({
-        id: ex?.id ?? crypto.randomUUID(),
-        examenId: ex?.examen,
-        fechaOrden: ex?.fecha_orden,
-        fechaProximoExamen: ex?.fecha_proximo_examen,
-        dilucionVDRL: ex?.dilucion_VDRL,
-      }))
+    ? persona.Examen.map(mapExamen)
+    : Array.isArray(item?.examenes)
+    ? (item.examenes as any[]).map(mapExamen)
     : [];
 
   return {
@@ -102,21 +124,17 @@ export function ExamenesTable() {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [afiliados, setAfiliados] = useState<AfiliadoExamen[]>([]);
-
-  const rows = useMemo(
-    () =>
-      afiliados.flatMap((afiliado) =>
-        afiliado.examenes.map((examen) => ({ afiliado, examen }))
-      ),
-    [afiliados]
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [modalAfiliado, setModalAfiliado] = useState<AfiliadoExamen | null>(
+    null
   );
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async (): Promise<AfiliadoExamen[]> => {
     const term = searchQuery.trim();
     setHasSearched(true);
     if (!term) {
       setAfiliados([]);
-      return;
+      return [];
     }
 
     setLoading(true);
@@ -135,6 +153,7 @@ export function ExamenesTable() {
           description: "No se encontraron afiliados para ese criterio.",
         });
       }
+      return normalizados;
     } catch (error) {
       console.error("Error al buscar afiliado", error);
       toast({
@@ -143,8 +162,48 @@ export function ExamenesTable() {
         variant: "destructive",
       });
       setAfiliados([]);
+      return [];
     } finally {
       setLoading(false);
+    }
+  }, [searchQuery, toast]);
+
+  const updateExamStatus = async (
+    examenId: string,
+    estatus: Estatus,
+    afiliadoId: string
+  ) => {
+    setUpdatingStatusId(examenId);
+    try {
+      const url = `/sics/exams/updateExam/${encodeURIComponent(examenId)}`;
+      const response = await request(url, "PUT", { estatus });
+
+      if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Estatus actualizado",
+          description: "El examen se actualizó correctamente.",
+        });
+        const next = await handleSearch();
+        if (modalAfiliado?.id === afiliadoId) {
+          const updated = next.find((a) => a.id === afiliadoId);
+          if (updated) setModalAfiliado(updated);
+        }
+      } else {
+        toast({
+          title: "No se pudo actualizar",
+          description: response.message || "Intenta nuevamente en unos momentos.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error al actualizar estatus", error);
+      toast({
+        title: "Error al actualizar estatus",
+        description: "No se pudo guardar el cambio. Inténtalo más tarde.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatusId(null);
     }
   };
 
@@ -153,7 +212,7 @@ export function ExamenesTable() {
       <div className="flex flex-col gap-2 rounded-lg border border-border p-4 md:flex-row md:items-center md:gap-3">
         <div className="flex-1">
           <Input
-            placeholder="Buscar por CURP, nombre o # de afiliado"
+            placeholder="Buscar por CURP, número de afiliado, nombre o apellido"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) =>
@@ -168,134 +227,185 @@ export function ExamenesTable() {
 
       {!hasSearched ? (
         <div className="rounded-lg border border-dashed border-border p-6 text-center text-muted-foreground">
-          Busca un afiliado por CURP, nombre o número de afiliación para ver sus
-          exámenes.
+          Busca por CURP, número de afiliado, nombre o apellido para ver los
+          exámenes del afiliado.
         </div>
       ) : null}
 
-      {hasSearched && rows.length === 0 ? (
+      {hasSearched && afiliados.length === 0 ? (
         <div className="rounded-lg border border-border p-6 text-center text-muted-foreground">
-          No se encontraron exámenes para el criterio buscado.
+          No se encontraron afiliados para el criterio buscado.
         </div>
       ) : null}
 
-      {rows.length > 0 ? (
-        <div className="rounded-lg border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha orden</TableHead>
-                <TableHead>Afiliado</TableHead>
-                <TableHead>CURP</TableHead>
-                <TableHead>Examen</TableHead>
-                <TableHead>Dilución VDRL</TableHead>
-                <TableHead>Próximo examen</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map(({ afiliado, examen }) => (
-                <TableRow key={`${afiliado.id}-${examen.id}`}>
-                  <TableCell>
-                    {examen.fechaOrden
-                      ? new Date(examen.fechaOrden).toLocaleDateString("es-MX")
-                      : "-"}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {afiliado.nombreCompleto}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {afiliado.curp || "-"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {examen.examenId || "N/D"}
-                  </TableCell>
-                  <TableCell>
-                    {examen.dilucionVDRL ? (
-                      <Badge
-                        variant={
-                          examen.dilucionVDRL === "negativo"
-                            ? "default"
-                            : "destructive"
-                        }
-                        className={
-                          examen.dilucionVDRL === "negativo"
-                            ? "bg-accent text-accent-foreground"
-                            : ""
-                        }
-                      >
-                        {examen.dilucionVDRL}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">Pendiente</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {examen.fechaProximoExamen
-                      ? new Date(examen.fechaProximoExamen).toLocaleDateString(
-                          "es-MX"
-                        )
-                      : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" title="Ver examen">
-                          <Info className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Detalle del examen</DialogTitle>
-                          <DialogDescription>
-                            Información básica del examen registrado.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-2 text-sm">
-                          <p>
-                            <span className="font-medium">Afiliado: </span>
-                            {afiliado.nombreCompleto}
-                          </p>
-                          <p>
-                            <span className="font-medium">CURP: </span>
-                            {afiliado.curp || "N/D"}
-                          </p>
-                          <p>
-                            <span className="font-medium">Examen ID: </span>
-                            {examen.examenId || examen.id}
-                          </p>
-                          <p>
-                            <span className="font-medium">Fecha orden: </span>
-                            {examen.fechaOrden
-                              ? new Date(examen.fechaOrden).toLocaleDateString(
-                                  "es-MX"
-                                )
-                              : "N/D"}
-                          </p>
-                          <p>
-                            <span className="font-medium">
-                              Próximo examen:{" "}
-                            </span>
-                            {examen.fechaProximoExamen
-                              ? new Date(
-                                  examen.fechaProximoExamen
-                                ).toLocaleDateString("es-MX")
-                              : "N/D"}
-                          </p>
-                          <p>
-                            <span className="font-medium">Dilución VDRL: </span>
-                            {examen.dilucionVDRL || "N/D"}
-                          </p>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      {afiliados.length > 0 ? (
+        <div className="space-y-4">
+          {afiliados.map((afiliado) => (
+            <Card key={afiliado.id}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <User className="h-5 w-5 text-primary" />
+                  {afiliado.nombreCompleto}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2 text-sm md:grid-cols-2">
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      CURP:{" "}
+                    </span>
+                    <span className="font-mono">{afiliado.curp || "N/D"}</span>
+                  </p>
+                  {afiliado.numeroAfiliacion ? (
+                    <p>
+                      <span className="font-medium text-muted-foreground">
+                        No. afiliación:{" "}
+                      </span>
+                      {afiliado.numeroAfiliacion}
+                    </p>
+                  ) : null}
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      Exámenes:{" "}
+                    </span>
+                    {afiliado.examenes.length}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setModalAfiliado(afiliado)}
+                >
+                  <TestTube className="mr-2 h-4 w-4" />
+                  Ver exámenes
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : null}
+
+      <Dialog
+        open={!!modalAfiliado}
+        onOpenChange={(open) => !open && setModalAfiliado(null)}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Exámenes — {modalAfiliado?.nombreCompleto}</DialogTitle>
+            <DialogDescription>
+              Listado de exámenes del afiliado. Puedes actualizar el estatus
+              desde aquí.
+            </DialogDescription>
+          </DialogHeader>
+          {modalAfiliado ? (
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+              <div className="rounded-lg border border-border overflow-auto flex-1">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[150px]">Examen</TableHead>
+                      <TableHead className="min-w-[120px]">Fecha orden</TableHead>
+                      <TableHead className="min-w-[120px]">Próximo examen</TableHead>
+                      <TableHead className="min-w-[100px]">Estatus</TableHead>
+                      <TableHead className="text-right min-w-[180px]">Actualizar</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {modalAfiliado.examenes.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center text-muted-foreground py-8"
+                        >
+                          Sin exámenes registrados.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      modalAfiliado.examenes.map((examen) => {
+                        const s =
+                          examen.estatus ?? examen.dilucionVDRL;
+                        return (
+                          <TableRow key={examen.id}>
+                            <TableCell className="font-medium">
+                              <div className="max-w-[200px] truncate" title={examen.examenId || "N/D"}>
+                                {examen.examenId || "N/D"}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {examen.fechaOrden
+                                ? new Date(
+                                    examen.fechaOrden
+                                  ).toLocaleDateString("es-MX")
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {examen.fechaProximoExamen
+                                ? new Date(
+                                    examen.fechaProximoExamen
+                                  ).toLocaleDateString("es-MX")
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {s ? (
+                                <Badge
+                                  variant={
+                                    s === "negativo" ? "default" : "destructive"
+                                  }
+                                  className={
+                                    s === "negativo"
+                                      ? "bg-accent text-accent-foreground"
+                                      : ""
+                                  }
+                                >
+                                  {s}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">Pendiente</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Select
+                                  value={(s || "") as string}
+                                  onValueChange={(value) =>
+                                    updateExamStatus(
+                                      examen.id,
+                                      value as Estatus,
+                                      modalAfiliado.id
+                                    )
+                                  }
+                                  disabled={updatingStatusId === examen.id}
+                                >
+                                  <SelectTrigger className="w-[130px]">
+                                    <SelectValue placeholder="Estatus" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {ESTATUS_OPCIONES.map((opt) => (
+                                      <SelectItem key={opt} value={opt}>
+                                        {opt.charAt(0).toUpperCase() +
+                                          opt.slice(1)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                {updatingStatusId === examen.id && (
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                    Actualizando…
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

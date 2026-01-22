@@ -27,12 +27,20 @@ function NuevoExamenContent() {
 
     setSubmitting(true);
     try {
+      const fechaOrdenISO = data.fechaOrden
+        ? new Date(`${data.fechaOrden}T00:00:00.000Z`).toISOString()
+        : new Date().toISOString();
+      const fechaProximoISO = data.fechaProximoExamen
+        ? new Date(`${data.fechaProximoExamen}T00:00:00.000Z`).toISOString()
+        : undefined;
+
       const payload = {
-        examen: data.examenId ?? data.tipoExamen,
-        fecha_orden: data.fechaOrden,
-        fecha_proximo_examen: data.fechaProximoExamen || undefined,
-        dilucion_VDRL: data.dilucionVDRL,
-        observaciones: data.observaciones || undefined,
+        examen: (data.examenId ?? data.tipoExamen) as string,
+        fecha_orden: fechaOrdenISO,
+        ...(fechaProximoISO && {
+          fecha_proximo_examen: fechaProximoISO,
+        }),
+        estatus: data.dilucionVDRL as "positivo" | "negativo" | "pendiente",
       };
 
       const response = await request(
