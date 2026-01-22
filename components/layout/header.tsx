@@ -35,10 +35,6 @@ export function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
     <header className="sticky top-0 z-50 flex h-16 items-center justify-end border-b border-border bg-card px-6 pr-6">
       {/* Actions */}
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
-        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -59,9 +55,6 @@ export function Header({ isSidebarOpen, onToggleSidebar }: HeaderProps) {
                 ) : null}
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Mi Perfil</DropdownMenuItem>
-            <DropdownMenuItem>Preferencias</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive"
