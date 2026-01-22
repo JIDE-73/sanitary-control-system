@@ -40,6 +40,8 @@ type LaboratorioCompleto = {
   }>;
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export function LaboratoriosTable({
   laboratorios,
   loading = false,
