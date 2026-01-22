@@ -11,6 +11,7 @@ import React, {
 import type { AuthUser, PermissionAction } from "@/lib/types";
 
 const STORAGE_KEY = "sics-auth-user";
+const TOKEN_KEY = "sics-auth-token";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -81,6 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
       if (typeof window !== "undefined") {
         window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(TOKEN_KEY);
       }
       return;
     }
@@ -88,6 +90,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (typeof window !== "undefined") {
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+        // Guardar el token si viene en la respuesta
+        if (response?.token) {
+          window.localStorage.setItem(TOKEN_KEY, response.token);
+        }
       } catch (error) {
         console.warn("No se pudo guardar la sesión", error);
       }
@@ -98,6 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setUser(null);
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(TOKEN_KEY);
     }
   }, []);
 
@@ -132,6 +139,17 @@ export function useAuth(): AuthContextValue {
     throw new Error("useAuth debe usarse dentro de un AuthProvider");
   }
   return ctx;
+}
+
+// Función helper para obtener el token desde localStorage
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(TOKEN_KEY);
+  } catch (error) {
+    console.warn("No se pudo leer el token", error);
+    return null;
+  }
 }
 
 interface RequireModuleAccessProps {

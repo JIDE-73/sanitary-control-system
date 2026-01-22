@@ -390,3 +390,22 @@ export interface AuthUser {
   };
   persona: AuthUserPersona;
 }
+
+// Bitácora de auditoría
+export interface BitacoraEntry {
+  id: string;
+  usuario_id: string;
+  action: string;
+  ip_address: string;
+  datos_antiguos: any | null;
+  datos_nuevos: any | null;
+  fecha_hora: string;
+  usuario: {
+    nombre_usuario: string;
+    persona: {
+      nombre: string;
+      apellido_paterno: string;
+      apellido_materno: string;
+    };
+  };
+}
