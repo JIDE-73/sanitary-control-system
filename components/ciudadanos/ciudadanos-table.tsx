@@ -403,25 +403,6 @@ export function CiudadanosTable({
                         </dl>
                       </DialogContent>
                     </Dialog>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Eliminar"
-                      aria-label="Eliminar ciudadano"
-                      onClick={() =>
-                        handleDelete(
-                          ciudadano.id,
-                          `${ciudadano.nombres} ${ciudadano.apellidoPaterno}`
-                        )
-                      }
-                      disabled={deletingId === ciudadano.id}
-                    >
-                      {deletingId === ciudadano.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
