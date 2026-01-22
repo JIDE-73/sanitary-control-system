@@ -184,14 +184,16 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
     >
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Shield className="h-5 w-5 text-sidebar-primary-foreground" />
-          </div>
+        <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-4">
+          <img
+            src="/Logo_XXVAyto_Vertical.png"
+            alt="SICM - Sistema Integral de Control Medico"
+            className="h-16 w-auto object-contain"
+          />
           <div>
-            <h1 className="text-sm font-semibold">SICS</h1>
-            <p className="text-xs text-sidebar-foreground/70">
-              Control Sanitario
+            <h1 className="text-xs font-semibold">SICM</h1>
+            <p className="text-[10px] text-sidebar-foreground/70">
+              Sistema de Control Medico
             </p>
           </div>
         </div>

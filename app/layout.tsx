@@ -10,25 +10,17 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SICS - Sistema Integral de Control Sanitario",
+  title: "SICM - Sistema Integral de Control Medico",
   description:
     "Sistema de gestión de salud pública para control sanitario, certificados y expedientes médicos",
   icons: {
     icon: [
       {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
+        url: "/Logo_XXVAyto_Vertical.png",
+        type: "image/png",
       },
     ],
-    apple: "/apple-icon.png",
+    apple: "/Logo_XXVAyto_Vertical.png",
   },
 };
 

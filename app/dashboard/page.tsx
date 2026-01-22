@@ -11,11 +11,18 @@ export default function DashboardPage() {
       <MainLayout>
         <div className="space-y-6">
           {/* Page Header */}
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Sistema Integral de Control Medico - Resumen general
-            </p>
+          <div className="flex items-center gap-4">
+            <img
+              src="/Logo_XXVAyto_Vertical.png"
+              alt="SICS - Sistema Integral de Control Sanitario"
+              className="h-16 w-auto object-contain"
+            />
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+              <p className="text-muted-foreground">
+                Sistema Integral de Control Medico - Resumen general
+              </p>
+            </div>
           </div>
 
           {/* Stats */}
