@@ -25,7 +25,7 @@ import type {
   GeneroBackend,
   LugarTrabajo,
 } from "@/lib/types";
-import { request1, uploadRequest } from "@/lib/request";
+import { request, request1, uploadRequest } from "@/lib/request";
 import { AvatarUpload } from "./avatar-upload";
 
 const MEXICO_STATES = [
@@ -227,46 +227,70 @@ export function FormAfiliado({
           console.error(response.message || "No se pudo registrar el afiliado");
         }
       } else {
-        // JSON: crear puede incluir avatar (ruta); actualizar solo datos, sin avatar
-        let avatarValue: string | undefined = undefined;
-        if (!isEdit && typeof formData.avatar === "string" && formData.avatar) {
-          const baseUrl = process.env.NEXT_PUBLIC_URL || "";
-          if (formData.avatar.startsWith(baseUrl)) {
-            avatarValue = formData.avatar.replace(baseUrl, "").replace(/^\//, "");
+        if (isEdit) {
+          // Update: PUT solo los campos que acepta /sics/affiliates/updateAffiliate
+          const updatePayload = {
+            nombre: formData.nombre.trim(),
+            apellido_paterno: formData.apellido_paterno.trim(),
+            apellido_materno: formData.apellido_materno?.trim() || undefined,
+            fecha_nacimiento: formData.fecha_nacimiento,
+            genero: formData.genero,
+            direccion: formData.direccion.trim(),
+            telefono: formData.telefono.trim(),
+            email: formData.email?.trim() || undefined,
+            lugar_procedencia: formData.lugar_procedencia.trim(),
+            estado_civil: formData.estado_civil,
+            lugar_trabajo: formData.lugar_trabajo,
+            fecha_inicio: formData.fecha_inicio,
+            fecha_inicio_tijuana: formData.fecha_inicio_tijuana,
+            acta_nacimiento: Boolean(formData.acta_nacimiento),
+            curp: formData.curp.trim().toUpperCase(),
+          };
+          const response = await request(endpoint, "PUT", updatePayload);
+          if (response.status >= 200 && response.status < 300) {
+            onSubmit({ ...formData, ...updatePayload });
+            router.push(`/afiliados`);
           } else {
-            avatarValue = formData.avatar.replace(/^\//, "");
+            console.error(response.message || "No se pudo actualizar el afiliado");
           }
-        }
-
-        const payload: AffiliatePayload = {
-          ...formData,
-          curp: formData.curp.trim().toUpperCase(),
-          nombre: formData.nombre.trim(),
-          apellido_paterno: formData.apellido_paterno.trim(),
-          apellido_materno: formData.apellido_materno?.trim() || undefined,
-          direccion: formData.direccion.trim(),
-          telefono: formData.telefono.trim(),
-          email: formData.email?.trim() || undefined,
-          lugar_procedencia: formData.lugar_procedencia.trim(),
-          estado_civil: formData.estado_civil,
-          lugar_trabajo: formData.lugar_trabajo,
-          fecha_nacimiento: formData.fecha_nacimiento,
-          fecha_inicio: formData.fecha_inicio,
-          fecha_inicio_tijuana: formData.fecha_inicio_tijuana,
-          acta_nacimiento: Boolean(formData.acta_nacimiento),
-          genero: formData.genero,
-          estatus: formData.estatus,
-          avatar: isEdit ? undefined : avatarValue,
-        };
-
-        const method = isEdit ? "PUT" : "POST";
-        const response = await request1(endpoint, method, payload);
-
-        if (response.status >= 200 && response.status < 300) {
-          onSubmit(payload);
-          router.push(`/afiliados`);
         } else {
-          console.error(response.message || "No se pudo registrar el afiliado");
+          // Create: POST con todos los campos (incl. curp, estatus, avatar si aplica)
+          let avatarValue: string | undefined = undefined;
+          if (typeof formData.avatar === "string" && formData.avatar) {
+            const baseUrl = process.env.NEXT_PUBLIC_URL || "";
+            if (formData.avatar.startsWith(baseUrl)) {
+              avatarValue = formData.avatar.replace(baseUrl, "").replace(/^\//, "");
+            } else {
+              avatarValue = formData.avatar.replace(/^\//, "");
+            }
+          }
+          const createPayload: AffiliatePayload = {
+            ...formData,
+            curp: formData.curp.trim().toUpperCase(),
+            nombre: formData.nombre.trim(),
+            apellido_paterno: formData.apellido_paterno.trim(),
+            apellido_materno: formData.apellido_materno?.trim() || undefined,
+            direccion: formData.direccion.trim(),
+            telefono: formData.telefono.trim(),
+            email: formData.email?.trim() || undefined,
+            lugar_procedencia: formData.lugar_procedencia.trim(),
+            estado_civil: formData.estado_civil,
+            lugar_trabajo: formData.lugar_trabajo,
+            fecha_nacimiento: formData.fecha_nacimiento,
+            fecha_inicio: formData.fecha_inicio,
+            fecha_inicio_tijuana: formData.fecha_inicio_tijuana,
+            acta_nacimiento: Boolean(formData.acta_nacimiento),
+            genero: formData.genero,
+            estatus: formData.estatus,
+            avatar: avatarValue,
+          };
+          const response = await request1(endpoint, "POST", createPayload);
+          if (response.status >= 200 && response.status < 300) {
+            onSubmit(createPayload);
+            router.push(`/afiliados`);
+          } else {
+            console.error(response.message || "No se pudo registrar el afiliado");
+          }
         }
       }
     } catch (error) {
