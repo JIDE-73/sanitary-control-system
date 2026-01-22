@@ -19,6 +19,7 @@ import {
   User,
   KeyRound,
   NotebookPen,
+  Bug,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/components/auth/auth-context";
@@ -87,6 +88,12 @@ const navigation = [
       { name: "Listado", href: "/laboratorios" },
       { name: "Nuevo Laboratorio", href: "/laboratorios/nuevo" },
     ],
+  },
+  {
+    name: "Infecciones",
+    href: "/infecciones",
+    icon: Bug,
+    module: "infecciones",
   },
   {
     name: "Notas Médicas CS",

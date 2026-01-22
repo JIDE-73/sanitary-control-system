@@ -351,6 +351,12 @@ export interface LaboratorioListado {
   email_contacto: string;
 }
 
+// Infecciones
+export interface Infection {
+  id: string;
+  nombre: string;
+}
+
 // Autenticación y permisos
 
 export type PermissionAction = "create" | "read" | "update" | "delete";
