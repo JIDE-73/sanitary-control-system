@@ -114,7 +114,9 @@ const navigation = [
     href: "/examenes",
     icon: TestTube,
     module: "examenes_cs",
-    submenu: [{ name: "Historial", href: "/examenes" }],
+    submenu: [{ name: "Historial", href: "/examenes" },
+      { name: "Resultados de examenes", href: "/examenes/resultados" },
+    ],
   },
   {
     name: "Certificados ALM",
