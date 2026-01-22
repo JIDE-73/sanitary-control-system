@@ -25,7 +25,7 @@ import type {
   GeneroBackend,
   LugarTrabajo,
 } from "@/lib/types";
-import { request, request1, uploadRequest } from "@/lib/request";
+import { request, uploadRequest } from "@/lib/request";
 import { AvatarUpload } from "./avatar-upload";
 
 const MEXICO_STATES = [
@@ -284,7 +284,7 @@ export function FormAfiliado({
             estatus: formData.estatus,
             avatar: avatarValue,
           };
-          const response = await request1(endpoint, "POST", createPayload);
+          const response = await request(endpoint, "POST", createPayload);
           if (response.status >= 200 && response.status < 300) {
             onSubmit(createPayload);
             router.push(`/afiliados`);
