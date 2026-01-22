@@ -27,6 +27,7 @@ import {
   Loader2,
   RefreshCcw,
   TestTube,
+  Trash2,
 } from "lucide-react";
 
 interface ExamCatalogItem {
@@ -46,6 +47,7 @@ export default function LaboratorioExamenesPage() {
   const [selectedExam, setSelectedExam] = useState("");
   const [mensajeCreacion, setMensajeCreacion] = useState<string | null>(null);
   const [mensajeRelacion, setMensajeRelacion] = useState<string | null>(null);
+  const [deletingExams, setDeletingExams] = useState<Set<string>>(new Set());
 
   const extractArray = (response: any) => {
     if (Array.isArray(response)) return response;
@@ -181,6 +183,38 @@ export default function LaboratorioExamenesPage() {
       setMensajeRelacion("No se pudo asignar el examen.");
     } finally {
       setLinkingExam(false);
+    }
+  };
+
+  const handleDeleteExam = async (examId: string) => {
+    if (!examId) return;
+    setDeletingExams((prev) => new Set(prev).add(examId));
+    try {
+      const response = await request(
+        `/sics/exams/deleteExamCatalog/${examId}`,
+        "POST"
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        setExamenes((prev) => prev.filter((ex) => ex.id !== examId));
+        // Si el examen eliminado estaba seleccionado, limpiar la selección
+        if (selectedExam === examId) {
+          setSelectedExam("");
+        }
+      } else {
+        console.error(
+          "Error al eliminar examen:",
+          response.message || "No se pudo eliminar el examen."
+        );
+      }
+    } catch (error) {
+      console.error("Error al eliminar examen", error);
+    } finally {
+      setDeletingExams((prev) => {
+        const next = new Set(prev);
+        next.delete(examId);
+        return next;
+      });
     }
   };
 
@@ -356,14 +390,31 @@ export default function LaboratorioExamenesPage() {
               </p>
             ) : (
               <ul className="grid gap-2 sm:grid-cols-2">
-                {examenes.map((examen) => (
-                  <li
-                    key={examen.id}
-                    className="rounded-md border border-border px-3 py-2 text-sm"
-                  >
-                    {examen.nombre || "Examen sin nombre"}
-                  </li>
-                ))}
+                {examenes.map((examen) => {
+                  const isDeleting = deletingExams.has(examen.id);
+                  return (
+                    <li
+                      key={examen.id}
+                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                    >
+                      <span>{examen.nombre || "Examen sin nombre"}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteExam(examen.id)}
+                        disabled={isDeleting}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>
