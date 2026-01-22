@@ -129,7 +129,6 @@ const navigation = [
 ];
 
 const bottomNavigation = [
-  { name: "Notificaciones", href: "/notificaciones", icon: Bell },
   { name: "Configuración", href: "/configuracion", icon: Settings },
 ];
 

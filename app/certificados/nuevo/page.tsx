@@ -27,8 +27,9 @@ function FormCertificadoWrapper() {
       );
 
       if (response.status >= 200 && response.status < 300) {
+        const folio = response?.result?.folio || data.folio;
         toast.success("Certificado emitido exitosamente", {
-          description: `Folio: ${data.folio}`,
+          description: `Folio: ${folio}`,
         });
         router.push("/certificados");
         return;

@@ -52,11 +52,20 @@ export default function ConfiguracionPage() {
     direccion: "Av. Revolución 1000, Centro, 22000 Tijuana, BC",
     telefono: "6641000000",
     email: "sics@salud.gob.mx",
-    vigenciaCertificado: "30",
+    vigenciaCertificado: (() => {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("config_vigenciaCertificado");
+        return stored || "30";
+      }
+      return "30";
+    })(),
     diasAlertaVencimiento: "7",
   });
 
   const handleSaveGeneral = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("config_vigenciaCertificado", general.vigenciaCertificado);
+    }
     toast.success("Configuración guardada correctamente");
   };
 
@@ -97,7 +106,7 @@ export default function ConfiguracionPage() {
                   Parámetros del Sistema
                 </CardTitle>
                 <CardDescription>
-                  Configuración de tiempos y alertas
+                  Configuración de valides de certificados
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

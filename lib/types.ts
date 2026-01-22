@@ -237,6 +237,7 @@ export interface CertificateDoctor {
 
 export interface AlcoholCertificate {
   id: string;
+  folio?: string;
   fecha_expedicion?: string;
   persona_id?: string;
   medico_id?: string;

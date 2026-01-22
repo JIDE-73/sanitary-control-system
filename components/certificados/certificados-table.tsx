@@ -26,6 +26,40 @@ import type { AlcoholCertificate } from "@/lib/types";
 const LOGO_PATH = "/Logo_XXVAyto_Horizontal.png";
 let logoDataUrlCache: string | null = null;
 
+const getVigenciaCertificado = (): string => {
+  if (typeof window === "undefined") return "30";
+  try {
+    const stored = localStorage.getItem("config_vigenciaCertificado");
+    return stored || "30";
+  } catch {
+    return "30";
+  }
+};
+
+const calcularFechaExpiracion = (diasVigencia?: string): string | null => {
+  if (!diasVigencia) return null;
+  
+  try {
+    const dias = parseInt(diasVigencia, 10);
+    if (isNaN(dias)) return null;
+    
+    // Calcular desde la fecha actual (hoy)
+    const fechaActual = new Date();
+    const fechaExpiracion = new Date(fechaActual);
+    fechaExpiracion.setDate(fechaExpiracion.getDate() + dias);
+    
+    const diasSemana = ["Dom.", "Lun.", "Mar.", "Mié.", "Jue.", "Vie.", "Sáb."];
+    const diaSemana = diasSemana[fechaExpiracion.getDay()];
+    const dia = fechaExpiracion.getDate().toString().padStart(2, "0");
+    const mes = (fechaExpiracion.getMonth() + 1).toString().padStart(2, "0");
+    const ano = fechaExpiracion.getFullYear();
+    
+    return `${diaSemana} ${dia}-${mes}-${ano}`;
+  } catch {
+    return null;
+  }
+};
+
 const loadLogoDataUrl = async () => {
   if (logoDataUrlCache) return logoDataUrlCache;
   try {
@@ -181,7 +215,7 @@ export function CertificadosTable() {
       {
         title: "Datos generales",
         items: [
-          { label: "Folio", value: selected.id },
+          { label: "Folio", value: selected.folio || selected.id },
           {
             label: "Fecha de expedición",
             value: selected.fecha_expedicion,
@@ -377,8 +411,6 @@ export function CertificadosTable() {
       const marginX = 12;
       const marginY = 12;
       const contentBottom = pageHeight - marginY;
-      const marginRight = pageWidth - marginX;
-      const centerX = pageWidth / 2;
       const logoDataUrl = await loadLogoDataUrl();
       const baseFont = "helvetica";
       
@@ -470,10 +502,34 @@ export function CertificadosTable() {
         return lineY + lineHeight - currentY;
       };
 
-      // Logo
+      // Logo, Folio y Vigencia en el encabezado
+      const logoWidth = 50;
+      const logoHeight = 12;
+      const rightSideX = pageWidth - marginX;
+      
       if (logoDataUrl) {
-        doc.addImage(logoDataUrl, "PNG", marginX, y, 50, 12);
+        doc.addImage(logoDataUrl, "PNG", marginX, y, logoWidth, logoHeight);
       }
+      
+      // Folio, Vigencia y Fecha de expiración a la derecha
+      const folioText = certificate.folio || certificate.id || "Sin folio";
+      const vigenciaDias = getVigenciaCertificado();
+      const vigenciaText = `Vigencia: ${vigenciaDias} días`;
+      const fechaExpiracion = calcularFechaExpiracion(vigenciaDias);
+      const expiracionText = fechaExpiracion ? `Expira: ${fechaExpiracion}` : null;
+      
+      doc.setFont(baseFont, "bold");
+      doc.setFontSize(10);
+      doc.text(folioText, rightSideX, y + 4, { align: "right" });
+      
+      doc.setFont(baseFont, "normal");
+      doc.setFontSize(9);
+      doc.text(vigenciaText, rightSideX, y + 8, { align: "right" });
+      
+      if (expiracionText) {
+        doc.text(expiracionText, rightSideX, y + 12, { align: "right" });
+      }
+      
       y += 18;
 
       // Encabezado del certificado
@@ -922,7 +978,8 @@ export function CertificadosTable() {
       
       y += 5;
 
-      doc.save(`certificado-${safe(certificate.id, "sin-folio")}.pdf`);
+      const fileName = certificate.folio || certificate.id || "sin-folio";
+      doc.save(`certificado-${fileName}.pdf`);
     } catch (err) {
       console.error("No se pudo generar el PDF del certificado", err);
     } finally {
@@ -988,7 +1045,7 @@ export function CertificadosTable() {
                 return (
                   <TableRow key={certificate.id}>
                     <TableCell className="font-mono text-xs text-muted-foreground">
-                      {certificate.id?.slice(0, 8) ?? "Sin ID"}
+                      {certificate.folio || certificate.id?.slice(0, 8) || "Sin folio"}
                     </TableCell>
                     <TableCell className="font-medium">
                       {patientName || "Sin nombre"}
@@ -1056,7 +1113,7 @@ export function CertificadosTable() {
               {selected?.fecha_expedicion
                 ? `Emitido el ${formatDate(selected.fecha_expedicion)}`
                 : null}
-              {selected?.id ? ` • ID: ${selected.id}` : null}
+              {selected?.folio ? ` • Folio: ${selected.folio}` : selected?.id ? ` • ID: ${selected.id}` : null}
             </DialogDescription>
           </DialogHeader>
 
