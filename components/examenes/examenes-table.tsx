@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TestTube, User } from "lucide-react";
+import { TestTube, User, Plus, Loader2 } from "lucide-react";
 import { request } from "@/lib/request";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -30,6 +31,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const ESTATUS_OPCIONES = ["positivo", "negativo", "pendiente"] as const;
 type Estatus = (typeof ESTATUS_OPCIONES)[number];
@@ -41,6 +44,33 @@ type ExamItem = {
   fechaProximoExamen?: string;
   dilucionVDRL?: string;
   estatus?: string;
+};
+
+type Laboratorio = {
+  id: string;
+  nombre_comercial: string;
+  rfc: string;
+  certificado_organismo: boolean;
+  email_contacto: string;
+  examenes?: Array<{ id: string; nombre: string }>;
+};
+
+type TipoExamen = {
+  id: string;
+  nombre: string;
+};
+
+type Infeccion = {
+  id: string;
+  nombre: string;
+};
+
+type ResultadoFormData = {
+  laboratorio_id: string;
+  tipo_examen_id: string;
+  examen_id: string;
+  cat_infecciones: string;
+  resultados_positivo: boolean;
 };
 
 type AfiliadoExamen = {
@@ -131,6 +161,24 @@ export function ExamenesTable() {
     null
   );
   const [page, setPage] = useState(0);
+  
+  // Estados para el formulario de resultado
+  const [dialogResultadoOpen, setDialogResultadoOpen] = useState(false);
+  const [examenSeleccionado, setExamenSeleccionado] = useState<ExamItem | null>(null);
+  const [laboratorios, setLaboratorios] = useState<Laboratorio[]>([]);
+  const [tiposExamen, setTiposExamen] = useState<TipoExamen[]>([]);
+  const [infecciones, setInfecciones] = useState<Infeccion[]>([]);
+  const [loadingLaboratorios, setLoadingLaboratorios] = useState(false);
+  const [loadingTiposExamen, setLoadingTiposExamen] = useState(false);
+  const [loadingInfecciones, setLoadingInfecciones] = useState(false);
+  const [savingResultado, setSavingResultado] = useState(false);
+  const [formData, setFormData] = useState<ResultadoFormData>({
+    laboratorio_id: "",
+    tipo_examen_id: "",
+    examen_id: "",
+    cat_infecciones: "",
+    resultados_positivo: false,
+  });
 
   const totalPages = Math.max(
     1,
@@ -190,6 +238,184 @@ export function ExamenesTable() {
       setLoading(false);
     }
   }, [searchQuery, toast]);
+
+  const loadLaboratorios = useCallback(async () => {
+    setLoadingLaboratorios(true);
+    try {
+      const response = await request(
+        "/sics/laboratories/getLaboratories",
+        "GET"
+      );
+      
+      let data: any[] = [];
+      if (Array.isArray(response?.laboratories)) {
+        data = response.laboratories;
+      } else if (Array.isArray(response?.data)) {
+        data = response.data;
+      } else if (Array.isArray(response)) {
+        data = response;
+      }
+
+      const normalizados: Laboratorio[] = data.map((item: any) => ({
+        id: item.id ?? crypto.randomUUID(),
+        nombre_comercial: item.nombre_comercial ?? item.nombre ?? "",
+        rfc: item.rfc ?? "",
+        certificado_organismo: Boolean(item.certificado_organismo),
+        email_contacto: item.email_contacto ?? item.email ?? "",
+        examenes: Array.isArray(item.examenes) ? item.examenes : [],
+      }));
+      setLaboratorios(normalizados);
+    } catch (error) {
+      console.error("Error al cargar laboratorios", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los laboratorios.",
+        variant: "destructive",
+      });
+      setLaboratorios([]);
+    } finally {
+      setLoadingLaboratorios(false);
+    }
+  }, [toast]);
+
+  const loadTiposExamen = useCallback(async () => {
+    setLoadingTiposExamen(true);
+    try {
+      const response = await request("/sics/exams/getExams", "GET");
+      
+      let data: any[] = [];
+      if (Array.isArray(response?.exams)) {
+        data = response.exams;
+      } else if (Array.isArray(response?.data)) {
+        data = response.data;
+      } else if (Array.isArray(response)) {
+        data = response;
+      }
+
+      const normalizados: TipoExamen[] = data.map((item: any) => ({
+        id: item.id ?? crypto.randomUUID(),
+        nombre: item.nombre ?? item.nombre_examen ?? "",
+      }));
+      setTiposExamen(normalizados);
+    } catch (error) {
+      console.error("Error al cargar tipos de examen", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los tipos de examen.",
+        variant: "destructive",
+      });
+      setTiposExamen([]);
+    } finally {
+      setLoadingTiposExamen(false);
+    }
+  }, [toast]);
+
+  const loadInfecciones = useCallback(async () => {
+    setLoadingInfecciones(true);
+    try {
+      const response = await request(
+        "/sics/infections/getAllInfections",
+        "GET"
+      );
+      
+      let data: any[] = [];
+      if (Array.isArray(response?.infections)) {
+        data = response.infections;
+      } else if (Array.isArray(response?.data)) {
+        data = response.data;
+      } else if (Array.isArray(response)) {
+        data = response;
+      }
+
+      const normalizados: Infeccion[] = data.map((item: any) => ({
+        id: item.id ?? crypto.randomUUID(),
+        nombre: item.nombre ?? "",
+      }));
+      setInfecciones(normalizados);
+    } catch (error) {
+      console.error("Error al cargar infecciones", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las infecciones.",
+        variant: "destructive",
+      });
+      setInfecciones([]);
+    } finally {
+      setLoadingInfecciones(false);
+    }
+  }, [toast]);
+
+  const handleOpenResultadoDialog = useCallback((examen: ExamItem) => {
+    setExamenSeleccionado(examen);
+    setFormData({
+      laboratorio_id: "",
+      tipo_examen_id: "",
+      examen_id: examen.id,
+      cat_infecciones: "",
+      resultados_positivo: false,
+    });
+    setDialogResultadoOpen(true);
+    loadLaboratorios();
+    loadTiposExamen();
+    loadInfecciones();
+  }, [loadLaboratorios, loadTiposExamen, loadInfecciones]);
+
+  const handleCreateResultado = useCallback(async () => {
+    if (!formData.laboratorio_id || !formData.tipo_examen_id || !formData.cat_infecciones) {
+      toast({
+        title: "Campos requeridos",
+        description: "Por favor completa todos los campos obligatorios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingResultado(true);
+    try {
+      const payload = {
+        laboratorio_id: formData.laboratorio_id,
+        tipo_examen_id: formData.tipo_examen_id,
+        examen_id: formData.examen_id,
+        cat_infecciones: formData.cat_infecciones,
+        resultados_positivo: formData.resultados_positivo,
+      };
+
+      const response = await request(
+        "/sics/results/createLaboratoryResult",
+        "POST",
+        payload
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Resultado creado",
+          description: "El resultado del examen se registró correctamente.",
+        });
+        setDialogResultadoOpen(false);
+        // Recargar los datos del afiliado
+        if (modalAfiliado) {
+          const next = await handleSearch();
+          const updated = next.find((a) => a.id === modalAfiliado.id);
+          if (updated) setModalAfiliado(updated);
+        }
+      } else {
+        toast({
+          title: "Error al crear resultado",
+          description: response?.message || "No se pudo crear el resultado.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error al crear resultado", error);
+      toast({
+        title: "Error al crear resultado",
+        description: "Ocurrió un error. Intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingResultado(false);
+    }
+  }, [formData, modalAfiliado, handleSearch, toast]);
 
   const updateExamStatus = async (
     examenId: string,
@@ -360,13 +586,14 @@ export function ExamenesTable() {
                       <TableHead className="min-w-[120px]">Próximo examen</TableHead>
                       <TableHead className="min-w-[100px]">Estatus</TableHead>
                       <TableHead className="text-right min-w-[180px]">Actualizar</TableHead>
+                      <TableHead className="text-right min-w-[150px]">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {modalAfiliado.examenes.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={5}
+                          colSpan={6}
                           className="text-center text-muted-foreground py-8"
                         >
                           Sin exámenes registrados.
@@ -447,6 +674,16 @@ export function ExamenesTable() {
                                 )}
                               </div>
                             </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenResultadoDialog(examen)}
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Agregar Resultado
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         );
                       })
@@ -456,6 +693,155 @@ export function ExamenesTable() {
               </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para crear resultado */}
+      <Dialog open={dialogResultadoOpen} onOpenChange={setDialogResultadoOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Agregar Resultado de Examen</DialogTitle>
+            <DialogDescription>
+              Registra el resultado del examen de laboratorio.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="laboratorio_id">
+                Laboratorio <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={formData.laboratorio_id}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, laboratorio_id: value })
+                }
+                disabled={loadingLaboratorios}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      loadingLaboratorios
+                        ? "Cargando laboratorios..."
+                        : "Seleccionar laboratorio"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {laboratorios.map((lab) => (
+                    <SelectItem key={lab.id} value={lab.id}>
+                      {lab.nombre_comercial}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tipo_examen_id">
+                Tipo de Examen <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={formData.tipo_examen_id}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, tipo_examen_id: value })
+                }
+                disabled={loadingTiposExamen}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      loadingTiposExamen
+                        ? "Cargando tipos de examen..."
+                        : "Seleccionar tipo de examen"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {tiposExamen.map((tipo) => (
+                    <SelectItem key={tipo.id} value={tipo.id}>
+                      {tipo.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cat_infecciones">
+                Infección <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={formData.cat_infecciones}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, cat_infecciones: value })
+                }
+                disabled={loadingInfecciones}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      loadingInfecciones
+                        ? "Cargando infecciones..."
+                        : "Seleccionar infección"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {infecciones.map((inf) => (
+                    <SelectItem key={inf.id} value={inf.id}>
+                      {inf.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center space-x-2 rounded-lg border border-border p-4">
+              <Switch
+                id="resultados_positivo"
+                checked={formData.resultados_positivo}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, resultados_positivo: checked })
+                }
+              />
+              <Label
+                htmlFor="resultados_positivo"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Resultado Positivo
+              </Label>
+            </div>
+
+            {examenSeleccionado && (
+              <div className="rounded-lg bg-muted p-3 text-sm">
+                <p className="font-medium">Examen seleccionado:</p>
+                <p className="text-muted-foreground">
+                  {examenSeleccionado.examenId || examenSeleccionado.id || "N/D"}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogResultadoOpen(false)}
+              disabled={savingResultado}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateResultado} disabled={savingResultado}>
+              {savingResultado ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                "Guardar Resultado"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
