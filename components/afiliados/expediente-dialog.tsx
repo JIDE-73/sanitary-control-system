@@ -88,7 +88,6 @@ export function ExpedienteDialog({
   const [uploading, setUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
   const [previewFile, setPreviewFile] = useState<string | null>(null);
-  const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const loadRecord = async () => {
@@ -162,28 +161,23 @@ export function ExpedienteDialog({
     });
   };
 
-  const handleUpload = async (fileKey?: string) => {
-    // Si se especifica un fileKey, solo subir ese archivo
-    // Si no, subir todos los archivos seleccionados (4 archivos al mismo tiempo)
-    const filesToUpload = fileKey
-      ? { [fileKey]: selectedFiles[fileKey] }
-      : selectedFiles;
-
-    const fileKeys = Object.keys(filesToUpload);
+  const handleUpload = async () => {
+    // Solo se pueden subir los 4 archivos al mismo tiempo
+    const fileKeys = Object.keys(selectedFiles);
     
     if (fileKeys.length === 0) {
       toast({
         variant: "destructive",
         title: "No hay archivos",
-        description: "Selecciona al menos un archivo para subir.",
+        description: "Selecciona los 4 archivos para subir.",
       });
       return;
     }
 
-    // Si no hay fileKey, se deben subir los 4 archivos al mismo tiempo
-    if (!fileKey && fileKeys.length < 4) {
+    // Se deben subir los 4 archivos al mismo tiempo
+    if (fileKeys.length < 4) {
       const missingFiles = FILE_TYPES.filter(
-        (ft) => !filesToUpload[ft.key]
+        (ft) => !selectedFiles[ft.key]
       );
       toast({
         variant: "destructive",
@@ -194,16 +188,13 @@ export function ExpedienteDialog({
     }
 
     setUploading(true);
-    if (fileKey) {
-      setUploadingField(fileKey);
-    }
 
     try {
       const formData = new FormData();
       formData.append("persona_id", afiliado.id);
 
       fileKeys.forEach((key) => {
-        const file = filesToUpload[key];
+        const file = selectedFiles[key];
         if (file) {
           formData.append(key, file);
         }
@@ -222,14 +213,10 @@ export function ExpedienteDialog({
       if (response.status >= 200 && response.status < 300) {
         toast({
           title: isUpdate
-            ? fileKey
-              ? "Archivo actualizado"
-              : "Expediente actualizado"
+            ? "Expediente actualizado"
             : "Expediente creado",
           description: isUpdate
-            ? fileKey
-              ? "El archivo fue actualizado correctamente."
-              : "El expediente fue actualizado correctamente."
+            ? "El expediente fue actualizado correctamente."
             : "El expediente fue creado correctamente.",
         });
 
@@ -262,7 +249,6 @@ export function ExpedienteDialog({
       });
     } finally {
       setUploading(false);
-      setUploadingField(null);
     }
   };
 
@@ -331,222 +317,204 @@ export function ExpedienteDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+            <DialogTitle className="text-lg sm:text-xl truncate pr-8">
               Expediente - {afiliado.nombres} {afiliado.apellidoPaterno}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-sm">
               Gestiona los archivos del expediente médico (todos los documentos deben ser PDF)
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 flex flex-col gap-4 min-h-0">
-            {/* Lista de archivos del expediente */}
-            <div className="flex-1 min-h-0 flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <Label>Archivos del expediente</Label>
-                <div className="flex gap-2">
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            {/* Barra de acciones */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b bg-muted/30 shrink-0">
+              <Label className="text-sm sm:text-base font-semibold">Archivos del expediente</Label>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadRecord}
+                  disabled={loading || deleting}
+                  className="flex-1 sm:flex-initial"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Actualizar"
+                  )}
+                </Button>
+                {record && (
                   <Button
-                    variant="ghost"
+                    variant="destructive"
                     size="sm"
-                    onClick={loadRecord}
-                    disabled={loading || deleting}
+                    onClick={handleDelete}
+                    disabled={loading || deleting || uploading}
+                    className="flex-1 sm:flex-initial"
                   >
-                    {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    {deleting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <span className="hidden sm:inline">Eliminando...</span>
+                      </>
                     ) : (
-                      "Actualizar"
+                      <>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span className="hidden sm:inline">Eliminar Expediente</span>
+                        <span className="sm:hidden">Eliminar</span>
+                      </>
                     )}
                   </Button>
-                  {record && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleDelete}
-                      disabled={loading || deleting || uploading}
-                    >
-                      {deleting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Eliminando...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Eliminar Expediente
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
+                )}
               </div>
+            </div>
 
-              <ScrollArea className="flex-1 border rounded-lg">
+            {/* Contenido con scroll */}
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="px-4 sm:px-6 py-4">
                 {loading ? (
-                  <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  <div className="p-4">
-                    <div className="space-y-4">
-                      {FILE_TYPES.map((fileType) => {
+                  <div className="space-y-4">
+                  {FILE_TYPES.map((fileType) => {
                         const Icon = fileType.icon;
                         const filePath = record?.[fileType.key];
                         const selectedFile = selectedFiles[fileType.key];
                         const hasFile = !!filePath;
-                        const isUploading = uploadingField === fileType.key;
 
-                        return (
-                          <div
-                            key={fileType.key}
-                            className="border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Icon className="h-5 w-5 text-muted-foreground" />
-                                <Label className="text-base font-medium">
-                                  {fileType.label}
-                                </Label>
-                              </div>
-                              {record?.createdAt && (
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(record.createdAt).toLocaleDateString(
-                                    "es-MX"
-                                  )}
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="flex gap-2">
-                              <Input
-                                id={`file-${fileType.key}`}
-                                type="file"
-                                accept=".pdf,application/pdf"
-                                onChange={(e) => handleFileSelect(e, fileType.key)}
-                                className="flex-1"
-                                disabled={uploading || isUploading}
-                              />
-                              <Button
-                                onClick={() => handleUpload(fileType.key)}
-                                disabled={
-                                  !selectedFile || uploading || isUploading
-                                }
-                                size="sm"
-                              >
-                                {isUploading ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Subiendo...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    {hasFile ? "Actualizar" : "Subir"}
-                                  </>
-                                )}
-                              </Button>
-                              {hasFile && (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleDownload(
-                                        filePath,
-                                        `${fileType.label}.pdf`
-                                      )
-                                    }
-                                    disabled={uploading}
-                                  >
-                                    <Download className="mr-2 h-3 w-3" />
-                                    Descargar
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setPreviewFile(filePath)}
-                                    disabled={uploading}
-                                  >
-                                    <Eye className="mr-2 h-3 w-3" />
-                                    Ver
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-
-                            {selectedFile && (
-                              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-md text-sm">
-                                <FileText className="h-4 w-4" />
-                                <span className="flex-1 truncate">
-                                  {selectedFile.name}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeSelectedFile(fileType.key)}
-                                  className="text-destructive hover:text-destructive/80"
-                                  disabled={uploading}
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            )}
-
-                            {hasFile && (
-                              <p className="text-xs text-muted-foreground">
-                                Archivo existente: {filePath.split("/").pop()}
-                              </p>
-                            )}
+                    return (
+                      <div
+                        key={fileType.key}
+                        className="border rounded-lg p-3 sm:p-4 space-y-3 hover:shadow-md transition-shadow bg-card"
+                      >
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0" />
+                            <Label className="text-sm sm:text-base font-medium">
+                              {fileType.label}
+                            </Label>
                           </div>
-                        );
-                      })}
-                    </div>
-
-                    {!record && !loading && (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">
-                          No hay expediente creado aún
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Sube los archivos requeridos para crear el expediente
-                        </p>
-                      </div>
-                    )}
-
-                    {Object.keys(selectedFiles).length > 0 && (
-                      <div className="mt-4 pt-4 border-t">
-                        <Button
-                          onClick={() => handleUpload()}
-                          disabled={uploading || Object.keys(selectedFiles).length < 4 || deleting}
-                          className="w-full"
-                          size="lg"
-                        >
-                          {uploading ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              {record ? "Actualizando expediente..." : "Creando expediente..."}
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="mr-2 h-4 w-4" />
-                              {record
-                                ? "Actualizar todos los archivos"
-                                : "Crear expediente completo"}
-                            </>
+                          {record?.createdAt && (
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(record.createdAt).toLocaleDateString(
+                                "es-MX"
+                              )}
+                            </p>
                           )}
-                        </Button>
-                        {Object.keys(selectedFiles).length < 4 && (
-                          <p className="text-xs text-muted-foreground text-center mt-2">
-                            Selecciona los 4 archivos para crear el expediente completo
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <Input
+                            id={`file-${fileType.key}`}
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            onChange={(e) => handleFileSelect(e, fileType.key)}
+                            className="w-full text-xs sm:text-sm"
+                            disabled={uploading}
+                          />
+                          {hasFile && (
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  handleDownload(
+                                    filePath,
+                                    `${fileType.label}.pdf`
+                                  )
+                                }
+                                disabled={uploading}
+                                className="flex-1 sm:flex-initial"
+                              >
+                                <Download className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                <span className="text-xs sm:text-sm">Descargar</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPreviewFile(filePath)}
+                                disabled={uploading}
+                                className="flex-1 sm:flex-initial"
+                              >
+                                <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                                <span className="text-xs sm:text-sm">Ver</span>
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {selectedFile && (
+                          <div className="flex items-center gap-2 px-2 sm:px-3 py-2 bg-muted rounded-md text-xs sm:text-sm">
+                            <FileText className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                            <span className="flex-1 truncate min-w-0">
+                              {selectedFile.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeSelectedFile(fileType.key)}
+                              className="text-destructive hover:text-destructive/80 font-bold text-base sm:text-lg leading-none shrink-0 px-1"
+                              disabled={uploading}
+                              aria-label="Eliminar archivo"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+
+                        {hasFile && (
+                          <p className="text-xs text-muted-foreground wrap-break-word">
+                            Archivo existente: {filePath.split("/").pop()}
                           </p>
                         )}
                       </div>
+                    );
+                  })}
+                  </div>
+                )}
+
+                {(Object.keys(selectedFiles).length > 0 || !record) && (
+                  <div className="mt-4 sm:mt-6 pt-4 border-t">
+                    <Button
+                      onClick={handleUpload}
+                      disabled={uploading || Object.keys(selectedFiles).length < 4 || deleting}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <span className="text-sm sm:text-base">
+                            {record ? "Actualizando expediente..." : "Creando expediente..."}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="mr-2 h-4 w-4" />
+                          <span className="text-sm sm:text-base">
+                            {record
+                              ? "Actualizar expediente completo"
+                              : "Crear expediente completo"}
+                          </span>
+                        </>
+                      )}
+                    </Button>
+                    {Object.keys(selectedFiles).length < 4 && (
+                      <p className="text-xs text-muted-foreground text-center mt-2 px-2">
+                        Debes seleccionar los 4 archivos para {record ? "actualizar" : "crear"} el expediente completo
+                      </p>
+                    )}
+                    {Object.keys(selectedFiles).length === 4 && (
+                      <p className="text-xs text-muted-foreground text-center mt-2 px-2 wrap-break-word">
+                        {FILE_TYPES.filter(ft => selectedFiles[ft.key]).map(ft => ft.label).join(", ")}
+                      </p>
                     )}
                   </div>
                 )}
-              </ScrollArea>
-            </div>
+              </div>
+            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>
@@ -557,14 +525,14 @@ export function ExpedienteDialog({
           open={!!previewFile}
           onOpenChange={() => setPreviewFile(null)}
         >
-          <DialogContent className="sm:max-w-4xl max-h-[90vh]">
-            <DialogHeader>
-              <DialogTitle>Vista previa</DialogTitle>
+          <DialogContent className="w-[95vw] sm:w-full sm:max-w-4xl max-h-[90vh] p-0 gap-0">
+            <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+              <DialogTitle className="text-lg sm:text-xl">Vista previa</DialogTitle>
             </DialogHeader>
-            <div className="flex items-center justify-center max-h-[70vh]">
+            <div className="flex items-center justify-center max-h-[calc(90vh-80px)] p-4 sm:p-6">
               <iframe
                 src={getFileUrl(previewFile)}
-                className="w-full h-[70vh] border rounded-lg"
+                className="w-full h-full min-h-[400px] sm:min-h-[500px] border rounded-lg"
                 title="Vista previa del archivo"
               />
             </div>
