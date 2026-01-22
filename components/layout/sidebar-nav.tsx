@@ -87,6 +87,8 @@ const navigation = [
     submenu: [
       { name: "Listado", href: "/laboratorios" },
       { name: "Nuevo Laboratorio", href: "/laboratorios/nuevo" },
+      { name: "Gestionar Exámenes", href: "/laboratorios/examenes" },
+      { name: "Infecciones", href: "/laboratorios/infecciones" },
     ],
   },
   {
