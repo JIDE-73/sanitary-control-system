@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Table,
@@ -51,6 +51,8 @@ interface NotasMedicasTableProps {
   loading?: boolean;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export function NotasMedicasTable({
   notas,
   afiliados,
@@ -59,6 +61,27 @@ export function NotasMedicasTable({
 }: NotasMedicasTableProps) {
   const router = useRouter();
   const [selectedNota, setSelectedNota] = useState<NotaMedica | null>(null);
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(Math.max(notas.length, 1) / ITEMS_PER_PAGE),
+  );
+
+  useEffect(() => {
+    setPage((prev) => Math.min(prev, totalPages - 1));
+  }, [totalPages]);
+
+  const paginatedNotas = useMemo(() => {
+    const start = page * ITEMS_PER_PAGE;
+    return notas.slice(start, start + ITEMS_PER_PAGE);
+  }, [notas, page]);
+
+  const showingStart = notas.length === 0 ? 0 : page * ITEMS_PER_PAGE + 1;
+  const showingEnd =
+    notas.length === 0
+      ? 0
+      : Math.min((page + 1) * ITEMS_PER_PAGE, notas.length);
 
   const getAfiliado = (id: string) => afiliados.find((a) => a.id === id);
   const getMedico = (id: string) => medicos.find((m) => m.id === id);
@@ -109,7 +132,7 @@ export function NotasMedicasTable({
                 </TableCell>
               </TableRow>
             ) : (
-              notas.map((nota) => {
+              paginatedNotas.map((nota) => {
                 const afiliado = getAfiliado(nota.persona_id);
                 const medico = getMedico(nota.medico_id);
                 return (
@@ -167,6 +190,35 @@ export function NotasMedicasTable({
             )}
           </TableBody>
         </Table>
+        <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-muted-foreground">
+            Mostrando {showingStart}-{showingEnd} de {notas.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+              disabled={page === 0 || notas.length === 0}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm font-medium">
+              Página {notas.length === 0 ? 0 : page + 1} de{" "}
+              {notas.length === 0 ? 0 : totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPage((prev) => Math.min(prev + 1, (totalPages || 1) - 1))
+              }
+              disabled={notas.length === 0 || page >= totalPages - 1}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={!!selectedNota} onOpenChange={() => setSelectedNota(null)}>

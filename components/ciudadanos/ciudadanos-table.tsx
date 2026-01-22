@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -75,6 +75,8 @@ const riesgoVariants: Record<
   alto: "destructive",
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export function CiudadanosTable({
   ciudadanos,
   loading = false,
@@ -85,10 +87,31 @@ export function CiudadanosTable({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
   const [localCiudadanos, setLocalCiudadanos] = useState(ciudadanos);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     setLocalCiudadanos(ciudadanos);
   }, [ciudadanos]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(Math.max(localCiudadanos.length, 1) / ITEMS_PER_PAGE),
+  );
+
+  useEffect(() => {
+    setPage((prev) => Math.min(prev, totalPages - 1));
+  }, [totalPages]);
+
+  const paginatedCiudadanos = useMemo(() => {
+    const start = page * ITEMS_PER_PAGE;
+    return localCiudadanos.slice(start, start + ITEMS_PER_PAGE);
+  }, [localCiudadanos, page]);
+
+  const showingStart = localCiudadanos.length === 0 ? 0 : page * ITEMS_PER_PAGE + 1;
+  const showingEnd =
+    localCiudadanos.length === 0
+      ? 0
+      : Math.min((page + 1) * ITEMS_PER_PAGE, localCiudadanos.length);
 
   const runReload = async () => {
     setReloading(true);
@@ -202,7 +225,7 @@ export function CiudadanosTable({
               </TableCell>
             </TableRow>
           ) : (
-            localCiudadanos.map((ciudadano) => (
+            paginatedCiudadanos.map((ciudadano) => (
               <TableRow key={ciudadano.id}>
                 <TableCell className="font-mono text-sm">
                   {ciudadano.curp}
@@ -410,6 +433,35 @@ export function CiudadanosTable({
           )}
         </TableBody>
       </Table>
+      <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-muted-foreground">
+          Mostrando {showingStart}-{showingEnd} de {localCiudadanos.length}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+            disabled={page === 0 || localCiudadanos.length === 0}
+          >
+            Anterior
+          </Button>
+          <span className="text-sm font-medium">
+            Página {localCiudadanos.length === 0 ? 0 : page + 1} de{" "}
+            {localCiudadanos.length === 0 ? 0 : totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setPage((prev) => Math.min(prev + 1, (totalPages || 1) - 1))
+            }
+            disabled={localCiudadanos.length === 0 || page >= totalPages - 1}
+          >
+            Siguiente
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

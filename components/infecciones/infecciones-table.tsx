@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import type { Infection } from "@/lib/types";
 
+const ITEMS_PER_PAGE = 10;
+
 interface InfeccionesTableProps {
   infecciones: Infection[];
   loading?: boolean;
@@ -41,6 +43,27 @@ export function InfeccionesTable({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formNombre, setFormNombre] = useState("");
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(Math.max(infecciones.length, 1) / ITEMS_PER_PAGE),
+  );
+
+  useEffect(() => {
+    setPage((prev) => Math.min(prev, totalPages - 1));
+  }, [totalPages]);
+
+  const paginatedInfecciones = useMemo(() => {
+    const start = page * ITEMS_PER_PAGE;
+    return infecciones.slice(start, start + ITEMS_PER_PAGE);
+  }, [infecciones, page]);
+
+  const showingStart = infecciones.length === 0 ? 0 : page * ITEMS_PER_PAGE + 1;
+  const showingEnd =
+    infecciones.length === 0
+      ? 0
+      : Math.min((page + 1) * ITEMS_PER_PAGE, infecciones.length);
 
   const handleCreate = () => {
     setEditingId(null);
@@ -259,7 +282,7 @@ export function InfeccionesTable({
                 </TableCell>
               </TableRow>
             ) : (
-              infecciones.map((infeccion) => (
+              paginatedInfecciones.map((infeccion) => (
                 <TableRow key={infeccion.id}>
                   <TableCell className="font-mono text-sm text-muted-foreground">
                     {infeccion.id.substring(0, 8)}...
@@ -299,6 +322,35 @@ export function InfeccionesTable({
             )}
           </TableBody>
         </Table>
+        <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-muted-foreground">
+            Mostrando {showingStart}-{showingEnd} de {infecciones.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+              disabled={page === 0 || infecciones.length === 0}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm font-medium">
+              Página {infecciones.length === 0 ? 0 : page + 1} de{" "}
+              {infecciones.length === 0 ? 0 : totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPage((prev) => Math.min(prev + 1, (totalPages || 1) - 1))
+              }
+              disabled={infecciones.length === 0 || page >= totalPages - 1}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
       </div>
     </>
   );

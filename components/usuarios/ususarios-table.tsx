@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 import {
   Dialog,
@@ -78,6 +78,8 @@ const formatFecha = (date?: string | null) => {
   return parsed.toLocaleString();
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export function UsuariosListado({
   usuarios,
   loading = false,
@@ -98,6 +100,27 @@ export function UsuariosListado({
   const [editRolId, setEditRolId] = useState<string>("");
   const [editActivo, setEditActivo] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(0);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(Math.max(localUsuarios.length, 1) / ITEMS_PER_PAGE),
+  );
+
+  useEffect(() => {
+    setPage((prev) => Math.min(prev, totalPages - 1));
+  }, [totalPages]);
+
+  const paginatedUsuarios = useMemo(() => {
+    const start = page * ITEMS_PER_PAGE;
+    return localUsuarios.slice(start, start + ITEMS_PER_PAGE);
+  }, [localUsuarios, page]);
+
+  const showingStart = localUsuarios.length === 0 ? 0 : page * ITEMS_PER_PAGE + 1;
+  const showingEnd =
+    localUsuarios.length === 0
+      ? 0
+      : Math.min((page + 1) * ITEMS_PER_PAGE, localUsuarios.length);
 
   useEffect(() => {
     setLocalUsuarios(usuarios);
@@ -325,7 +348,7 @@ export function UsuariosListado({
               </TableCell>
             </TableRow>
           ) : (
-            localUsuarios.map((usuario) => (
+            paginatedUsuarios.map((usuario) => (
               <TableRow key={usuario.id}>
                 <TableCell className="font-medium">
                   {usuario.nombreUsuario}
@@ -578,6 +601,35 @@ export function UsuariosListado({
           )}
         </TableBody>
       </Table>
+      <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-muted-foreground">
+          Mostrando {showingStart}-{showingEnd} de {localUsuarios.length}
+        </p>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+            disabled={page === 0 || localUsuarios.length === 0}
+          >
+            Anterior
+          </Button>
+          <span className="text-sm font-medium">
+            Página {localUsuarios.length === 0 ? 0 : page + 1} de{" "}
+            {localUsuarios.length === 0 ? 0 : totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setPage((prev) => Math.min(prev + 1, (totalPages || 1) - 1))
+            }
+            disabled={localUsuarios.length === 0 || page >= totalPages - 1}
+          >
+            Siguiente
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,7 @@ interface NotasMedicasALMTableProps {
   loading?: boolean;
 }
 
+const ITEMS_PER_PAGE = 10;
 const booleanLabel = (value: boolean) => (value ? "Sí" : "No");
 const LOGO_PATH = "/Logo_XXVAyto_Horizontal.png";
 let logoDataUrlCache: string | null = null;
@@ -68,6 +69,7 @@ export function NotasMedicasALMTable({
     null
   );
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   const sortedNotas = useMemo(
     () =>
@@ -78,6 +80,26 @@ export function NotasMedicasALMTable({
       ),
     [notas]
   );
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(Math.max(sortedNotas.length, 1) / ITEMS_PER_PAGE),
+  );
+
+  useEffect(() => {
+    setPage((prev) => Math.min(prev, totalPages - 1));
+  }, [totalPages]);
+
+  const paginatedNotas = useMemo(() => {
+    const start = page * ITEMS_PER_PAGE;
+    return sortedNotas.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedNotas, page]);
+
+  const showingStart = sortedNotas.length === 0 ? 0 : page * ITEMS_PER_PAGE + 1;
+  const showingEnd =
+    sortedNotas.length === 0
+      ? 0
+      : Math.min((page + 1) * ITEMS_PER_PAGE, sortedNotas.length);
 
   const handleDownloadPdf = async (nota: NotaMedicaALMRecord) => {
     setDownloadingId(nota.id);
@@ -360,7 +382,7 @@ export function NotasMedicasALMTable({
                 </TableCell>
               </TableRow>
             ) : (
-              sortedNotas.map((nota) => (
+              paginatedNotas.map((nota) => (
                 <TableRow key={nota.id}>
                   <TableCell className="font-medium">
                     {nota.fecha_expedicion
@@ -414,6 +436,35 @@ export function NotasMedicasALMTable({
             )}
           </TableBody>
         </Table>
+        <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-muted-foreground">
+            Mostrando {showingStart}-{showingEnd} de {sortedNotas.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+              disabled={page === 0 || sortedNotas.length === 0}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm font-medium">
+              Página {sortedNotas.length === 0 ? 0 : page + 1} de{" "}
+              {sortedNotas.length === 0 ? 0 : totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPage((prev) => Math.min(prev + 1, (totalPages || 1) - 1))
+              }
+              disabled={sortedNotas.length === 0 || page >= totalPages - 1}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={!!selectedNota} onOpenChange={() => setSelectedNota(null)}>
