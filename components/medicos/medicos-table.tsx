@@ -243,13 +243,6 @@ export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Generar credencial"
-                    >
-                      <IdCard className="h-4 w-4" />
-                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
