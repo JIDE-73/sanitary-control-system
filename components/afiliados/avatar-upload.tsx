@@ -33,7 +33,7 @@ export function AvatarUpload({
     if (value instanceof File) {
       return URL.createObjectURL(value);
     }
-    if (typeof value === "string") {
+    if (typeof value === "string" && value.trim()) {
       return value;
     }
     return null;
@@ -204,16 +204,20 @@ export function AvatarUpload({
         }
         return URL.createObjectURL(value);
       });
-    } else if (typeof value === "string") {
+    } else if (typeof value === "string" && value.trim()) {
       currentFileRef.current = null;
       setPreview((prevPreview) => {
+        // Solo actualizar si el valor es diferente
+        if (prevPreview === value) {
+          return prevPreview;
+        }
         // Limpiar blob URL anterior si existe
         if (prevPreview && prevPreview.startsWith("blob:")) {
           URL.revokeObjectURL(prevPreview);
         }
         return value;
       });
-    } else if (!value) {
+    } else if (!value || (typeof value === "string" && !value.trim())) {
       currentFileRef.current = null;
       setPreview((prevPreview) => {
         if (prevPreview && prevPreview.startsWith("blob:")) {

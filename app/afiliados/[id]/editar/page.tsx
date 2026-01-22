@@ -14,6 +14,8 @@ import type {
   LugarTrabajo,
 } from "@/lib/types";
 
+const baseUrl = process.env.NEXT_PUBLIC_URL;
+
 export default function EditarAfiliadoPage() {
   const params = useParams();
   const id = (params?.id as string) ?? "";
@@ -56,6 +58,9 @@ export default function EditarAfiliadoPage() {
     actaNacimiento: item.actaNacimiento,
     fechaRegistro: item.fechaRegistro ?? "",
     fechaActualizacion: item.fechaActualizacion ?? "",
+    avatar: item.foto
+      ? `${baseUrl}/${item.foto.replace(/^\//, "")}`
+      : undefined,
   });
 
   const getCachedActual = (): AfiliadoListado | null => {
@@ -84,16 +89,111 @@ export default function EditarAfiliadoPage() {
     }
   };
 
-  const loadAfiliado = () => {
+  const loadAfiliado = async () => {
     setLoadingAfiliado(true);
-    const actual = getCachedActual();
-    const data = getCachedAfiliados();
-    const fromList =
-      data.find((item) => String(item.id) === String(id)) ?? null;
-    const fuente =
-      fromList ?? (actual && String(actual.id) === String(id) ? actual : null);
-    setAfiliado(fuente ? mapListadoToAfiliado(fuente) : null);
-    setLoadingAfiliado(false);
+    try {
+      // Primero intentar desde cache
+      const actual = getCachedActual();
+      const data = getCachedAfiliados();
+      const fromList =
+        data.find((item) => String(item.id) === String(id)) ?? null;
+      const fuente =
+        fromList ?? (actual && String(actual.id) === String(id) ? actual : null);
+      
+      if (fuente) {
+        setAfiliado(mapListadoToAfiliado(fuente));
+        setLoadingAfiliado(false);
+        return;
+      }
+
+      // Si no está en cache, cargar desde API
+      const response = await request(
+        `/sics/affiliates/getAffiliateById/${encodeURIComponent(id)}`,
+        "GET"
+      );
+      
+      const extractArray = (response: any) => {
+        const candidate = Array.isArray(response?.data)
+          ? response.data
+          : response?.data ?? response;
+
+        if (Array.isArray(candidate)) return candidate;
+
+        if (candidate && typeof candidate === "object") {
+          const numericKeys = Object.keys(candidate).filter((k) => /^\d+$/.test(k));
+          if (numericKeys.length) {
+            return numericKeys
+              .sort((a, b) => Number(a) - Number(b))
+              .map((k) => (candidate as any)[k])
+              .filter(Boolean);
+          }
+
+          if (
+            "persona" in candidate ||
+            "persona_id" in candidate ||
+            "no_Afiliacion" in candidate ||
+            "no_afiliacion" in candidate
+          ) {
+            return [candidate];
+          }
+        }
+
+        return [];
+      };
+
+      const dataArray = extractArray(response);
+      if (dataArray.length > 0) {
+        // Normalizar usando la misma función que en page.tsx
+        const normalizeAfiliado = (item: any): AfiliadoListado => ({
+          id: String(item?.persona_id ?? item?.persona?.id ?? item?.id ?? ""),
+          noAfiliacion:
+            item?.no_Afiliacion ?? item?.no_afiliacion ?? item?.noAfiliacion,
+          sidmoCodigo: item?.sidmo_codigo ?? null,
+          curp: item?.persona?.curp ?? "",
+          nombres: item?.persona?.nombre ?? "",
+          apellidoPaterno: item?.persona?.apellido_paterno ?? "",
+          apellidoMaterno: item?.persona?.apellido_materno ?? "",
+          genero: (item?.persona?.genero ?? "masculino") as AfiliadoListado["genero"],
+          telefono: item?.persona?.telefono ?? "",
+          ciudad:
+            item?.catalogo?.ciudad ??
+            item?.persona?.ciudad ??
+            item?.lugar_procedencia ??
+            "",
+          lugarTrabajoId:
+            item?.catalogo?.id ?? item?.persona?.catalogo_id ?? item?.lugar_trabajo,
+          lugarTrabajoCodigo: item?.catalogo?.codigo ?? item?.lugar_trabajo,
+          lugarTrabajoNombre: item?.catalogo?.nombre,
+          estatus: (item?.estatus ?? "activo") as AfiliadoListado["estatus"],
+          fechaNacimiento: item?.persona?.fecha_nacimiento,
+          fechaInicio: item?.fecha_inicio,
+          fechaInicioTijuana: item?.fecha_inicio_tijuana,
+          estadoCivil: item?.estado_civil,
+          actaNacimiento: item?.acta_nacimiento,
+          lugarProcedencia: item?.lugar_procedencia,
+          email: item?.persona?.email,
+          direccion: item?.persona?.direccion,
+          fechaRegistro: item?.persona?.created_at,
+          catalogoCalle: item?.catalogo?.calle,
+          catalogoColonia: item?.catalogo?.colonia,
+          catalogoCodigoPostal: item?.catalogo?.codigo_postal,
+          catalogoCiudad: item?.catalogo?.ciudad,
+          catalogoEstado: item?.catalogo?.estado,
+          catalogoTelefono: item?.catalogo?.telefono,
+          foto: item?.persona?.foto ?? null,
+        });
+
+        const normalizado = normalizeAfiliado(dataArray[0]);
+        setAfiliado(mapListadoToAfiliado(normalizado));
+      } else {
+        setAfiliado(null);
+      }
+    } catch (error) {
+      console.error("Error al cargar afiliado", error);
+      setAfiliado(null);
+    } finally {
+      setLoadingAfiliado(false);
+    }
   };
 
   useEffect(() => {
@@ -125,6 +225,7 @@ export default function EditarAfiliadoPage() {
 
     fetchLugaresTrabajo();
     loadAfiliado();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const titulo = useMemo(() => {

@@ -157,7 +157,8 @@ export function FormAfiliado({
   );
 
   useEffect(() => {
-    setFormData(getInitialData(afiliado));
+    const newData = getInitialData(afiliado);
+    setFormData(newData);
     setIsExtranjero(
       afiliado?.lugarProcedencia
         ? !MEXICO_STATES.includes(
@@ -166,7 +167,7 @@ export function FormAfiliado({
         : false
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [afiliado?.id]);
+  }, [afiliado?.id, afiliado?.avatar]);
 
   const hasLugaresTrabajo = lugaresTrabajo.length > 0;
 
@@ -191,11 +192,10 @@ export function FormAfiliado({
         ? `/sics/affiliates/updateAffiliate/${afiliado?.id}`
         : "/sics/affiliates/createAffiliate";
 
-      // Si hay un archivo de avatar, usar FormData
-      if (formData.avatar instanceof File) {
+      // Solo crear usa imagen; al actualizar solo se envían datos (sin avatar)
+      const avatarFile = !isEdit && formData.avatar instanceof File ? formData.avatar : null;
+      if (avatarFile) {
         const formDataToSend = new FormData();
-        
-        // Agregar todos los campos del formulario
         formDataToSend.append("curp", formData.curp.trim().toUpperCase());
         formDataToSend.append("nombre", formData.nombre.trim());
         formDataToSend.append("apellido_paterno", formData.apellido_paterno.trim());
@@ -216,23 +216,9 @@ export function FormAfiliado({
         formDataToSend.append("fecha_inicio_tijuana", formData.fecha_inicio_tijuana);
         formDataToSend.append("acta_nacimiento", String(formData.acta_nacimiento));
         formDataToSend.append("estatus", formData.estatus);
-        
-        // Agregar el archivo de imagen
-        formDataToSend.append("avatar", formData.avatar);
+        formDataToSend.append("avatar", avatarFile);
 
-        // Para edición, necesitamos usar PUT, pero uploadRequest solo hace POST
-        // Necesitamos hacer un fetch personalizado para PUT con FormData
-        const baseUrl = `${process.env.NEXT_PUBLIC_URL}`;
-        const response = isEdit
-          ? await fetch(`${baseUrl}${endpoint}`, {
-              method: "PUT",
-              body: formDataToSend,
-              credentials: "include",
-            }).then(async (res) => ({
-              status: res.status,
-              ...(await res.json()),
-            }))
-          : await uploadRequest(endpoint, formDataToSend);
+        const response = await uploadRequest(endpoint, formDataToSend);
 
         if (response.status >= 200 && response.status < 300) {
           onSubmit(formData);
@@ -241,7 +227,17 @@ export function FormAfiliado({
           console.error(response.message || "No se pudo registrar el afiliado");
         }
       } else {
-        // Si no hay archivo, usar el método normal con JSON
+        // JSON: crear puede incluir avatar (ruta); actualizar solo datos, sin avatar
+        let avatarValue: string | undefined = undefined;
+        if (!isEdit && typeof formData.avatar === "string" && formData.avatar) {
+          const baseUrl = process.env.NEXT_PUBLIC_URL || "";
+          if (formData.avatar.startsWith(baseUrl)) {
+            avatarValue = formData.avatar.replace(baseUrl, "").replace(/^\//, "");
+          } else {
+            avatarValue = formData.avatar.replace(/^\//, "");
+          }
+        }
+
         const payload: AffiliatePayload = {
           ...formData,
           curp: formData.curp.trim().toUpperCase(),
@@ -260,7 +256,7 @@ export function FormAfiliado({
           acta_nacimiento: Boolean(formData.acta_nacimiento),
           genero: formData.genero,
           estatus: formData.estatus,
-          avatar: typeof formData.avatar === "string" ? formData.avatar : undefined,
+          avatar: isEdit ? undefined : avatarValue,
         };
 
         const method = isEdit ? "PUT" : "POST";
@@ -424,13 +420,15 @@ export function FormAfiliado({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2 lg:col-span-3">
-            <AvatarUpload
-              value={formData.avatar}
-              onChange={(file) => handleChange("avatar", file || undefined)}
-              label="Avatar"
-            />
-          </div>
+          {!isEdit && (
+            <div className="space-y-2 lg:col-span-3">
+              <AvatarUpload
+                value={formData.avatar}
+                onChange={(file) => handleChange("avatar", file || undefined)}
+                label="Avatar"
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -66,6 +66,7 @@ export default function AfiliadosPage() {
     catalogoCiudad: item?.catalogo?.ciudad,
     catalogoEstado: item?.catalogo?.estado,
     catalogoTelefono: item?.catalogo?.telefono,
+    foto: item?.persona?.foto ?? null,
   });
 
   const extractArray = (response: any) => {
