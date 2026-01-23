@@ -81,7 +81,7 @@ const navigation = [
     module: "lugares_trabajo",
   },
   {
-    name: "Laboratorios",
+    name: "Registrar Laboratorios",
     href: "/laboratorios",
     icon: FlaskConical,
     module: "laboratorios",
