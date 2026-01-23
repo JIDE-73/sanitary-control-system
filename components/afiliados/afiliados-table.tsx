@@ -76,7 +76,7 @@ const generoLabels: Record<string, string> = {
 };
 
 const estatusVariants = {
-  activo: "default",
+  activo: "success",
   inactivo: "secondary",
   suspendido: "destructive",
   pendiente: "outline",
