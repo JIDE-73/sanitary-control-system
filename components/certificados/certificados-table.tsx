@@ -22,9 +22,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { request } from "@/lib/request";
 import type { AlcoholCertificate } from "@/lib/types";
+import QRCode from "qrcode";
 
 const LOGO_PATH = "/Logo_XXVAyto_Horizontal.png";
 let logoDataUrlCache: string | null = null;
+const validationBaseUrl = process.env.NEXT_PUBLIC_CERV || process.env.NEXT_PUBLIC_URL || "https://localhost:3000";
 
 const getVigenciaCertificado = (): string => {
   if (typeof window === "undefined") return "30";
@@ -473,10 +475,41 @@ export function CertificadosTable() {
       const ano = date.getFullYear().toString();
 
       let y = marginY;
+      let currentPage = 1;
+      const maxPagesForQR = 2;
+      
+      // Generar QR code con el token del certificado (si existe)
+      let qrDataUrl: string | null = null;
+      const token = certificate.certificadoJWT?.[0]?.token;
+      if (token) {
+        try {
+          const validationUrl = `${validationBaseUrl}/validate-certificate/${token}`;
+          qrDataUrl = await QRCode.toDataURL(validationUrl, {
+            width: 200,
+            margin: 1,
+          });
+        } catch (qrError) {
+          console.warn("No se pudo generar el QR code", qrError);
+        }
+      }
+
+      // Función para agregar QR en la esquina inferior derecha
+      const addQRToPage = (pageNumber: number) => {
+        if (!qrDataUrl || pageNumber > maxPagesForQR) return;
+        
+        doc.setPage(pageNumber);
+        const qrSize = 15; // mm - pequeño
+        const qrX = pageWidth - marginX - qrSize;
+        const qrY = pageHeight - marginY - qrSize;
+        
+        // Agregar el QR en la esquina inferior derecha
+        doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+      };
       
       const ensureSpace = (height = 10) => {
         if (y + height > contentBottom) {
           doc.addPage();
+          currentPage++;
           y = marginY;
           doc.setFont(baseFont, "normal");
           doc.setFontSize(9);
@@ -1000,6 +1033,12 @@ export function CertificadosTable() {
       doc.text("Conductor", column3X, y, { align: "left" });
       
       y += 5;
+
+      // Agregar QR a las primeras 2 páginas (si existen)
+      const totalPages = doc.internal.pages.length - 1;
+      for (let pageNum = 1; pageNum <= Math.min(totalPages, maxPagesForQR); pageNum++) {
+        addQRToPage(pageNum);
+      }
 
       const fileName = certificate.folio || certificate.id || "sin-folio";
       doc.save(`certificado-${fileName}.pdf`);

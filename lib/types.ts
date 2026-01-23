@@ -312,6 +312,13 @@ export interface AlcoholCertificate {
   no?: boolean;
   Persona?: CertificatePerson;
   Medico?: CertificateDoctor;
+  certificadoJWT?: Array<{
+    id: string;
+    certificado_id: string;
+    token: string;
+    fecha_creacion: string;
+    fecha_expiracion: string | null;
+  }>;
   [key: string]: any;
 }
 
