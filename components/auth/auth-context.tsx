@@ -41,6 +41,7 @@ function normalizeUserFromResponse(response: any): AuthUser | null {
       permisos: raw.rol?.permisos ?? { modulos: {}, sistema: {} },
     },
     persona: {
+      id: String(raw.persona?.id ?? ""),
       Medico: raw.persona?.Medico ?? null,
       nombre: raw.persona?.nombre ?? "",
       apellido_materno: raw.persona?.apellido_materno ?? "",

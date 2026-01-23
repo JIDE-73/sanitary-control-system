@@ -371,6 +371,7 @@ export interface RolePermissions {
 }
 
 export interface AuthUserPersona {
+  id: string;
   Medico: any | null;
   nombre: string;
   apellido_materno: string;

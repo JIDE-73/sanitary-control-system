@@ -212,9 +212,11 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
       // Importar jsPDF dinámicamente
       const { jsPDF } = await import("jspdf");
 
+      const user = JSON.parse(localStorage.getItem("sics-auth-user") || "{}");
+
       // Generar certificado y obtener token
       const certificateResponse = await request(
-        `/sics/certificateA/generateCertificate/${afiliado.id}`,
+        `/sics/certificateA/generateCertificate/${afiliado.id}/${user?.persona?.id}`,
         "GET",
       );
 
