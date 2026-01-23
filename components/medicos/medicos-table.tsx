@@ -23,8 +23,6 @@ import {
 import { Eye, Edit, IdCard, CheckCircle, XCircle, BarChart3, Loader2 } from "lucide-react";
 import type { Medico } from "@/lib/types";
 import { request } from "@/lib/request";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 interface MedicosTableProps {
   medicos: Medico[];
@@ -44,13 +42,157 @@ interface StatisticsResponse {
   stats: Record<string, number>;
 }
 
+function StatisticsModal({ medicoId, medicoNombre }: { medicoId: string; medicoNombre: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [statistics, setStatistics] = useState<StatisticsResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadStatistics = async () => {
+    if (!open) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await request(
+        `/sics/statistics/getStatisticsByMedic/${medicoId}`,
+        "GET"
+      );
+      if (response.status >= 200 && response.status < 300) {
+        setStatistics(response);
+      } else {
+        setError(response.message || "No se pudieron cargar las estadísticas");
+      }
+    } catch (err) {
+      console.error("Error al cargar estadísticas", err);
+      setError("No se pudieron cargar las estadísticas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      loadStatistics();
+    } else {
+      setStatistics(null);
+      setError(null);
+    }
+  }, [open, medicoId]);
+
+  const formatMonth = (key: string) => {
+    // Formato esperado: "2026-1" -> "Enero 2026"
+    const [year, month] = key.split("-");
+    const monthNames = [
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+    const monthIndex = parseInt(month) - 1;
+    return `${monthNames[monthIndex] || month} ${year}`;
+  };
+
+  const sortedStats = useMemo(() => {
+    if (!statistics?.stats) return [];
+    return Object.entries(statistics.stats).sort(([a], [b]) => {
+      const [yearA, monthA] = a.split("-").map(Number);
+      const [yearB, monthB] = b.split("-").map(Number);
+      if (yearA !== yearB) return yearA - yearB;
+      return monthA - monthB;
+    });
+  }, [statistics]);
+
+  const totalCertificados = useMemo(() => {
+    if (!statistics?.stats) return 0;
+    return Object.values(statistics.stats).reduce((sum, count) => sum + count, 0);
+  }, [statistics]);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Ver estadísticas"
+        >
+          <BarChart3 className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Estadísticas de Certificados
+          </DialogTitle>
+          <DialogDescription>
+            Dr(a). {medicoNombre}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-2">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">
+                Cargando estadísticas...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-2">
+              <XCircle className="h-8 w-8 text-destructive" />
+              <p className="text-sm text-destructive">{error}</p>
+            </div>
+          ) : statistics ? (
+            <>
+              <div className="rounded-lg border border-border bg-muted/50 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Total de certificados
+                  </span>
+                  <span className="text-2xl font-bold">{totalCertificados}</span>
+                </div>
+              </div>
+              {sortedStats.length > 0 ? (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">
+                    Certificados por mes
+                  </h4>
+                  <div className="rounded-lg border border-border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Período</TableHead>
+                          <TableHead className="text-right">Certificados</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sortedStats.map(([key, count]) => (
+                          <TableRow key={key}>
+                            <TableCell className="font-medium">
+                              {formatMonth(key)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="secondary">{count}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No hay estadísticas disponibles para este período
+                </p>
+              )}
+            </>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
   const router = useRouter();
   const [page, setPage] = useState(0);
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [loadingStats, setLoadingStats] = useState(false);
-  const [statistics, setStatistics] = useState<StatisticsResponse | null>(null);
-  const [statsError, setStatsError] = useState<string | null>(null);
 
   const totalPages = Math.max(
     1,
@@ -72,93 +214,8 @@ export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
       ? 0
       : Math.min((page + 1) * ITEMS_PER_PAGE, medicos.length);
 
-  const loadStatistics = async () => {
-    setLoadingStats(true);
-    setStatsError(null);
-    try {
-      // Obtener ID de persona del usuario actual desde localStorage
-      const userStr = window.localStorage.getItem("sics-auth-user");
-      if (!userStr) {
-        throw new Error("No se encontró información del usuario");
-      }
-      const user = JSON.parse(userStr);
-      const personaId = user?.persona?.id;
-
-      if (!personaId) {
-        throw new Error("No se encontró el ID de persona del usuario");
-      }
-
-      const response = await request(
-        `/sics/statistics/getStatisticsByMedic/${personaId}`,
-        "GET"
-      );
-
-      if (response.status >= 200 && response.status < 300) {
-        setStatistics(response);
-      } else {
-        throw new Error(response.message || "No se pudieron cargar las estadísticas");
-      }
-    } catch (err) {
-      console.error("Error al cargar estadísticas", err);
-      setStatsError(
-        err instanceof Error
-          ? err.message
-          : "No se pudieron cargar las estadísticas"
-      );
-      setStatistics(null);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
-
-  const handleOpenStats = () => {
-    setStatsOpen(true);
-    if (!statistics) {
-      loadStatistics();
-    }
-  };
-
-  // Formatear datos para el gráfico
-  const chartData = useMemo(() => {
-    if (!statistics?.stats) return [];
-    
-    return Object.entries(statistics.stats)
-      .map(([key, value]) => {
-        // Formatear clave "2026-1" a "Enero 2026"
-        const [year, month] = key.split("-");
-        const monthNames = [
-          "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-        ];
-        const monthName = monthNames[parseInt(month) - 1] || month;
-        return {
-          mes: `${monthName} ${year}`,
-          certificados: value,
-          key: key,
-        };
-      })
-      .sort((a, b) => {
-        // Ordenar por año y mes
-        const [yearA, monthA] = a.key.split("-").map(Number);
-        const [yearB, monthB] = b.key.split("-").map(Number);
-        if (yearA !== yearB) return yearA - yearB;
-        return monthA - monthB;
-      });
-  }, [statistics]);
-
   return (
     <div className="rounded-lg border border-border">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <p className="text-sm font-medium">Lista de médicos</p>
-        <Dialog open={statsOpen} onOpenChange={setStatsOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" onClick={handleOpenStats}>
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Mis estadísticas
-            </Button>
-          </DialogTrigger>
-        </Dialog>
-      </div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -233,6 +290,10 @@ export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
+                    <StatisticsModal
+                      medicoId={medico.id}
+                      medicoNombre={`${medico.nombres} ${medico.apellidoPaterno} ${medico.apellidoMaterno}`}
+                    />
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button
@@ -371,84 +432,6 @@ export function MedicosTable({ medicos, loading = false }: MedicosTableProps) {
           )}
         </TableBody>
       </Table>
-      <Dialog open={statsOpen} onOpenChange={setStatsOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Estadísticas de Certificados
-            </DialogTitle>
-            <DialogDescription>
-              Certificados emitidos por mes
-            </DialogDescription>
-          </DialogHeader>
-          {loadingStats ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : statsError ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-destructive">{statsError}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadStatistics}
-                className="mt-4"
-              >
-                Reintentar
-              </Button>
-            </div>
-          ) : chartData.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <p className="text-sm">No hay estadísticas disponibles</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <ChartContainer
-                config={{
-                  certificados: {
-                    label: "Certificados",
-                    color: "hsl(var(--chart-1))",
-                  },
-                }}
-                className="h-[300px] w-full"
-              >
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="mes"
-                    tick={{ fontSize: 12 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                  />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar
-                    dataKey="certificados"
-                    fill="var(--color-certificados)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ChartContainer>
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium mb-2">Resumen por mes:</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {chartData.map((item) => (
-                    <div
-                      key={item.key}
-                      className="flex items-center justify-between rounded-md border border-border px-3 py-2"
-                    >
-                      <span className="text-muted-foreground">{item.mes}</span>
-                      <span className="font-medium">{item.certificados} certificados</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
       <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
         <p className="text-muted-foreground">
           Mostrando {showingStart}-{showingEnd} de {medicos.length}
