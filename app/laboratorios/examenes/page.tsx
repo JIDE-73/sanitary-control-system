@@ -276,6 +276,43 @@ export default function LaboratorioExamenesPage() {
                     onChange={(e) => setNombreExamen(e.target.value)}
                     required
                   />
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Recomendaciones CIE-10 (referencia):
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        "Biometría hemática completa",
+                        "Química sanguínea completa",
+                        "Perfil lipídico",
+                        "Glucosa en ayunas",
+                        "Hemoglobina glicosilada (HbA1c)",
+                        "Prueba de función hepática",
+                        "Prueba de función renal",
+                        "TSH (Tiroides)",
+                        "PSA (Antígeno prostático)",
+                        "Cultivo y antibiograma",
+                        "Urocultivo",
+                        "Coprocultivo",
+                        "VIH",
+                        "Hepatitis B",
+                        "Hepatitis C",
+                        "VDRL",
+                        "Factor reumatoide",
+                        "Ácido úrico",
+                        "Creatinina",
+                        "Urea",
+                      ].map((examen, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center rounded-md border border-border/50 bg-muted/30 px-2 py-1 text-xs text-muted-foreground opacity-60 cursor-not-allowed"
+                          title="Solo referencia - no seleccionable"
+                        >
+                          {examen}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button type="submit" disabled={creatingExam}>
