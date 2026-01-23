@@ -76,10 +76,10 @@ export default function NuevoCertificadoPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Emitir Certificado Sanitario
+              Emitir Certificado de Alcoholimetría
             </h1>
             <p className="text-muted-foreground">
-              Complete los datos para emitir un nuevo certificado
+              Complete los datos para emitir un nuevo certificado de alcoholimetría
             </p>
           </div>
         </div>
