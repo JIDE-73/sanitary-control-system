@@ -136,6 +136,7 @@ const navigation = [
     submenu: [
       { name: "Emitir Certificado", href: "/certificados/nuevo" },
       { name: "Historial", href: "/certificados" },
+      { name: "Evidencias", href: "/certificados/evidencias" },
     ],
   },
 ];

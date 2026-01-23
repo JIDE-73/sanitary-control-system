@@ -32,8 +32,11 @@ const request = async (url: string, method: string, body?: any) => {
     credentials: "include",
   });
 
+  const data = await response.json();
+  console.log(data);
+
   // Preserve HTTP status even if API payload includes its own `status` field
-  return { status: response.status, ...(await response.json()) };
+  return { status: response.status, ...data };
 };
 
 const uploadRequest = async (url: string, formData: FormData, method: string = "POST") => {
