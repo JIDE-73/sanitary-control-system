@@ -190,19 +190,21 @@ export function BitacoraTable({
             </TableRow>
           ) : (
             paginatedBitacora.map((entry) => {
-              const nombreCompleto = [
-                entry.usuario.persona.nombre,
-                entry.usuario.persona.apellido_paterno,
-                entry.usuario.persona.apellido_materno,
-              ]
-                .filter(Boolean)
-                .join(" ");
+              const nombreCompleto = entry.usuario?.persona
+                ? [
+                    entry.usuario.persona.nombre,
+                    entry.usuario.persona.apellido_paterno,
+                    entry.usuario.persona.apellido_materno,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
+                : "";
 
               return (
                 <TableRow key={entry.id}>
                   <TableCell className="font-medium">
                     <div className="flex flex-col">
-                      <span>{entry.usuario.nombre_usuario}</span>
+                      <span>{entry.usuario?.nombre_usuario || "—"}</span>
                       {nombreCompleto && (
                         <span className="text-xs text-muted-foreground">
                           {nombreCompleto}
@@ -266,7 +268,7 @@ export function BitacoraTable({
                                 Nombre de Usuario
                               </dt>
                               <dd className="font-medium">
-                                {entry.usuario.nombre_usuario}
+                                {entry.usuario?.nombre_usuario || "—"}
                               </dd>
                             </div>
                             <div className="flex flex-col gap-1">

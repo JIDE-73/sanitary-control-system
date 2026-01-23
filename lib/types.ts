@@ -401,12 +401,12 @@ export interface BitacoraEntry {
   datos_antiguos: any | null;
   datos_nuevos: any | null;
   fecha_hora: string;
-  usuario: {
+  usuario?: {
     nombre_usuario: string;
-    persona: {
+    persona?: {
       nombre: string;
       apellido_paterno: string;
       apellido_materno: string;
-    };
-  };
+    } | null;
+  } | null;
 }
