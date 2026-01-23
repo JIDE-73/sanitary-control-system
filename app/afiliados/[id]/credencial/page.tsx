@@ -13,6 +13,7 @@ import { request } from "@/lib/request";
 import { ArrowLeft, IdCard, RefreshCcw, Download } from "lucide-react";
 
 const baseUrl = process.env.NEXT_PUBLIC_URL;
+const validationBaseUrl = process.env.NEXT_PUBLIC_CERV || process.env.NEXT_PUBLIC_URL || "https://localhost:3000";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -222,8 +223,11 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
         throw new Error("No se pudo obtener el token del certificado");
       }
 
-      // Generar QR code con el token
-      const qrDataUrl = await QRCode.toDataURL(token, {
+      // Construir URL completa de validación
+      const validationUrl = `${validationBaseUrl}${token}`;
+
+      // Generar QR code con la URL completa de validación
+      const qrDataUrl = await QRCode.toDataURL(validationUrl, {
         width: 300,
         margin: 2,
       });
