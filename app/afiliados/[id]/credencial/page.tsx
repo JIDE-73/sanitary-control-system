@@ -1,9 +1,8 @@
 "use client";
 
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { QRCodeCanvas } from "qrcode.react";
-import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import type { AfiliadoListado } from "@/components/afiliados/afiliados-table";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { request } from "@/lib/request";
-import { ArrowLeft, IdCard, QrCode, RefreshCcw, Download } from "lucide-react";
+import { ArrowLeft, IdCard, RefreshCcw, Download } from "lucide-react";
 
 const baseUrl = process.env.NEXT_PUBLIC_URL;
 
@@ -105,7 +104,7 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
-  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   const loadAssetAsDataUrl = async (path: string) => {
     try {
@@ -204,199 +203,188 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
     }`.trim();
   }, [afiliado]);
 
-  const qrPayload = useMemo(() => {
-    if (!afiliado) return null;
-    return {
-      id: afiliado.id,
-      curp: afiliado.curp,
-      noAfiliacion: afiliado.noAfiliacion ?? "",
-      sidmoCodigo: afiliado.sidmoCodigo ?? "",
-      nombres: afiliado.nombres,
-      apellidoPaterno: afiliado.apellidoPaterno,
-      apellidoMaterno: afiliado.apellidoMaterno ?? "",
-      genero: afiliado.genero,
-      telefono: afiliado.telefono ?? "",
-      email: afiliado.email ?? "",
-      ciudad: afiliado.ciudad ?? "",
-      direccion: afiliado.direccion ?? "",
-      lugarTrabajoCodigo: afiliado.lugarTrabajoCodigo ?? "",
-      lugarTrabajoNombre: afiliado.lugarTrabajoNombre ?? "",
-      estatus: afiliado.estatus,
-      fechaNacimiento: afiliado.fechaNacimiento ?? "",
-      fechaInicio: afiliado.fechaInicio ?? "",
-      fechaInicioTijuana: afiliado.fechaInicioTijuana ?? "",
-      estadoCivil: afiliado.estadoCivil ?? "",
-      actaNacimiento: afiliado.actaNacimiento ?? null,
-      lugarProcedencia: afiliado.lugarProcedencia ?? "",
-      fechaRegistro: afiliado.fechaRegistro ?? "",
-      ocupacion: afiliado.ocupacion ?? "",
-      catalogoTelefono: afiliado.catalogoTelefono ?? "",
-      catalogoCiudad: afiliado.catalogoCiudad ?? "",
-      catalogoEstado: afiliado.catalogoEstado ?? "",
-      catalogoCodigoPostal: afiliado.catalogoCodigoPostal ?? "",
-    };
-  }, [afiliado]);
-
-  const qrValue = useMemo(
-    () => (qrPayload ? JSON.stringify(qrPayload) : ""),
-    [qrPayload],
-  );
-
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!afiliado) return;
 
-    const cardWidth = 242.8;
-    const cardHeight = 153;
-    const margin = 14;
-    const headerHeight = 45;
-    const expeditionDate = (
-      afiliado.fechaRegistro ? new Date(afiliado.fechaRegistro) : new Date()
-    ).toLocaleDateString("es-MX", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+    setDownloading(true);
+    try {
+      // Importar jsPDF dinámicamente
+      const { jsPDF } = await import("jspdf");
 
-    const doc = new jsPDF({
-      orientation: "landscape",
-      unit: "pt",
-      format: [cardWidth, cardHeight],
-    });
+      // Generar certificado y obtener token
+      const certificateResponse = await request(
+        `/sics/certificateA/generateCertificate/${afiliado.id}`,
+        "GET",
+      );
 
-    // Fondo general
-    doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, cardWidth, cardHeight, "F");
-
-    // Encabezado
-    doc.setFillColor(117, 13, 47);
-    doc.rect(0, 0, cardWidth, headerHeight, "F");
-    if (logoDataUrl) {
-      doc.addImage(logoDataUrl, "PNG", margin, 8, 90, headerHeight - 16);
-    }
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.text("Dirección Municipal de Salud", cardWidth - margin, 20, {
-      align: "right",
-    });
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.text("Sistema de Control Sanitario", cardWidth - margin, 34, {
-      align: "right",
-    });
-
-    // Identificador y fecha
-    doc.setTextColor(23, 41, 64);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(5);
-    doc.text(
-      `# Afiliado: ${afiliado.noAfiliacion ?? "Sin asignar"}`,
-      margin,
-      headerHeight + 8,
-    );
-    doc.text(
-      `Fecha de expedición: ${expeditionDate}`,
-      margin,
-      headerHeight + 95,
-    );
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-
-    // Foto
-    const photoX = margin;
-    const photoY = headerHeight + 10;
-    const photoW = 74;
-    const photoH = 78;
-    doc.setDrawColor(160, 170, 185);
-    doc.setLineWidth(1);
-    doc.roundedRect(photoX, photoY, photoW, photoH, 6, 6);
-    
-    // Agregar la foto del afiliado si está disponible
-    if (photoDataUrl) {
-      try {
-        doc.addImage(photoDataUrl, "JPEG", photoX + 2, photoY + 2, photoW - 4, photoH - 4, undefined, "FAST");
-      } catch (error) {
-        console.warn("No se pudo agregar la foto al PDF", error);
+      const token = certificateResponse?.token;
+      if (!token) {
+        throw new Error("No se pudo obtener el token del certificado");
       }
-    }
 
-    // Datos del afiliado
-    let infoX = photoX + photoW + 16;
-    let cursorY = photoY + 4;
-    doc.setTextColor(19, 32, 52);
+      // Generar QR code con el token
+      const qrDataUrl = await QRCode.toDataURL(token, {
+        width: 300,
+        margin: 2,
+      });
 
-    const printField = (label: string, value?: string | null) => {
+      const cardWidth = 242.8;
+      const cardHeight = 153;
+      const margin = 14;
+      const headerHeight = 45;
+      const expeditionDate = (
+        afiliado.fechaRegistro ? new Date(afiliado.fechaRegistro) : new Date()
+      ).toLocaleDateString("es-MX", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: [cardWidth, cardHeight],
+      });
+
+      // Fondo general
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, cardWidth, cardHeight, "F");
+
+      // Encabezado
+      doc.setFillColor(117, 13, 47);
+      doc.rect(0, 0, cardWidth, headerHeight, "F");
+      if (logoDataUrl) {
+        doc.addImage(logoDataUrl, "PNG", margin, 8, 90, headerHeight - 16);
+      }
+      doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
-      doc.text(label, infoX, cursorY);
-      cursorY += 10;
+      doc.text("Dirección Municipal de Salud", cardWidth - margin, 20, {
+        align: "right",
+      });
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
-      doc.text(value && value.trim() ? value : "—", infoX, cursorY);
-      cursorY += 10;
-    };
+      doc.text("Sistema de Control Sanitario", cardWidth - margin, 34, {
+        align: "right",
+      });
 
-    const infoFields = [
-      { label: "Nombre completo", value: fullName },
-      {
-        label: "Teléfono",
-        value: afiliado.telefono ?? afiliado.catalogoTelefono ?? "—",
-      },
-    ];
-
-    infoFields.forEach((field) => printField(field.label, field.value));
-
-    // Área de firma
-    const signatureW = 120;
-    const signatureH = 46;
-    const signatureX = cardWidth - signatureW - margin;
-    const signatureY = cardHeight - signatureH - 16;
-    if (signatureDataUrl) {
-      doc.addImage(
-        signatureDataUrl,
-        "JPEG",
-        signatureX + 10,
-        signatureY+2,
-        signatureW - 20,
-        signatureH -10,
-        undefined,
-        "FAST",
-        -359.99,
+      // Identificador y fecha
+      doc.setTextColor(23, 41, 64);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(5);
+      doc.text(
+        `# Afiliado: ${afiliado.noAfiliacion ?? "Sin asignar"}`,
+        margin,
+        headerHeight + 8,
       );
+      doc.text(
+        `Fecha de expedición: ${expeditionDate}`,
+        margin,
+        headerHeight + 95,
+      );
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+
+      // Foto
+      const photoX = margin;
+      const photoY = headerHeight + 10;
+      const photoW = 74;
+      const photoH = 78;
+      doc.setDrawColor(160, 170, 185);
+      doc.setLineWidth(1);
+      doc.roundedRect(photoX, photoY, photoW, photoH, 6, 6);
+      
+      // Agregar la foto del afiliado si está disponible
+      if (photoDataUrl) {
+        try {
+          doc.addImage(photoDataUrl, "JPEG", photoX + 2, photoY + 2, photoW - 4, photoH - 4, undefined, "FAST");
+        } catch (error) {
+          console.warn("No se pudo agregar la foto al PDF", error);
+        }
+      }
+
+      // Datos del afiliado
+      let infoX = photoX + photoW + 16;
+      let cursorY = photoY + 4;
+      doc.setTextColor(19, 32, 52);
+
+      const printField = (label: string, value?: string | null) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.text(label, infoX, cursorY);
+        cursorY += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.text(value && value.trim() ? value : "—", infoX, cursorY);
+        cursorY += 10;
+      };
+
+      const infoFields = [
+        { label: "Nombre completo", value: fullName },
+        {
+          label: "Teléfono",
+          value: afiliado.telefono ?? afiliado.catalogoTelefono ?? "—",
+        },
+      ];
+
+      infoFields.forEach((field) => printField(field.label, field.value));
+
+      // Área de firma
+      const signatureW = 120;
+      const signatureH = 46;
+      const signatureX = cardWidth - signatureW - margin;
+      const signatureY = cardHeight - signatureH - 16;
+      if (signatureDataUrl) {
+        doc.addImage(
+          signatureDataUrl,
+          "JPEG",
+          signatureX + 10,
+          signatureY+2,
+          signatureW - 20,
+          signatureH -10,
+          undefined,
+          "FAST",
+          -359.99,
+        );
+      }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(19, 32, 52);
+      doc.text(
+        "Dr. Sharai Bustamante Hernandez",
+        signatureX + signatureW / 2,
+        signatureY + signatureH - 2,
+        { align: "center" },
+      );
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.text(
+        "Jefa de control sanitario",
+        signatureX + signatureW / 2,
+        signatureY + signatureH + 9,
+        { align: "center" },
+      );
+
+      // --- Reverso: QR con token ---
+      doc.addPage([cardWidth, cardHeight], "landscape");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(" ", margin, margin + 10);
+
+      if (qrDataUrl) {
+        const qrSize = 90;
+        const qrX = (cardWidth - qrSize) / 2;
+        const qrY = (cardHeight - qrSize) / 2;
+        doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+      }
+
+      doc.save(`credencial-${afiliado.curp || afiliado.id}.pdf`);
+    } catch (err) {
+      console.error("Error al generar el PDF", err);
+      setError("No se pudo generar la credencial. Intenta de nuevo.");
+    } finally {
+      setDownloading(false);
     }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(19, 32, 52);
-    doc.text(
-      "Dr. Sharai Bustamante Hernandez",
-      signatureX + signatureW / 2,
-      signatureY + signatureH - 2,
-      { align: "center" },
-    );
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(6);
-    doc.text(
-      "Jefa de control sanitario",
-      signatureX + signatureW / 2,
-      signatureY + signatureH + 9,
-      { align: "center" },
-    );
-
-    // --- Reverso: QR permanece igual ---
-    doc.addPage([cardWidth, cardHeight], "landscape");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(" ", margin, margin + 10);
-
-    const qrDataUrl = qrCanvasRef.current?.toDataURL("image/png");
-    if (qrDataUrl) {
-      const qrSize = 90;
-      const qrX = (cardWidth - qrSize) / 2;
-      const qrY = (cardHeight - qrSize) / 2;
-      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
-    }
-
-    doc.save(`credencial-${afiliado.curp || afiliado.id}.pdf`);
   };
 
   if (loading) {
@@ -461,162 +449,129 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
               <RefreshCcw className="mr-2 h-4 w-4" />
               Actualizar datos
             </Button>
-            <Button size="sm" onClick={handleDownloadPdf}>
+            <Button size="sm" onClick={handleDownloadPdf} disabled={downloading}>
               <Download className="mr-2 h-4 w-4" />
-              Descargar PDF
+              {downloading ? "Generando..." : "Descargar PDF"}
             </Button>
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-          <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="flex items-center gap-2">
-                <IdCard className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Credencial sanitaria</CardTitle>
-              </div>
-              <Badge
-                variant="outline"
-                className="capitalize"
-                title="Estatus actual del afiliado"
-              >
-                {afiliado.estatus}
-              </Badge>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col gap-4 md:flex-row md:items-start">
-                <div className="relative flex h-48 w-36 items-center justify-center overflow-hidden rounded-lg border-2 border-muted-foreground/50 bg-muted/30">
-                  {photoDataUrl ? (
-                    <img
-                      src={photoDataUrl}
-                      alt={`Foto de ${fullName}`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="px-3 text-center text-xs text-muted-foreground">
-                      Espacio reservado para la fotografía del afiliado
-                    </div>
-                  )}
-                </div>
-                <div className="grid flex-1 grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      Nombre completo
-                    </p>
-                    <p className="font-semibold">{fullName}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      CURP
-                    </p>
-                    <p className="font-mono text-sm">{afiliado.curp || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      No. Afiliación
-                    </p>
-                    <p className="font-medium">
-                      {afiliado.noAfiliacion ?? "Sin asignar"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      SIDMO
-                    </p>
-                    <p className="font-medium">{afiliado.sidmoCodigo ?? "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      Género
-                    </p>
-                    <p className="capitalize">{afiliado.genero}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      Ocupación
-                    </p>
-                    <p className="font-medium">
-                      {afiliado.ocupacion ?? "No especificada"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      Teléfono
-                    </p>
-                    <p className="font-medium">
-                      {afiliado.telefono ?? afiliado.catalogoTelefono ?? "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      Ciudad
-                    </p>
-                    <p className="font-medium">
-                      {afiliado.ciudad ??
-                        afiliado.catalogoCiudad ??
-                        afiliado.lugarProcedencia ??
-                        "—"}
-                    </p>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      Dirección
-                    </p>
-                    <p className="font-medium">
-                      {afiliado.direccion ??
-                        afiliado.catalogoCalle ??
-                        afiliado.catalogoColonia ??
-                        "—"}
-                    </p>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <p className="text-muted-foreground text-xs uppercase tracking-wide">
-                      Lugar de trabajo
-                    </p>
-                    <p className="font-medium">
-                      {afiliado.lugarTrabajoCodigo
-                        ? `${afiliado.lugarTrabajoCodigo} - ${
-                            afiliado.lugarTrabajoNombre ?? ""
-                          }`
-                        : (afiliado.lugarTrabajoNombre ?? "—")}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardHeader className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <QrCode className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">QR con datos vigentes</CardTitle>
-              </div>
-              <Badge variant="secondary" className="font-mono text-xs">
-                ID: {afiliado.id}
-              </Badge>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center gap-4">
-              {qrValue ? (
-                <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
-                  <QRCodeCanvas
-                    ref={qrCanvasRef}
-                    value={qrValue}
-                    size={220}
-                    includeMargin
+        <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <IdCard className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Credencial sanitaria</CardTitle>
+            </div>
+            <Badge
+              variant="outline"
+              className="capitalize"
+              title="Estatus actual del afiliado"
+            >
+              {afiliado.estatus}
+            </Badge>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start">
+              <div className="relative flex h-48 w-36 items-center justify-center overflow-hidden rounded-lg border-2 border-muted-foreground/50 bg-muted/30">
+                {photoDataUrl ? (
+                  <img
+                    src={photoDataUrl}
+                    alt={`Foto de ${fullName}`}
+                    className="h-full w-full object-cover"
                   />
+                ) : (
+                  <div className="px-3 text-center text-xs text-muted-foreground">
+                    Espacio reservado para la fotografía del afiliado
+                  </div>
+                )}
+              </div>
+              <div className="grid flex-1 grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Nombre completo
+                  </p>
+                  <p className="font-semibold">{fullName}</p>
                 </div>
-              ) : (
-                <Skeleton className="h-55 w-55" />
-              )}
-              <p className="text-center text-xs text-muted-foreground">
-                El código QR incluye toda la información vigente del afiliado,
-                por lo que siempre reflejará los datos actuales al ser
-                escaneado.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    CURP
+                  </p>
+                  <p className="font-mono text-sm">{afiliado.curp || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    No. Afiliación
+                  </p>
+                  <p className="font-medium">
+                    {afiliado.noAfiliacion ?? "Sin asignar"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    SIDMO
+                  </p>
+                  <p className="font-medium">{afiliado.sidmoCodigo ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Género
+                  </p>
+                  <p className="capitalize">{afiliado.genero}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Ocupación
+                  </p>
+                  <p className="font-medium">
+                    {afiliado.ocupacion ?? "No especificada"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Teléfono
+                  </p>
+                  <p className="font-medium">
+                    {afiliado.telefono ?? afiliado.catalogoTelefono ?? "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Ciudad
+                  </p>
+                  <p className="font-medium">
+                    {afiliado.ciudad ??
+                      afiliado.catalogoCiudad ??
+                      afiliado.lugarProcedencia ??
+                      "—"}
+                  </p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Dirección
+                  </p>
+                  <p className="font-medium">
+                    {afiliado.direccion ??
+                      afiliado.catalogoCalle ??
+                      afiliado.catalogoColonia ??
+                      "—"}
+                  </p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                    Lugar de trabajo
+                  </p>
+                  <p className="font-medium">
+                    {afiliado.lugarTrabajoCodigo
+                      ? `${afiliado.lugarTrabajoCodigo} - ${
+                          afiliado.lugarTrabajoNombre ?? ""
+                        }`
+                      : (afiliado.lugarTrabajoNombre ?? "—")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </MainLayout>
   );
