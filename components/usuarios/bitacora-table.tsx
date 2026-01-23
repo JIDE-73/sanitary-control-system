@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Loader2, RotateCcw } from "lucide-react";
+import { Eye, Loader2, RotateCcw, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { request } from "@/lib/request";
 import type { BitacoraEntry } from "@/lib/types";
@@ -70,6 +70,7 @@ export function BitacoraTable({
   const [reloading, setReloading] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<BitacoraEntry | null>(null);
   const [page, setPage] = useState(0);
+  const [downloading, setDownloading] = useState(false);
 
   const totalPages = Math.max(
     1,
@@ -140,24 +141,274 @@ export function BitacoraTable({
 
   const isLoading = loading || internalLoading;
 
+  const loadLogoDataUrl = async () => {
+    try {
+      const response = await fetch("/tijuana_sgm_dms_sin_fondo.png");
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (bitacora.length === 0) {
+      toast({
+        title: "No hay datos",
+        description: "No hay registros en la bitácora para generar el PDF.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDownloading(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "mm", format: "letter" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const marginX = 12;
+      const marginY = 15;
+      const marginRight = pageWidth - marginX;
+      let cursorY = marginY;
+
+      // Cargar logo
+      const logoDataUrl = await loadLogoDataUrl();
+
+      // Encabezado
+      if (logoDataUrl) {
+        doc.addImage(logoDataUrl, "PNG", marginX, cursorY, 40, 15);
+      }
+      cursorY += 20;
+
+      // Título
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text("Bitácora de Auditoría", pageWidth / 2, cursorY, {
+        align: "center",
+      });
+      cursorY += 8;
+
+      // Fecha de generación
+      const fechaGeneracion = new Date().toLocaleString("es-MX", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(
+        `Generado el: ${fechaGeneracion}`,
+        pageWidth / 2,
+        cursorY,
+        { align: "center" }
+      );
+      cursorY += 6;
+
+      // Información adicional
+      doc.setFontSize(9);
+      doc.text(
+        `Total de registros: ${bitacora.length}`,
+        pageWidth / 2,
+        cursorY,
+        { align: "center" }
+      );
+      cursorY += 10;
+
+      // Configuración de tabla
+      const colWidths = {
+        usuario: 35,
+        accion: 35,
+        ip: 30,
+        fecha: 40,
+      };
+      const rowHeight = 12;
+      const headerHeight = 10;
+      const startX = marginX;
+
+      // Función para agregar nueva página si es necesario
+      const checkNewPage = (requiredHeight: number) => {
+        if (cursorY + requiredHeight > pageHeight - marginY) {
+          doc.addPage();
+          cursorY = marginY;
+          return true;
+        }
+        return false;
+      };
+
+      // Encabezado de tabla
+      const drawTableHeader = () => {
+        checkNewPage(headerHeight + rowHeight);
+        doc.setFillColor(117, 13, 47);
+        doc.rect(startX, cursorY, pageWidth - 2 * marginX, headerHeight, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+
+        let currentX = startX + 2;
+        doc.text("Usuario", currentX, cursorY + 7);
+        currentX += colWidths.usuario;
+        doc.text("Acción", currentX, cursorY + 7);
+        currentX += colWidths.accion;
+        doc.text("IP", currentX, cursorY + 7);
+        currentX += colWidths.ip;
+        doc.text("Fecha y Hora", currentX, cursorY + 7);
+
+        cursorY += headerHeight;
+        doc.setTextColor(0, 0, 0);
+      };
+
+      // Dibujar encabezado
+      drawTableHeader();
+
+      // Filas de datos
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+
+      bitacora.forEach((entry, index) => {
+        checkNewPage(rowHeight);
+
+        // Alternar color de fondo
+        if (index % 2 === 0) {
+          doc.setFillColor(245, 245, 245);
+          doc.rect(startX, cursorY, pageWidth - 2 * marginX, rowHeight, "F");
+        }
+
+        // Datos de la fila
+        let currentX = startX + 2;
+        const usuarioNombre = entry.usuario?.nombre_usuario || "—";
+        const nombreCompleto = entry.usuario?.persona
+          ? [
+              entry.usuario.persona.nombre,
+              entry.usuario.persona.apellido_paterno,
+              entry.usuario.persona.apellido_materno,
+            ]
+            .filter(Boolean)
+            .join(" ")
+          : "";
+
+        // Usuario
+        doc.setFont("helvetica", "bold");
+        doc.text(usuarioNombre, currentX, cursorY + 7);
+        if (nombreCompleto) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          doc.text(nombreCompleto, currentX, cursorY + 10);
+          doc.setFontSize(8);
+        }
+        currentX += colWidths.usuario;
+
+        // Acción
+        doc.setFont("helvetica", "normal");
+        const actionText = formatAction(entry.action);
+        doc.text(actionText.substring(0, 20), currentX, cursorY + 7);
+        currentX += colWidths.accion;
+
+        // IP
+        doc.setFont("helvetica", "normal");
+        doc.setFont("courier", "normal");
+        doc.text(entry.ip_address || "—", currentX, cursorY + 7);
+        currentX += colWidths.ip;
+
+        // Fecha
+        doc.setFont("helvetica", "normal");
+        doc.text(formatFecha(entry.fecha_hora), currentX, cursorY + 7);
+
+        cursorY += rowHeight;
+      });
+
+      // Pie de página en cada página
+      const totalPages = doc.internal.pages.length - 1;
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(
+          `Página ${i} de ${totalPages}`,
+          pageWidth / 2,
+          pageHeight - 5,
+          { align: "center" }
+        );
+        doc.text(
+          "Sistema Integral de Control Sanitario",
+          marginX,
+          pageHeight - 5
+        );
+        doc.text(
+          "Sin fecha de expiración",
+          marginRight,
+          pageHeight - 5,
+          { align: "right" }
+        );
+        doc.setTextColor(0, 0, 0);
+      }
+
+      // Guardar PDF
+      const fileName = `bitacora-auditoria-${new Date()
+        .toISOString()
+        .split("T")[0]
+        .replace(/-/g, "")}.pdf`;
+      doc.save(fileName);
+
+      toast({
+        title: "PDF generado",
+        description: "El archivo PDF de la bitácora se ha descargado correctamente.",
+      });
+    } catch (error) {
+      console.error("Error al generar PDF", error);
+      toast({
+        title: "Error al generar PDF",
+        description: "No se pudo generar el archivo PDF. Intenta de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-border">
       <div className="flex items-center justify-between px-4 py-3">
         <p className="text-sm text-muted-foreground">Bitácora de auditoría</p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={runReload}
-          disabled={reloading || isLoading}
-          className="gap-2"
-        >
-          {reloading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RotateCcw className="h-4 w-4" />
-          )}
-          Recargar
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadPdf}
+            disabled={downloading || bitacora.length === 0}
+            className="gap-2"
+          >
+            {downloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            Descargar PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runReload}
+            disabled={reloading || isLoading}
+            className="gap-2"
+          >
+            {reloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="h-4 w-4" />
+            )}
+            Recargar
+          </Button>
+        </div>
       </div>
       <Table>
         <TableHeader>
