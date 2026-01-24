@@ -14,18 +14,28 @@ function NuevaNotaMedicaContent() {
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (data: Partial<ConsultaClinica>) => {
-    if (!data.afiliadoId || !data.medicoId) {
+    if (!data.afiliadoId) {
       toast({
         title: "Faltan datos obligatorios",
-        description: "Selecciona afiliado y médico para continuar.",
+        description: "Selecciona afiliado para continuar.",
         variant: "destructive",
       });
       return;
     }
 
+    const user = localStorage.getItem("sics-auth-user");
+
+    let medicoId = "";
+    try {
+      const parsedUser = user ? JSON.parse(user) : null;
+      medicoId = parsedUser?.persona?.id || "";
+    } catch {
+      medicoId = "";
+    }
+
     const payload = {
       persona_id: data.afiliadoId,
-      medico_id: data.medicoId,
+      medico_id: medicoId,
       diagnostico: data.diagnostico ?? "",
       tratamiento: data.tratamiento ?? "",
       comentario: data.comentarios ?? "",
