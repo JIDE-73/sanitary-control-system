@@ -59,6 +59,7 @@ const navigation = [
     submenu: [
       { name: "Listado", href: "/usuarios" },
       { name: "Nuevo Usuario", href: "/usuarios/nuevo" },
+      { name: "Relación Usuario Médico", href: "/usuarios/relacion-medico" },
       { name: "Roles", href: "/usuarios/roles" },
       { name: "Nuevo Rol", href: "/usuarios/roles/nuevo" },
       { name: "Bitácora", href: "/bitacora" },
