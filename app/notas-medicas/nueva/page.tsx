@@ -29,6 +29,17 @@ function NuevaNotaMedicaContent() {
       diagnostico: data.diagnostico ?? "",
       tratamiento: data.tratamiento ?? "",
       comentario: data.comentarios ?? "",
+      FC: data.FC ?? "",
+      TA: data.TA ?? "",
+      FR: data.FR ?? "",
+      peso: data.peso ?? "",
+      Temperatura: data.Temperatura ?? "",
+      cabeza: data.cabeza ?? "",
+      cuello: data.cuello ?? "",
+      torax: data.torax ?? "",
+      abdomen: data.abdomen ?? "",
+      miembros: data.miembros ?? "",
+      genitales: data.genitales ?? "",
     };
 
     setSaving(true);

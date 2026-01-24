@@ -182,6 +182,17 @@ export interface ConsultaClinica {
   tratamiento: string;
   comentarios?: string;
   examenes: ExamenClinico[];
+  FC?: string;
+  TA?: string;
+  FR?: string;
+  peso?: string;
+  Temperatura?: string;
+  cabeza?: string;
+  cuello?: string;
+  torax?: string;
+  abdomen?: string;
+  miembros?: string;
+  genitales?: string;
 }
 
 export interface ExamenClinico {
