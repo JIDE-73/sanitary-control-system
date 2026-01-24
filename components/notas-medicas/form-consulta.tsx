@@ -24,6 +24,8 @@ import {
   Save,
   ArrowLeft,
   Search,
+  Thermometer,
+  HeartPulse,
 } from "lucide-react";
 import type { ConsultaClinica } from "@/lib/types";
 import { request } from "@/lib/request";
@@ -395,6 +397,135 @@ export function FormNotaMedica({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Signos Vitales */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <HeartPulse className="h-5 w-5 text-primary" />
+            Signos Vitales
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="FC">FC (Frecuencia Cardíaca)</Label>
+            <Input
+              id="FC"
+              value={formData.FC || ""}
+              onChange={(e) => handleChange("FC", e.target.value)}
+              placeholder="Ej: 72 lpm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="TA">TA (Tensión Arterial)</Label>
+            <Input
+              id="TA"
+              value={formData.TA || ""}
+              onChange={(e) => handleChange("TA", e.target.value)}
+              placeholder="Ej: 120/80"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="FR">FR (Frecuencia Respiratoria)</Label>
+            <Input
+              id="FR"
+              value={formData.FR || ""}
+              onChange={(e) => handleChange("FR", e.target.value)}
+              placeholder="Ej: 16 rpm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="peso">Peso</Label>
+            <Input
+              id="peso"
+              value={formData.peso || ""}
+              onChange={(e) => handleChange("peso", e.target.value)}
+              placeholder="Ej: 70 kg"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="Temperatura">Temperatura</Label>
+            <Input
+              id="Temperatura"
+              value={formData.Temperatura || ""}
+              onChange={(e) => handleChange("Temperatura", e.target.value)}
+              placeholder="Ej: 36.5 °C"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Examen Físico */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Activity className="h-5 w-5 text-primary" />
+            Examen Físico
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="cabeza">Cabeza</Label>
+            <Textarea
+              id="cabeza"
+              value={formData.cabeza || ""}
+              onChange={(e) => handleChange("cabeza", e.target.value)}
+              placeholder="Observaciones de cabeza..."
+              rows={2}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cuello">Cuello</Label>
+            <Textarea
+              id="cuello"
+              value={formData.cuello || ""}
+              onChange={(e) => handleChange("cuello", e.target.value)}
+              placeholder="Observaciones de cuello..."
+              rows={2}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="torax">Tórax</Label>
+            <Textarea
+              id="torax"
+              value={formData.torax || ""}
+              onChange={(e) => handleChange("torax", e.target.value)}
+              placeholder="Observaciones de tórax..."
+              rows={2}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="abdomen">Abdomen</Label>
+            <Textarea
+              id="abdomen"
+              value={formData.abdomen || ""}
+              onChange={(e) => handleChange("abdomen", e.target.value)}
+              placeholder="Observaciones de abdomen..."
+              rows={2}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="miembros">Miembros</Label>
+            <Textarea
+              id="miembros"
+              value={formData.miembros || ""}
+              onChange={(e) => handleChange("miembros", e.target.value)}
+              placeholder="Observaciones de miembros..."
+              rows={2}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="genitales">Genitales</Label>
+            <Textarea
+              id="genitales"
+              value={formData.genitales || ""}
+              onChange={(e) => handleChange("genitales", e.target.value)}
+              placeholder="Observaciones de genitales..."
+              rows={2}
+            />
           </div>
         </CardContent>
       </Card>
