@@ -5,9 +5,11 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { FormMedico } from "@/components/medicos/form-medico";
 import type { DoctorPayload } from "@/lib/types";
 import { request } from "@/lib/request";
+import { useToast } from "@/hooks/use-toast";
 
 export default function NuevoMedicoPage() {
   const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = async (data: DoctorPayload) => {
     try {
@@ -17,12 +19,25 @@ export default function NuevoMedicoPage() {
         data
       );
       if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Médico registrado",
+          description: "El médico se registró correctamente.",
+        });
         router.push("/medicos");
       } else {
-        console.error(response.message || "No se pudo registrar el médico");
+        toast({
+          title: "No se pudo registrar",
+          description: response.message || "Ocurrió un error al registrar el médico.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error al registrar el médico", error);
+      toast({
+        title: "Error al registrar médico",
+        description: "Revisa tu conexión o inténtalo más tarde.",
+        variant: "destructive",
+      });
     }
   };
 

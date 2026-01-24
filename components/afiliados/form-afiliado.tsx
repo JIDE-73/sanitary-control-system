@@ -27,6 +27,7 @@ import type {
 } from "@/lib/types";
 import { request, uploadRequest } from "@/lib/request";
 import { AvatarUpload } from "./avatar-upload";
+import { useToast } from "@/hooks/use-toast";
 
 const MEXICO_STATES = [
   "Aguascalientes",
@@ -94,6 +95,7 @@ export function FormAfiliado({
   onSubmit,
 }: FormAfiliadoProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const isEdit = Boolean(afiliado?.id);
   const [submitting, setSubmitting] = useState(false);
   const [isExtranjero, setIsExtranjero] = useState<boolean>(() =>
@@ -182,7 +184,11 @@ export function FormAfiliado({
     e.preventDefault();
 
     if (!formData.lugar_trabajo) {
-      console.error("Selecciona un lugar de trabajo válido");
+      toast({
+        title: "Falta información",
+        description: "Selecciona un lugar de trabajo válido.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -221,10 +227,18 @@ export function FormAfiliado({
         const response = await uploadRequest(endpoint, formDataToSend);
 
         if (response.status >= 200 && response.status < 300) {
+          toast({
+            title: "Afiliado registrado",
+            description: "El afiliado se registró correctamente.",
+          });
           onSubmit(formData);
           router.push(`/afiliados`);
         } else {
-          console.error(response.message || "No se pudo registrar el afiliado");
+          toast({
+            title: "No se pudo registrar",
+            description: response.message || "Ocurrió un error al registrar el afiliado.",
+            variant: "destructive",
+          });
         }
       } else {
         if (isEdit) {
@@ -248,10 +262,18 @@ export function FormAfiliado({
           };
           const response = await request(endpoint, "PUT", updatePayload);
           if (response.status >= 200 && response.status < 300) {
+            toast({
+              title: "Afiliado actualizado",
+              description: "Los datos del afiliado se actualizaron correctamente.",
+            });
             onSubmit({ ...formData, ...updatePayload });
             router.push(`/afiliados`);
           } else {
-            console.error(response.message || "No se pudo actualizar el afiliado");
+            toast({
+              title: "No se pudo actualizar",
+              description: response.message || "Ocurrió un error al actualizar el afiliado.",
+              variant: "destructive",
+            });
           }
         } else {
           // Create: POST con todos los campos (incl. curp, estatus, avatar si aplica)
@@ -286,15 +308,28 @@ export function FormAfiliado({
           };
           const response = await request(endpoint, "POST", createPayload);
           if (response.status >= 200 && response.status < 300) {
+            toast({
+              title: "Afiliado registrado",
+              description: "El afiliado se registró correctamente.",
+            });
             onSubmit(createPayload);
             router.push(`/afiliados`);
           } else {
-            console.error(response.message || "No se pudo registrar el afiliado");
+            toast({
+              title: "No se pudo registrar",
+              description: response.message || "Ocurrió un error al registrar el afiliado.",
+              variant: "destructive",
+            });
           }
         }
       }
     } catch (error) {
       console.error("Error al enviar el formulario de afiliado", error);
+      toast({
+        title: "Error al procesar",
+        description: "Revisa tu conexión o inténtalo más tarde.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }

@@ -5,9 +5,11 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { FormLugar } from "@/components/lugares-trabajo/form-lugar";
 import type { LugarTrabajo } from "@/lib/types";
 import { request } from "@/lib/request";
+import { useToast } from "@/hooks/use-toast";
 
 export default function NuevoLugarPage() {
   const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = async (data: Partial<LugarTrabajo>) => {
     const payload = {
@@ -29,14 +31,25 @@ export default function NuevoLugarPage() {
       );
 
       if (response.status === 201) {
+        toast({
+          title: "Lugar de trabajo registrado",
+          description: "El lugar de trabajo se registró correctamente.",
+        });
         router.push("/lugares-trabajo");
       } else {
-        console.error(
-          response.message || "No se pudo registrar el lugar de trabajo"
-        );
+        toast({
+          title: "No se pudo registrar",
+          description: response.message || "Ocurrió un error al registrar el lugar de trabajo.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error al registrar el lugar de trabajo", error);
+      toast({
+        title: "Error al registrar lugar de trabajo",
+        description: "Revisa tu conexión o inténtalo más tarde.",
+        variant: "destructive",
+      });
     }
   };
 

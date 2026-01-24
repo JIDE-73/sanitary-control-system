@@ -18,6 +18,7 @@ import {
 import { ArrowLeft, Briefcase, MapPin, Save, Shield, User } from "lucide-react";
 import { request } from "@/lib/request";
 import type { CitizenPayload, GeneroBackend, NivelRiesgo } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
 const initialForm: CitizenPayload = {
   curp: "",
@@ -40,6 +41,7 @@ interface FormCiudadanoProps {
 
 export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [formData, setFormData] = useState<CitizenPayload>(initialForm);
   const [submitting, setSubmitting] = useState(false);
 
@@ -82,14 +84,26 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
       );
 
       if (response.status === 201) {
+        toast({
+          title: "Ciudadano registrado",
+          description: "El ciudadano se registró correctamente.",
+        });
         onSubmit(payload);
         router.push("/ciudadano");
       } else {
-        console.error(response.message || "No se pudo registrar al ciudadano");
+        toast({
+          title: "No se pudo registrar",
+          description: response.message || "Ocurrió un error al registrar al ciudadano.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.log(error);
       console.error("Error al enviar el formulario de ciudadano", error);
+      toast({
+        title: "Error al registrar ciudadano",
+        description: "Revisa tu conexión o inténtalo más tarde.",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }

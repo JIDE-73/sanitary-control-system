@@ -6,6 +6,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { FormMedico } from "@/components/medicos/form-medico";
 import { request } from "@/lib/request";
 import type { DoctorPayload, Medico } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -14,6 +15,7 @@ interface PageProps {
 export default function EditarMedicoPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const { toast } = useToast();
 
   const [medico, setMedico] = useState<Medico | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,8 +69,20 @@ export default function EditarMedicoPage({ params }: PageProps) {
       const normalizados: Medico[] = data.map(normalizeMedico);
       const encontrado = normalizados.find((m) => m.id === id);
       setMedico(encontrado ?? null);
+      if (!encontrado) {
+        toast({
+          title: "Médico no encontrado",
+          description: "No se pudo cargar la información del médico.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("No se pudo cargar el médico", error);
+      toast({
+        title: "Error al cargar médico",
+        description: "No se pudo obtener la información. Intenta nuevamente.",
+        variant: "destructive",
+      });
       setMedico(null);
     } finally {
       setLoading(false);
@@ -100,12 +114,25 @@ export default function EditarMedicoPage({ params }: PageProps) {
       );
 
       if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Médico actualizado",
+          description: "Los datos del médico se actualizaron correctamente.",
+        });
         router.push("/medicos");
       } else {
-        console.error(response.message || "No se pudo actualizar el médico");
+        toast({
+          title: "No se pudo actualizar",
+          description: response.message || "Ocurrió un error al actualizar el médico.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error al actualizar el médico", error);
+      toast({
+        title: "Error al actualizar médico",
+        description: "Revisa tu conexión o inténtalo más tarde.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }

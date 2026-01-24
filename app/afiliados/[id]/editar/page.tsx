@@ -13,11 +13,13 @@ import type {
   EstadoCivil,
   LugarTrabajo,
 } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
 const baseUrl = process.env.NEXT_PUBLIC_URL;
 
 export default function EditarAfiliadoPage() {
   const params = useParams();
+  const { toast } = useToast();
   const id = (params?.id as string) ?? "";
   const [lugaresTrabajo, setLugaresTrabajo] = useState<LugarTrabajo[]>([]);
   const [lugaresLoading, setLugaresLoading] = useState<boolean>(true);
@@ -187,9 +189,19 @@ export default function EditarAfiliadoPage() {
         setAfiliado(mapListadoToAfiliado(normalizado));
       } else {
         setAfiliado(null);
+        toast({
+          title: "Afiliado no encontrado",
+          description: "No se pudo cargar la información del afiliado.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error al cargar afiliado", error);
+      toast({
+        title: "Error al cargar afiliado",
+        description: "No se pudo obtener la información. Intenta nuevamente.",
+        variant: "destructive",
+      });
       setAfiliado(null);
     } finally {
       setLoadingAfiliado(false);
@@ -217,6 +229,11 @@ export default function EditarAfiliadoPage() {
         setLugaresTrabajo(lugares);
       } catch (error) {
         console.error("No se pudieron cargar los lugares de trabajo", error);
+        toast({
+          title: "Error al cargar lugares de trabajo",
+          description: "No se pudieron cargar los lugares de trabajo. Algunas funciones pueden estar limitadas.",
+          variant: "destructive",
+        });
         setLugaresTrabajo([]);
       } finally {
         setLugaresLoading(false);
