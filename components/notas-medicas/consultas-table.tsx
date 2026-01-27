@@ -145,7 +145,7 @@ export function NotasMedicasTable({
                         : "-"}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {afiliado?.nombre ?? "Afiliado no encontrado"}
+                      {afiliado?.nombre}
                     </TableCell>
                     <TableCell className="font-mono text-sm">
                       {afiliado?.curp || "-"}

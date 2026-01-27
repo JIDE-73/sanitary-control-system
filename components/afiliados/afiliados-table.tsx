@@ -77,6 +77,7 @@ const generoLabels: Record<string, string> = {
 
 const estatusVariants = {
   activo: "success",
+  vigente: "success",
   inactivo: "secondary",
   suspendido: "destructive",
   pendiente: "outline",
@@ -614,7 +615,7 @@ export function AfiliadosTable({
                     : "—"}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={estatusVariants[afiliado.estatus]}>
+                  <Badge variant={estatusVariants[afiliado.estatus?.toLowerCase() as keyof typeof estatusVariants] || "outline"}>
                     {afiliado.estatus.charAt(0).toUpperCase() +
                       afiliado.estatus.slice(1)}
                   </Badge>
@@ -714,7 +715,7 @@ export function AfiliadosTable({
                             </dt>
                             <dd>
                               <Badge
-                                variant={estatusVariants[afiliado.estatus]}
+                                variant={estatusVariants[afiliado.estatus?.toLowerCase() as keyof typeof estatusVariants] || "outline"}
                               >
                                 {afiliado.estatus.charAt(0).toUpperCase() +
                                   afiliado.estatus.slice(1)}
