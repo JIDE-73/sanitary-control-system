@@ -36,7 +36,6 @@ export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
         "GET"
       );
 
-      console.log("Respuesta completa:", response);
       if (response.status >= 200 && response.status < 300) {
         // Intentar diferentes posibles nombres de la propiedad
         const items = 
@@ -45,12 +44,6 @@ export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
           Array.isArray(response.data) ? response.data :
           Array.isArray(response) ? response : [];
         
-        console.log("Items extraídos:", items);
-        console.log("Cantidad de items:", items.length);
-        
-        if (items.length > 0) {
-          console.log("Primer item:", items[0]);
-        }
         
         setGaleria(items);
       } else {
@@ -64,7 +57,6 @@ export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
         setGaleria([]);
       }
     } catch (error) {
-      console.log(error);
       toast({
         title: "Error de red",
         description: "No se pudo comunicar con el backend.",
@@ -107,7 +99,6 @@ export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
     const baseUrlClean = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
     const imageUrl = `${baseUrlClean}/${cleanPath}`;
     
-    console.log(`Construyendo URL: baseUrl="${baseUrl}", path="${path}" -> "${imageUrl}"`);
     return imageUrl;
   };
 
@@ -172,7 +163,6 @@ export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {galeria.map((item) => {
           const imageUrl = getImageUrl(item.path_foto);
-          console.log(`Renderizando imagen: ${item.path_foto} -> ${imageUrl}`);
           return (
             <div
               key={item.id}
@@ -184,11 +174,8 @@ export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
                   src={imageUrl}
                   alt={item.descripcion || "Evidencia"}
                   className="w-full h-full object-cover"
-                  onLoad={() => {
-                    console.log(`Imagen cargada exitosamente: ${imageUrl}`);
-                  }}
+
                   onError={(e) => {
-                    console.error(`Error al cargar imagen: ${imageUrl}`, e);
                     const target = e.target as HTMLImageElement;
                     target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23ddd' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='12'%3EImagen no disponible%3C/text%3E%3C/svg%3E";
                   }}

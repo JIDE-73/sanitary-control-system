@@ -9,11 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { request } from "@/lib/request";
 import { ArrowLeft, IdCard, RefreshCcw, Download } from "lucide-react";
 
 const baseUrl = process.env.NEXT_PUBLIC_URL;
 const validationBaseUrl = process.env.NEXT_PUBLIC_CERV || process.env.NEXT_PUBLIC_URL || "https://localhost:3000";
+const refBaseUrl = process.env.NEXT_PUBLIC_REF || "";
+const refUsuario = process.env.NEXT_PUBLIC_U || "";
+const refPassword = process.env.NEXT_PUBLIC_P || "";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -106,6 +112,10 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [showReferenceDialog, setShowReferenceDialog] = useState(false);
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [validatingReference, setValidatingReference] = useState(false);
+  const [referenceError, setReferenceError] = useState<string | null>(null);
 
   const loadAssetAsDataUrl = async (path: string) => {
     try {
@@ -203,6 +213,99 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
       afiliado.apellidoMaterno ?? ""
     }`.trim();
   }, [afiliado]);
+
+  const validateReference = async (referencia: string): Promise<boolean> => {
+    try {
+      const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Body>
+    <ConsultaRecibo xmlns="http://tempuri.org/">
+      <referencia>${referencia}</referencia>
+      <usuario>${refUsuario}</usuario>
+      <password>${refPassword}</password>
+    </ConsultaRecibo>
+  </soap12:Body>
+</soap12:Envelope>`;
+
+      const response = await fetch(refBaseUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/soap+xml; charset=utf-8",
+        },
+        body: soapEnvelope,
+      });
+
+      if (response.status !== 200) {
+        return false;
+      }
+
+      const xmlText = await response.text();
+      
+      // Parsear la respuesta XML
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+      
+      // Verificar errores de parseo
+      const parserError = xmlDoc.querySelector("parsererror");
+      if (parserError) {
+        console.error("Error al parsear XML:", parserError.textContent);
+        return false;
+      }
+      
+      // Extraer mensaje e idstatus (buscar sin namespace primero, luego con namespace)
+      const mensajeElement = 
+        xmlDoc.querySelector("mensaje") || 
+        xmlDoc.querySelector("*[local-name()='mensaje']");
+      const idstatusElement = 
+        xmlDoc.querySelector("idstatus") || 
+        xmlDoc.querySelector("*[local-name()='idstatus']");
+      
+      const mensaje = mensajeElement?.textContent?.trim() || "";
+      const idstatus = idstatusElement?.textContent?.trim() || "";
+
+      // Validar: no debe ser "RECIBO VENCIDO" ni idstatus "3"
+      if (mensaje === "RECIBO VENCIDO" || idstatus === "3") {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error al validar la referencia", error);
+      return false;
+    }
+  };
+
+  const handleValidateAndDownload = async () => {
+    if (!referenceNumber.trim()) {
+      setReferenceError("Por favor ingresa un número de referencia");
+      return;
+    }
+
+    setValidatingReference(true);
+    setReferenceError(null);
+
+    try {
+      const isValid = await validateReference(referenceNumber.trim());
+      
+      if (!isValid) {
+        setReferenceError("El número de referencia no es válido o está vencido");
+        return;
+      }
+
+      // Si es válido, cerrar el diálogo y proceder con la descarga
+      setShowReferenceDialog(false);
+      setReferenceNumber("");
+      await handleDownloadPdf();
+    } catch (error) {
+      console.error("Error al validar la referencia", error);
+      setReferenceError("Error al validar la referencia. Intenta de nuevo.");
+    } finally {
+      setValidatingReference(false);
+    }
+  };
 
   const handleDownloadPdf = async () => {
     if (!afiliado) return;
@@ -455,7 +558,11 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
               <RefreshCcw className="mr-2 h-4 w-4" />
               Actualizar datos
             </Button>
-            <Button size="sm" onClick={handleDownloadPdf} disabled={downloading}>
+            <Button 
+              size="sm" 
+              onClick={() => setShowReferenceDialog(true)} 
+              disabled={downloading}
+            >
               <Download className="mr-2 h-4 w-4" />
               {downloading ? "Generando..." : "Descargar PDF"}
             </Button>
@@ -578,6 +685,61 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
             </div>
           </CardContent>
         </Card>
+
+        {/* Diálogo de validación de referencia */}
+        <Dialog open={showReferenceDialog} onOpenChange={setShowReferenceDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Validar número de referencia</DialogTitle>
+              <DialogDescription>
+                Ingresa el número de referencia del recibo para continuar con la descarga de la credencial.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="reference">Número de referencia</Label>
+                <Input
+                  id="reference"
+                  type="text"
+                  placeholder="Ingresa el número de referencia"
+                  value={referenceNumber}
+                  onChange={(e) => {
+                    setReferenceNumber(e.target.value);
+                    setReferenceError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !validatingReference) {
+                      handleValidateAndDownload();
+                    }
+                  }}
+                  disabled={validatingReference}
+                />
+                {referenceError && (
+                  <p className="text-sm text-destructive">{referenceError}</p>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowReferenceDialog(false);
+                  setReferenceNumber("");
+                  setReferenceError(null);
+                }}
+                disabled={validatingReference}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleValidateAndDownload}
+                disabled={validatingReference || !referenceNumber.trim()}
+              >
+                {validatingReference ? "Validando..." : "Validar y descargar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );

@@ -172,16 +172,6 @@ export function NotasMedicasTable({
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() =>
-                            router.push(`/afiliados/${nota.persona_id}`)
-                          }
-                          title="Ver expediente"
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
