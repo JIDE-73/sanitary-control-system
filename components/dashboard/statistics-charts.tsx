@@ -62,7 +62,7 @@ export function StatisticsCharts() {
           <CardHeader>
             <CardTitle>Cargando...</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center">
+          <CardContent className="h-[220px] sm:h-[300px] flex items-center justify-center">
             <div className="animate-pulse">Cargando estadísticas...</div>
           </CardContent>
         </Card>
@@ -118,7 +118,7 @@ export function StatisticsCharts() {
           <CardDescription>Distribución de registros principales</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px]">
+          <ChartContainer config={chartConfig} className="h-[240px] sm:h-[320px]">
             <BarChart data={overviewData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
@@ -143,7 +143,7 @@ export function StatisticsCharts() {
           <CardDescription>Resultados de exámenes de laboratorio</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px]">
+          <ChartContainer config={chartConfig} className="h-[240px] sm:h-[320px]">
             <BarChart data={resultsData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis

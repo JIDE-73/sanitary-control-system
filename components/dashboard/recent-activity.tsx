@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 const activities = [
   {
@@ -51,7 +52,7 @@ export function RecentActivity() {
           {activities.map((activity) => (
             <div
               key={activity.id}
-              className="flex items-center justify-between border-b border-border pb-4 last:border-0 last:pb-0"
+              className="flex flex-col gap-3 border-b border-border pb-4 last:border-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="space-y-1">
                 <p className="text-sm font-medium">{activity.description}</p>
@@ -61,13 +62,14 @@ export function RecentActivity() {
                 variant={
                   activity.status === "success" ? "default" : activity.status === "warning" ? "secondary" : "outline"
                 }
-                className={
+                className={cn(
+                  "flex-shrink-0",
                   activity.status === "success"
                     ? "bg-accent text-accent-foreground"
                     : activity.status === "warning"
                       ? "bg-warning text-warning-foreground"
-                      : ""
-                }
+                      : undefined
+                )}
               >
                 {activity.type}
               </Badge>

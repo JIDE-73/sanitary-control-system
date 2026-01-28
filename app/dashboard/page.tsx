@@ -9,17 +9,19 @@ export default function DashboardPage() {
   return (
     <RequireModuleAccess module="dashboard" action="read">
       <MainLayout>
-        <div className="space-y-6">
+        <div className="space-y-6 px-4 sm:px-0">
           {/* Page Header */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
             <img
               src="/Logo_XXVAyto_Vertical.png"
               alt="SICS - Sistema Integral de Control Sanitario"
-              className="h-16 w-auto object-contain"
+              className="h-12 w-auto object-contain sm:h-16"
             />
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+                Dashboard
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Sistema Integral de Control Medico - Resumen general
               </p>
             </div>

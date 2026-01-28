@@ -31,7 +31,7 @@ export function CertificatesExpiring() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <AlertTriangle className="h-5 w-5 text-warning" />
           <CardTitle>Certificados por Vencer</CardTitle>
         </div>
@@ -40,17 +40,20 @@ export function CertificatesExpiring() {
       <CardContent>
         <div className="space-y-4">
           {expiringCertificates.map((cert) => (
-            <div key={cert.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div
+              key={cert.id}
+              className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div className="space-y-1">
                 <p className="text-sm font-medium">{cert.name}</p>
                 <p className="text-xs text-muted-foreground">{cert.folio}</p>
                 <p className="text-xs text-muted-foreground">{cert.lugarTrabajo}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <Badge variant="secondary" className="bg-warning/10 text-warning">
                   {cert.expiresIn} días
                 </Badge>
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="outline" className="w-full sm:w-auto">
                   <RefreshCw className="mr-1 h-3 w-3" />
                   Renovar
                 </Button>

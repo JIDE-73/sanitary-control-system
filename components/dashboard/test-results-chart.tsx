@@ -55,7 +55,7 @@ export function TestResultsChart() {
         <CardHeader>
           <CardTitle>Cargando...</CardTitle>
         </CardHeader>
-        <CardContent className="h-[300px] flex items-center justify-center">
+        <CardContent className="h-[220px] sm:h-[300px] flex items-center justify-center">
           <div className="animate-pulse">Cargando estadísticas...</div>
         </CardContent>
       </Card>
@@ -104,7 +104,7 @@ export function TestResultsChart() {
           <CardDescription>Comparación de pruebas realizadas y resultados obtenidos</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px]">
+          <ChartContainer config={chartConfig} className="h-[240px] sm:h-[320px]">
             <BarChart data={testsPerformed}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
@@ -129,7 +129,7 @@ export function TestResultsChart() {
           <CardDescription>Resultados específicos de exámenes de cultivo</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px]">
+          <ChartContainer config={chartConfig} className="h-[240px] sm:h-[320px]">
             <BarChart data={cultureResults}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
