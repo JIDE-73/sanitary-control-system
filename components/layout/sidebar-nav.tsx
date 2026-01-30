@@ -32,6 +32,12 @@ const navigation = [
     module: "dashboard",
   },
   {
+    name: "Dashboard Alcoholimetría",
+    href: "/dashboard/alcoholimetria",
+    icon: FlaskConical,
+    module: "dashboard",
+  },
+  {
     name: "Afiliados",
     href: "/afiliados",
     icon: Users,
