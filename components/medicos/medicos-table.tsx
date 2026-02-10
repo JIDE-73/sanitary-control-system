@@ -20,7 +20,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Eye, Edit, IdCard, CheckCircle, XCircle, BarChart3, Loader2 } from "lucide-react";
+import {
+  Eye,
+  Edit,
+  IdCard,
+  CheckCircle,
+  XCircle,
+  BarChart3,
+  Loader2,
+  Download,
+} from "lucide-react";
 import type { Medico } from "@/lib/types";
 import { request } from "@/lib/request";
 
@@ -47,6 +56,7 @@ function StatisticsModal({ medicoId, medicoNombre }: { medicoId: string; medicoN
   const [loading, setLoading] = useState(false);
   const [statistics, setStatistics] = useState<StatisticsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   const loadStatistics = async () => {
     if (!open) return;
@@ -60,11 +70,11 @@ function StatisticsModal({ medicoId, medicoNombre }: { medicoId: string; medicoN
       if (response.status >= 200 && response.status < 300) {
         setStatistics(response);
       } else {
-        setError(response.message || "No se pudieron cargar las estadísticas");
+        setError(response.message || "No se pudo cargar la productividad");
       }
     } catch (err) {
-      console.error("Error al cargar estadísticas", err);
-      setError("No se pudieron cargar las estadísticas");
+      console.error("Error al cargar productividad", err);
+      setError("No se pudo cargar la productividad");
     } finally {
       setLoading(false);
     }
@@ -105,13 +115,158 @@ function StatisticsModal({ medicoId, medicoNombre }: { medicoId: string; medicoN
     return Object.values(statistics.stats).reduce((sum, count) => sum + count, 0);
   }, [statistics]);
 
+  const handleDownloadPdf = async () => {
+    if (!statistics?.stats || sortedStats.length === 0) return;
+
+    try {
+      setDownloading(true);
+      const { jsPDF } = await import("jspdf");
+
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: "a4",
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 48;
+
+      // Título
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.text("Productividad de certificados por médico", pageWidth / 2, margin, {
+        align: "center",
+      });
+
+      // Nombre del médico
+      doc.setFontSize(14);
+      doc.text(`Dr(a). ${medicoNombre}`, pageWidth / 2, margin + 28, {
+        align: "center",
+      });
+
+      // Resumen total
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Total de certificados emitidos: ${totalCertificados}`,
+        margin,
+        margin + 60
+      );
+
+      // Área de gráfica
+      const chartTop = margin + 90;
+      const chartHeight = 260;
+      const chartLeft = margin;
+      const chartRight = pageWidth - margin;
+      const chartWidth = chartRight - chartLeft;
+
+      const values = sortedStats.map(([, value]) => value as number);
+      const maxValue = Math.max(...values, 1);
+
+      // Ejes
+      doc.setDrawColor(60, 60, 60);
+      doc.setLineWidth(1);
+      // Eje Y
+      doc.line(chartLeft, chartTop, chartLeft, chartTop + chartHeight);
+      // Eje X
+      doc.line(chartLeft, chartTop + chartHeight, chartRight, chartTop + chartHeight);
+
+      // Líneas de guía horizontales y etiquetas de escala
+      doc.setFontSize(8);
+      const gridLines = 5;
+      for (let i = 0; i <= gridLines; i++) {
+        const ratio = i / gridLines;
+        const y = chartTop + chartHeight - chartHeight * ratio;
+        const value = Math.round(maxValue * ratio);
+
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.5);
+        doc.line(chartLeft, y, chartRight, y);
+
+        doc.setTextColor(80, 80, 80);
+        doc.text(String(value), chartLeft - 10, y + 3, { align: "right" });
+      }
+
+      // Barras
+      const barCount = sortedStats.length;
+      const barSpacing = chartWidth / Math.max(barCount, 1);
+      const barWidth = Math.max(16, barSpacing * 0.5);
+
+      const monthShortNames = [
+        "Ene",
+        "Feb",
+        "Mar",
+        "Abr",
+        "May",
+        "Jun",
+        "Jul",
+        "Ago",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dic",
+      ];
+
+      sortedStats.forEach(([key, value], index) => {
+        const v = value as number;
+        const barHeight = (v / maxValue) * chartHeight;
+        const centerX = chartLeft + barSpacing * index + barSpacing / 2;
+        const x = centerX - barWidth / 2;
+        const y = chartTop + chartHeight - barHeight;
+
+        // Barra
+        doc.setFillColor(117, 13, 47);
+        doc.setDrawColor(117, 13, 47);
+        doc.rect(x, y, barWidth, barHeight, "FD");
+
+        // Etiqueta de valor sobre la barra
+        doc.setFontSize(8);
+        doc.setTextColor(40, 40, 40);
+        doc.text(String(v), centerX, y - 4, { align: "center" });
+
+        // Etiqueta de mes debajo
+        const [yearStr, monthStr] = key.split("-");
+        const monthIndex = Number(monthStr) - 1;
+        const yearShort = yearStr?.slice(-2) ?? "";
+        const monthLabel = `${
+          monthShortNames[monthIndex] || monthStr || ""
+        } ${yearShort}`;
+
+        doc.text(
+          monthLabel,
+          centerX,
+          chartTop + chartHeight + 14,
+          { align: "center" }
+        );
+      });
+
+      // Leyenda simple
+      doc.setFontSize(9);
+      doc.setTextColor(60, 60, 60);
+      doc.setFont("helvetica", "bold");
+      doc.text(
+        "Barras: certificados emitidos por mes",
+        margin,
+        chartTop + chartHeight + 40
+      );
+
+      doc.save(
+        `estadisticas-medico-${medicoNombre.replace(/\s+/g, "-")}.pdf`
+      );
+    } catch (err) {
+      console.error("Error al generar el PDF de estadísticas", err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
-          title="Ver estadísticas"
+          title="Ver productividad"
         >
           <BarChart3 className="h-4 w-4" />
         </Button>
@@ -120,7 +275,7 @@ function StatisticsModal({ medicoId, medicoNombre }: { medicoId: string; medicoN
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            Estadísticas de Certificados
+            Productividad de Certificados
           </DialogTitle>
           <DialogDescription>
             Dr(a). {medicoNombre}
@@ -131,7 +286,7 @@ function StatisticsModal({ medicoId, medicoNombre }: { medicoId: string; medicoN
             <div className="flex flex-col items-center justify-center py-12 space-y-2">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground">
-                Cargando estadísticas...
+                Cargando productividad...
               </p>
             </div>
           ) : error ? (
@@ -179,8 +334,21 @@ function StatisticsModal({ medicoId, medicoNombre }: { medicoId: string; medicoN
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-8">
-                  No hay estadísticas disponibles para este período
+                  No hay datos de productividad disponibles para este período
                 </p>
+              )}
+              {sortedStats.length > 0 && (
+                <div className="flex justify-end pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDownloadPdf}
+                    disabled={downloading}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {downloading ? "Generando PDF..." : "Descargar PDF"}
+                  </Button>
+                </div>
               )}
             </>
           ) : null}

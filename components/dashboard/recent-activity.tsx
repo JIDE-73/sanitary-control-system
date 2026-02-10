@@ -63,7 +63,7 @@ export function RecentActivity() {
                   activity.status === "success" ? "default" : activity.status === "warning" ? "secondary" : "outline"
                 }
                 className={cn(
-                  "flex-shrink-0",
+                  "shrink-0",
                   activity.status === "success"
                     ? "bg-accent text-accent-foreground"
                     : activity.status === "warning"
