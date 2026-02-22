@@ -3,6 +3,7 @@ import { StatsCards } from "@/components/dashboard/stats-cards";
 import { StatisticsCharts } from "@/components/dashboard/statistics-charts";
 import { TestResultsChart } from "@/components/dashboard/test-results-chart";
 import { CertificatesExpiring } from "@/components/dashboard/certificates-expiring";
+import { ReportsSection } from "@/components/dashboard/reports-section";
 import { RequireModuleAccess } from "@/components/auth/auth-context";
 
 export default function DashboardPage() {
@@ -36,8 +37,8 @@ export default function DashboardPage() {
           {/* Test Results Charts */}
           <TestResultsChart />
 
-          {/* Certificates Expiring */}
-
+          {/* Reports */}
+          <ReportsSection />
         </div>
       </MainLayout>
     </RequireModuleAccess>
