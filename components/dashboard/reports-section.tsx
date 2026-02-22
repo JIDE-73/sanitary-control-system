@@ -52,6 +52,11 @@ interface ReportsState {
   certificadosSanitarios: number;
   getCountReport: number;
   laboratoryResults: number;
+  laboratoryResultsByLab: Array<{
+    id: string;
+    nombre_comercial: string;
+    resultados: number;
+  }>;
   afiliadosByStatus: Record<StatusKey, number>;
 }
 
@@ -59,6 +64,7 @@ const initialState: ReportsState = {
   certificadosSanitarios: 0,
   getCountReport: 0,
   laboratoryResults: 0,
+  laboratoryResultsByLab: [],
   afiliadosByStatus: {
     VIGENTE: 0,
     PENDIENTE_RENOVACION: 0,
@@ -95,6 +101,38 @@ function addColorLegendRow(doc: jsPDF, label: string, color: string, y: number) 
   doc.text(label, 30, y);
 }
 
+function extractLaboratoryResultsByLab(response: unknown) {
+  if (typeof response !== "object" || response === null) return [];
+  const raw = Array.isArray((response as { results?: unknown[] }).results)
+    ? (response as { results: unknown[] }).results
+    : [];
+
+  return raw
+    .map((item) => {
+      if (typeof item !== "object" || item === null) return null;
+      const value = item as {
+        id?: unknown;
+        nombre_comercial?: unknown;
+        _count?: { resultados?: unknown };
+      };
+      const id = typeof value.id === "string" ? value.id : "";
+      const nombreComercial =
+        typeof value.nombre_comercial === "string" ? value.nombre_comercial : "Sin nombre";
+      const resultados = toSafeCount(value._count?.resultados);
+      if (!id) return null;
+      return { id, nombre_comercial: nombreComercial, resultados };
+    })
+    .filter(
+      (
+        item,
+      ): item is {
+        id: string;
+        nombre_comercial: string;
+        resultados: number;
+      } => item !== null,
+    );
+}
+
 export function ReportsSection() {
   const [reports, setReports] = useState<ReportsState>(initialState);
   const [loading, setLoading] = useState(true);
@@ -111,17 +149,20 @@ export function ReportsSection() {
           countReportResponse,
           afiliadosStatusResponse,
           laboratoryResultsResponse,
+          laboratoryResultsByLabResponse,
         ] = await Promise.all([
           request("/sics/reports/certificadosSanitarios", "GET"),
           request("/sics/reports/getCountReport", "GET"),
           request("/sics/reports/getAfiliadosCountByStatus", "GET"),
           request("/sics/reports/laboratoryResults", "GET"),
+          request("/sics/laboratories/laboratoryResults", "GET"),
         ]);
 
         setReports({
           certificadosSanitarios: toSafeCount(certificadosResponse?.count),
           getCountReport: toSafeCount(countReportResponse?.count),
           laboratoryResults: toSafeCount(laboratoryResultsResponse?.count),
+          laboratoryResultsByLab: extractLaboratoryResultsByLab(laboratoryResultsByLabResponse),
           afiliadosByStatus: {
             VIGENTE: toSafeCount(afiliadosStatusResponse?.VIGENTE),
             PENDIENTE_RENOVACION: toSafeCount(afiliadosStatusResponse?.PENDIENTE_RENOVACION),
@@ -161,6 +202,15 @@ export function ReportsSection() {
       console.error("No se pudo registrar el reporte generado:", err);
     }
   };
+
+  const laboratoryResultsByLabChartData = useMemo(
+    () =>
+      reports.laboratoryResultsByLab.map((item) => ({
+        name: item.nombre_comercial,
+        value: item.resultados,
+      })),
+    [reports.laboratoryResultsByLab],
+  );
 
   const downloadSimpleCountPdf = async (config: {
     title: string;
@@ -223,6 +273,41 @@ export function ReportsSection() {
     doc.save("reporte-afiliados-por-estatus.pdf");
     const totalAfiliados = afiliadosStatusData.reduce((acc, item) => acc + item.value, 0);
     await createCountReport(totalAfiliados, "Afiliados por estatus sanitario");
+  };
+
+  const downloadLaboratoryResultsPdf = async () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Reporte de resultados de laboratorio", 20, 20);
+
+    doc.setFontSize(11);
+    doc.setTextColor(80, 80, 80);
+    doc.text("Endpoint resumen: /sics/reports/laboratoryResults", 20, 30);
+    doc.text("Endpoint detalle: /sics/laboratories/laboratoryResults", 20, 38);
+    doc.text("Conteo total y desglose de resultados por laboratorio.", 20, 46);
+
+    const [r, g, b] = hexToRgb(reportColors.laboratorios);
+    doc.setFillColor(r, g, b);
+    doc.rect(20, 54, 170, 14, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Total de resultados: ${reports.laboratoryResults}`, 24, 63);
+
+    doc.setTextColor(33, 33, 33);
+    doc.setFontSize(11);
+    doc.text("Detalle por laboratorio:", 20, 78);
+
+    let y = 86;
+    reports.laboratoryResultsByLab.forEach((item) => {
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(`${item.nombre_comercial}: ${item.resultados}`, 24, y);
+      y += 8;
+    });
+
+    doc.save("reporte-resultados-laboratorio.pdf");
+    await createCountReport(reports.laboratoryResults, "Resultados de laboratorio");
   };
 
   if (loading) {
@@ -414,30 +499,34 @@ export function ReportsSection() {
               }}
               className="h-[220px] sm:h-[280px]"
             >
-              <BarChart data={[{ name: "Laboratorios", value: reports.laboratoryResults }]}>
+              <BarChart
+                data={
+                  laboratoryResultsByLabChartData.length > 0
+                    ? laboratoryResultsByLabChartData
+                    : [{ name: "Laboratorios", value: reports.laboratoryResults }]
+                }
+              >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                <XAxis
+                  dataKey="name"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  tickFormatter={(value: string) =>
+                    value.length > 14 ? `${value.slice(0, 14)}...` : value
+                  }
+                />
                 <YAxis tickLine={false} axisLine={false} tickMargin={8} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="value" fill={reportColors.laboratorios} radius={[6, 6, 0, 0]} />
               </BarChart>
             </ChartContainer>
             <p className="text-xs text-muted-foreground">
-              Color naranja: total de resultados de laboratorio reportados por el endpoint.
+              Color naranja: conteo de resultados por laboratorio (endpoint de detalle) y total general.
             </p>
             <Button
               variant="outline"
-              onClick={async () =>
-                downloadSimpleCountPdf({
-                  title: "Reporte de resultados de laboratorio",
-                  endpoint: "/sics/reports/laboratoryResults",
-                  description: "Conteo de resultados de laboratorios obtenido exitosamente.",
-                  count: reports.laboratoryResults,
-                  color: reportColors.laboratorios,
-                  fileName: "reporte-resultados-laboratorio.pdf",
-                  nombreReporte: "Resultados de laboratorio",
-                })
-              }
+              onClick={async () => downloadLaboratoryResultsPdf()}
             >
               <FileDown className="h-4 w-4" />
               Descargar PDF
