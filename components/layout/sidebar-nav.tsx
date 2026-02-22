@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import type { PermissionAction } from "@/lib/types";
 import {
   Users,
   Stethoscope,
@@ -58,7 +59,7 @@ const navigation = [
     ],
   },
   {
-    name: "Usuarios",
+    name: "Administrador",
     href: "/usuarios",
     icon: KeyRound,
     module: "usuarios",
@@ -68,6 +69,7 @@ const navigation = [
       { name: "Relación Usuario Médico", href: "/usuarios/relacion-medico" },
       { name: "Roles", href: "/usuarios/roles" },
       { name: "Nuevo Rol", href: "/usuarios/roles/nuevo" },
+      { name: "Catalogos", href: "/catalogos" },
       { name: "Bitácora", href: "/bitacora" },
     ],
   },
@@ -161,7 +163,7 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   
   // Safe access to auth context
-  let hasPermission: (module: string, action: string) => boolean = () => false;
+  let hasPermission: (module: string, action: PermissionAction) => boolean = () => false;
   let isAuthenticated = false;
   
   try {
