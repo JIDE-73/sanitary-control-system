@@ -12,6 +12,7 @@ import type { AuthUser, PermissionAction } from "@/lib/types";
 
 const STORAGE_KEY = "sics-auth-user";
 const TOKEN_KEY = "sics-auth-token";
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -108,6 +109,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       window.localStorage.removeItem(TOKEN_KEY);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "scroll",
+      "touchstart",
+      "click",
+    ];
+
+    let timeoutId: ReturnType<typeof window.setTimeout> | null = null;
+
+    const clearInactivityTimeout = () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const expireSession = () => {
+      logout();
+      window.location.assign("/");
+    };
+
+    const resetInactivityTimeout = () => {
+      clearInactivityTimeout();
+      timeoutId = window.setTimeout(expireSession, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        resetInactivityTimeout();
+      }
+    };
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, resetInactivityTimeout);
+    });
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    resetInactivityTimeout();
+
+    return () => {
+      clearInactivityTimeout();
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, resetInactivityTimeout);
+      });
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user, logout]);
 
   const hasPermission = useCallback(
     (module: string, action: PermissionAction) => {
