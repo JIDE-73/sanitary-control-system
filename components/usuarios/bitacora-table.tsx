@@ -359,6 +359,16 @@ export function BitacoraTable({
         .replace(/-/g, "")}.pdf`;
       doc.save(fileName);
 
+      // Registrar la generación del reporte
+      try {
+        await request("/sics/reports/createCountReport", "POST", {
+          total: 1,
+          nombre_reporte: "Bitácora de Auditoría",
+        });
+      } catch (reportError) {
+        console.warn("No se pudo registrar el reporte", reportError);
+      }
+
       toast({
         title: "PDF generado",
         description: "El archivo PDF de la bitácora se ha descargado correctamente.",

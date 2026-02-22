@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Download, Eye } from "lucide-react";
+import { request } from "@/lib/request";
 import type { NotaMedicaALMRecord } from "@/lib/notas-medicas-alm";
 
 interface NotasMedicasALMTableProps {
@@ -340,6 +341,16 @@ export function NotasMedicasALMTable({
       });
 
       doc.save(`nota-medica-alm-${nota.id}.pdf`);
+      
+      // Registrar la generación del reporte
+      try {
+        await request("/sics/reports/createCountReport", "POST", {
+          total: 1,
+          nombre_reporte: "Nota Médica ALM",
+        });
+      } catch (reportError) {
+        console.warn("No se pudo registrar el reporte", reportError);
+      }
     } catch (error) {
       console.error("No se pudo generar el PDF de la nota ALM", error);
     } finally {

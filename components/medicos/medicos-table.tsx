@@ -253,6 +253,16 @@ function StatisticsModal({ medicoId, medicoNombre }: { medicoId: string; medicoN
       doc.save(
         `estadisticas-medico-${medicoNombre.replace(/\s+/g, "-")}.pdf`
       );
+      
+      // Registrar la generación del reporte
+      try {
+        await request("/sics/reports/createCountReport", "POST", {
+          total: 1,
+          nombre_reporte: "Estadísticas de Productividad Médica",
+        });
+      } catch (reportError) {
+        console.warn("No se pudo registrar el reporte", reportError);
+      }
     } catch (err) {
       console.error("Error al generar el PDF de estadísticas", err);
     } finally {

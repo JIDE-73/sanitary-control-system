@@ -488,6 +488,16 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
       }
 
       doc.save(`credencial-${afiliado.curp || afiliado.id}.pdf`);
+      
+      // Registrar la generación del reporte
+      try {
+        await request("/sics/reports/createCountReport", "POST", {
+          total: 1,
+          nombre_reporte: "Credencial de Afiliado",
+        });
+      } catch (reportError) {
+        console.warn("No se pudo registrar el reporte", reportError);
+      }
     } catch (err) {
       console.error("Error al generar el PDF", err);
       setError("No se pudo generar la credencial. Intenta de nuevo.");

@@ -1042,6 +1042,16 @@ export function CertificadosTable() {
 
       const fileName = certificate.folio || certificate.id || "sin-folio";
       doc.save(`certificado-${fileName}.pdf`);
+      
+      // Registrar la generación del reporte
+      try {
+        await request("/sics/reports/createCountReport", "POST", {
+          total: 1,
+          nombre_reporte: "Certificado de Alcoholimetría",
+        });
+      } catch (reportError) {
+        console.warn("No se pudo registrar el reporte", reportError);
+      }
     } catch (err) {
       console.error("No se pudo generar el PDF del certificado", err);
     } finally {

@@ -520,6 +520,16 @@ export function AfiliadosTable({
       const fileName = `expediente-${affiliateData.curp || affiliateData.id}.pdf`;
       doc.save(fileName);
 
+      // Registrar la generación del reporte
+      try {
+        await request("/sics/reports/createCountReport", "POST", {
+          total: 1,
+          nombre_reporte: "Expediente Médico",
+        });
+      } catch (reportError) {
+        console.warn("No se pudo registrar el reporte", reportError);
+      }
+
       toast({
         title: "Expediente exportado",
         description: "El PDF se ha descargado correctamente.",

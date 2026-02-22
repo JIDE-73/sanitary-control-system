@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -12,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Eye, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { request } from "@/lib/request";
 
 export type NotaMedica = {
   id: string;
@@ -59,9 +60,10 @@ export function NotasMedicasTable({
   medicos,
   loading,
 }: NotasMedicasTableProps) {
-  const router = useRouter();
   const [selectedNota, setSelectedNota] = useState<NotaMedica | null>(null);
   const [page, setPage] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [downloading, setDownloading] = useState(false);
 
   const totalPages = Math.max(
     1,
@@ -96,12 +98,182 @@ export function NotasMedicasTable({
     [selectedNota, medicos]
   );
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const allPageSelected =
+    paginatedNotas.length > 0 &&
+    paginatedNotas.every((nota) => selectedIds.includes(nota.id));
+
+  const toggleSelectAllPage = () => {
+    if (allPageSelected) {
+      const pageIds = paginatedNotas.map((n) => n.id);
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      const pageIds = paginatedNotas.map((n) => n.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const selectedNotasDetalladas = useMemo(() => {
+    if (!selectedIds.length) return [];
+    return selectedIds
+      .map((id) => notas.find((n) => n.id === id))
+      .filter(Boolean)
+      .map((nota) => {
+        const afiliado = nota ? getAfiliado(nota.persona_id) : undefined;
+        const medico = nota ? getMedico(nota.medico_id) : undefined;
+        return { nota: nota as NotaMedica, afiliado, medico };
+      });
+  }, [selectedIds, notas, afiliados, medicos]);
+
+  const handleExportSelected = async () => {
+    if (!selectedNotasDetalladas.length) return;
+
+    try {
+      setDownloading(true);
+      const { jsPDF } = await import("jspdf");
+
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: "a4",
+      });
+
+      selectedNotasDetalladas.forEach(({ nota, afiliado, medico }, index) => {
+        if (index > 0) {
+          doc.addPage();
+        }
+
+        const margin = 48;
+        let y = margin;
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text("Nota médica", margin, y);
+
+        y += 24;
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+
+        const fechaTexto = nota.consulta_fecha
+          ? new Date(nota.consulta_fecha).toLocaleDateString("es-MX")
+          : "-";
+
+        doc.text(`Fecha: ${fechaTexto}`, margin, y);
+        y += 16;
+
+        doc.text(
+          `Afiliado: ${afiliado?.nombre ?? "No disponible"}`,
+          margin,
+          y
+        );
+        y += 14;
+
+        if (afiliado?.curp) {
+          doc.text(`CURP: ${afiliado.curp}`, margin, y);
+          y += 14;
+        }
+
+        if (afiliado?.numeroAfiliacion) {
+          doc.text(
+            `Número de afiliación: ${afiliado.numeroAfiliacion}`,
+            margin,
+            y
+          );
+          y += 14;
+        }
+
+        const nombreMedico = medico
+          ? `Dr(a). ${medico.nombre}`
+          : "No disponible";
+        doc.text(`Médico: ${nombreMedico}`, margin, y);
+        y += 24;
+
+        const maxWidth = doc.internal.pageSize.getWidth() - margin * 2;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Diagnóstico", margin, y);
+        y += 14;
+        doc.setFont("helvetica", "normal");
+        const diagnosticoLines = doc.splitTextToSize(
+          nota.diagnostico || "-",
+          maxWidth
+        );
+        doc.text(diagnosticoLines, margin, y);
+        y += diagnosticoLines.length * 12 + 16;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Tratamiento", margin, y);
+        y += 14;
+        doc.setFont("helvetica", "normal");
+        const tratamientoLines = doc.splitTextToSize(
+          nota.tratamiento || "-",
+          maxWidth
+        );
+        doc.text(tratamientoLines, margin, y);
+        y += tratamientoLines.length * 12 + 16;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Comentario", margin, y);
+        y += 14;
+        doc.setFont("helvetica", "normal");
+        const comentarioLines = doc.splitTextToSize(
+          nota.comentario || "-",
+          maxWidth
+        );
+        doc.text(comentarioLines, margin, y);
+      });
+
+      doc.save("notas-medicas-seleccionadas.pdf");
+      
+      // Registrar la generación del reporte
+      try {
+        await request("/sics/reports/createCountReport", "POST", {
+          total: 1,
+          nombre_reporte: "Notas Médicas Seleccionadas",
+        });
+      } catch (reportError) {
+        console.warn("No se pudo registrar el reporte", reportError);
+      }
+    } catch (error) {
+      console.error("Error al exportar notas médicas a PDF", error);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <>
+      <div className="flex items-center justify-between mb-2 text-sm">
+        <p className="text-muted-foreground">
+          Seleccionadas: {selectedIds.length}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportSelected}
+          disabled={!selectedNotasDetalladas.length || downloading}
+        >
+          <FileText className="mr-2 h-4 w-4" />
+          {downloading ? "Generando PDF..." : "Exportar seleccionadas a PDF"}
+        </Button>
+      </div>
+
       <div className="rounded-lg border border-border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  aria-label="Seleccionar todas las notas de la página"
+                  checked={allPageSelected}
+                  onCheckedChange={toggleSelectAllPage}
+                />
+              </TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead>Afiliado</TableHead>
               <TableHead>CURP</TableHead>
@@ -137,6 +309,13 @@ export function NotasMedicasTable({
                 const medico = getMedico(nota.medico_id);
                 return (
                   <TableRow key={nota.id}>
+                    <TableCell>
+                      <Checkbox
+                        aria-label="Seleccionar nota médica"
+                        checked={selectedIds.includes(nota.id)}
+                        onCheckedChange={() => toggleSelect(nota.id)}
+                      />
+                    </TableCell>
                     <TableCell>
                       {nota.consulta_fecha
                         ? new Date(nota.consulta_fecha).toLocaleDateString(
