@@ -20,12 +20,23 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { request } from "@/lib/request";
 import { useToast } from "@/hooks/use-toast";
 
 interface LaboratoriosTableProps {
   laboratorios: LaboratorioListado[];
   loading?: boolean;
+  onUpdateLaboratorio?: (
+    id: string,
+    payload: {
+      nombre_comercial: string;
+      rfc: string;
+      certificado_organismo: boolean;
+      email_contacto: string;
+    },
+  ) => Promise<void>;
+  onDeleteLaboratorio?: (id: string) => Promise<void>;
 }
 
 type LaboratorioCompleto = {
@@ -45,11 +56,21 @@ const ITEMS_PER_PAGE = 10;
 export function LaboratoriosTable({
   laboratorios,
   loading = false,
+  onUpdateLaboratorio,
+  onDeleteLaboratorio,
 }: LaboratoriosTableProps) {
   const { toast } = useToast();
   const [modalLaboratorio, setModalLaboratorio] =
     useState<LaboratorioCompleto | null>(null);
   const [loadingModal, setLoadingModal] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editLaboratorioId, setEditLaboratorioId] = useState<string | null>(null);
+  const [editNombreComercial, setEditNombreComercial] = useState("");
+  const [editRfc, setEditRfc] = useState("");
+  const [editEmailContacto, setEditEmailContacto] = useState("");
+  const [editCertificadoOrganismo, setEditCertificadoOrganismo] = useState(false);
   const [page, setPage] = useState(0);
 
   const totalPages = Math.max(
@@ -136,6 +157,51 @@ export function LaboratoriosTable({
     loadLaboratorioCompleto(laboratorio.id);
   };
 
+  const startEditing = (laboratorio: LaboratorioListado) => {
+    setEditLaboratorioId(laboratorio.id);
+    setEditNombreComercial(laboratorio.nombre_comercial ?? "");
+    setEditRfc(laboratorio.rfc ?? "");
+    setEditEmailContacto(laboratorio.email_contacto ?? "");
+    setEditCertificadoOrganismo(Boolean(laboratorio.certificado_organismo));
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!onUpdateLaboratorio || !editLaboratorioId) return;
+    if (!editNombreComercial.trim() || !editRfc.trim() || !editEmailContacto.trim()) {
+      toast({
+        title: "Campos requeridos",
+        description: "Nombre comercial, RFC y email son obligatorios.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await onUpdateLaboratorio(editLaboratorioId, {
+        nombre_comercial: editNombreComercial.trim(),
+        rfc: editRfc.trim(),
+        certificado_organismo: editCertificadoOrganismo,
+        email_contacto: editEmailContacto.trim(),
+      });
+      setEditOpen(false);
+      setEditLaboratorioId(null);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!onDeleteLaboratorio) return;
+    if (!window.confirm("¿Deseas eliminar este laboratorio?")) return;
+    setDeletingId(id);
+    try {
+      await onDeleteLaboratorio(id);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-border">
       <Table>
@@ -196,6 +262,27 @@ export function LaboratoriosTable({
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {onUpdateLaboratorio && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => startEditing(lab)}
+                        title="Editar laboratorio"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {onDeleteLaboratorio && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(lab.id)}
+                        title="Eliminar laboratorio"
+                        disabled={deletingId === lab.id}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -314,6 +401,51 @@ export function LaboratoriosTable({
               </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar laboratorio</DialogTitle>
+            <DialogDescription>
+              Actualiza nombre comercial, RFC, certificado y correo de contacto.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Nombre comercial"
+              value={editNombreComercial}
+              onChange={(event) => setEditNombreComercial(event.target.value)}
+            />
+            <Input
+              placeholder="RFC"
+              value={editRfc}
+              onChange={(event) => setEditRfc(event.target.value)}
+            />
+            <Input
+              placeholder="Email de contacto"
+              type="email"
+              value={editEmailContacto}
+              onChange={(event) => setEditEmailContacto(event.target.value)}
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editCertificadoOrganismo}
+                onChange={(event) => setEditCertificadoOrganismo(event.target.checked)}
+              />
+              Certificado por organismo
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={savingEdit}>
+                {savingEdit ? "Guardando..." : "Guardar cambios"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

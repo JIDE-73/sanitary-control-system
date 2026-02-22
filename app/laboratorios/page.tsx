@@ -10,9 +10,11 @@ import Link from "next/link";
 import { request } from "@/lib/request";
 import type { LaboratorioListado } from "@/lib/types";
 import { useAuth } from "@/components/auth/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LaboratoriosPage() {
   const { hasPermission } = useAuth();
+  const { toast } = useToast();
   const [laboratorios, setLaboratorios] = useState<LaboratorioListado[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -62,6 +64,54 @@ export default function LaboratoriosPage() {
   }, []);
 
   const canCreate = hasPermission("laboratorios", "create");
+  const canUpdate = hasPermission("laboratorios", "update");
+  const canDelete = hasPermission("laboratorios", "delete");
+
+  const handleUpdateLaboratorio = async (
+    id: string,
+    payload: {
+      nombre_comercial: string;
+      rfc: string;
+      certificado_organismo: boolean;
+      email_contacto: string;
+    }
+  ) => {
+    try {
+      await request(`/sics/laboratories/updateLaboratory/${id}`, "PUT", payload);
+      toast({
+        title: "Laboratorio actualizado",
+        description: "La información se guardó correctamente.",
+      });
+      await loadLaboratorios();
+    } catch (error) {
+      console.error("No se pudo actualizar el laboratorio", error);
+      toast({
+        title: "Error al actualizar",
+        description: "No se pudo actualizar el laboratorio.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const handleDeleteLaboratorio = async (id: string) => {
+    try {
+      await request(`/sics/laboratories/deleteLaboratory/${id}`, "DELETE");
+      toast({
+        title: "Laboratorio eliminado",
+        description: "El laboratorio se eliminó correctamente.",
+      });
+      await loadLaboratorios();
+    } catch (error) {
+      console.error("No se pudo eliminar el laboratorio", error);
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar el laboratorio.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
 
   return (
     <MainLayout>
@@ -91,7 +141,12 @@ export default function LaboratoriosPage() {
           </div>
         </div>
 
-        <LaboratoriosTable laboratorios={laboratorios} loading={loading} />
+        <LaboratoriosTable
+          laboratorios={laboratorios}
+          loading={loading}
+          onUpdateLaboratorio={canUpdate ? handleUpdateLaboratorio : undefined}
+          onDeleteLaboratorio={canDelete ? handleDeleteLaboratorio : undefined}
+        />
       </div>
     </MainLayout>
   );
