@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Loader2, RotateCcw, Download } from "lucide-react";
+import { Eye, Loader2, RotateCcw, Download, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { request } from "@/lib/request";
 import type { BitacoraEntry } from "@/lib/types";
@@ -71,6 +71,7 @@ export function BitacoraTable({
   const [selectedEntry, setSelectedEntry] = useState<BitacoraEntry | null>(null);
   const [page, setPage] = useState(0);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingCsv, setDownloadingCsv] = useState(false);
 
   const totalPages = Math.max(
     1,
@@ -385,11 +386,127 @@ export function BitacoraTable({
     }
   };
 
+  const escapeCsvField = (value: unknown) => {
+    if (value === null || value === undefined) return "";
+    const text = String(value).replace(/"/g, '""');
+    return `"${text}"`;
+  };
+
+  const handleDownloadCsv = async () => {
+    if (bitacora.length === 0) {
+      toast({
+        title: "No hay datos",
+        description: "No hay registros en la bitácora para generar el CSV.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDownloadingCsv(true);
+    try {
+      const headers = [
+        "ID",
+        "Usuario ID",
+        "Usuario",
+        "Nombre Completo",
+        "Accion",
+        "Direccion IP",
+        "Fecha y Hora",
+        "Datos Antiguos",
+        "Datos Nuevos",
+      ];
+
+      const rows = bitacora.map((entry) => {
+        const nombreCompleto = entry.usuario?.persona
+          ? [
+              entry.usuario.persona.nombre,
+              entry.usuario.persona.apellido_paterno,
+              entry.usuario.persona.apellido_materno,
+            ]
+              .filter(Boolean)
+              .join(" ")
+          : "";
+
+        return [
+          entry.id,
+          entry.usuario_id,
+          entry.usuario?.nombre_usuario || "—",
+          nombreCompleto || "—",
+          formatAction(entry.action),
+          entry.ip_address || "—",
+          formatFecha(entry.fecha_hora),
+          entry.datos_antiguos ? JSON.stringify(entry.datos_antiguos) : "",
+          entry.datos_nuevos ? JSON.stringify(entry.datos_nuevos) : "",
+        ]
+          .map(escapeCsvField)
+          .join(",");
+      });
+
+      const csvContent = [headers.map(escapeCsvField).join(","), ...rows].join(
+        "\r\n"
+      );
+
+      // BOM improves UTF-8 detection in spreadsheet apps like Excel.
+      const csvWithBom = `\uFEFF${csvContent}`;
+      const blob = new Blob([csvWithBom], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const fileName = `bitacora-auditoria-${new Date()
+        .toISOString()
+        .split("T")[0]
+        .replace(/-/g, "")}.csv`;
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      try {
+        await request("/sics/reports/createCountReport", "POST", {
+          total: 1,
+          nombre_reporte: "Bitácora de Auditoría CSV",
+        });
+      } catch (reportError) {
+        console.warn("No se pudo registrar el reporte", reportError);
+      }
+
+      toast({
+        title: "CSV generado",
+        description: "El archivo CSV de la bitácora se ha descargado correctamente.",
+      });
+    } catch (error) {
+      console.error("Error al generar CSV", error);
+      toast({
+        title: "Error al generar CSV",
+        description: "No se pudo generar el archivo CSV. Intenta de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingCsv(false);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-border">
       <div className="flex items-center justify-between px-4 py-3">
         <p className="text-sm text-muted-foreground">Bitácora de auditoría</p>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadCsv}
+            disabled={downloadingCsv || bitacora.length === 0}
+            className="gap-2"
+          >
+            {downloadingCsv ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4" />
+            )}
+            Descargar CSV
+          </Button>
           <Button
             variant="outline"
             size="sm"
