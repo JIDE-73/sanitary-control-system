@@ -4,7 +4,15 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { request } from "@/lib/request"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts"
+
+const chartColors = {
+  primary: "#2563eb",
+  secondary: "#16a34a",
+  tertiary: "#ea580c",
+}
+
+const barPalette = ["#2563eb", "#16a34a", "#ea580c", "#dc2626", "#7c3aed"]
 
 interface Statistics {
   VIH: number
@@ -83,15 +91,15 @@ export function TestResultsChart() {
   const chartConfig = {
     realizadas: {
       label: "Pruebas Realizadas",
-      color: "hsl(var(--chart-1))",
+      color: chartColors.primary,
     },
     resultados: {
       label: "Resultados",
-      color: "hsl(var(--chart-2))",
+      color: chartColors.secondary,
     },
     value: {
       label: "Cantidad",
-      color: "hsl(var(--chart-3))",
+      color: chartColors.tertiary,
     },
   }
 
@@ -115,8 +123,16 @@ export function TestResultsChart() {
               />
               <YAxis tickLine={false} axisLine={false} tickMargin={8} />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="realizadas" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="resultados" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="realizadas" radius={[4, 4, 0, 0]}>
+                {testsPerformed.map((item, index) => (
+                  <Cell key={`realizadas-${item.name}`} fill={barPalette[index % barPalette.length]} />
+                ))}
+              </Bar>
+              <Bar dataKey="resultados" radius={[4, 4, 0, 0]}>
+                {testsPerformed.map((item, index) => (
+                  <Cell key={`resultados-${item.name}`} fill={barPalette[(index + 2) % barPalette.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ChartContainer>
         </CardContent>
@@ -140,7 +156,11 @@ export function TestResultsChart() {
               />
               <YAxis tickLine={false} axisLine={false} tickMargin={8} />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="value" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {cultureResults.map((item, index) => (
+                  <Cell key={`cultivo-${item.name}`} fill={barPalette[index % barPalette.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ChartContainer>
         </CardContent>

@@ -4,7 +4,15 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { request } from "@/lib/request"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts"
+
+const chartColors = {
+  primary: "#2563eb",
+  secondary: "#16a34a",
+  tertiary: "#ea580c",
+}
+
+const barPalette = ["#2563eb", "#16a34a", "#ea580c", "#dc2626", "#7c3aed"]
 
 interface Statistics {
   affiliates: number
@@ -93,19 +101,19 @@ export function StatisticsCharts() {
   const chartConfig = {
     affiliates: {
       label: "Afiliados",
-      color: "hsl(var(--chart-1))",
+      color: chartColors.primary,
     },
     medicalNote: {
       label: "Notas Médicas",
-      color: "hsl(var(--chart-2))",
+      color: chartColors.secondary,
     },
     laboratory: {
       label: "Laboratorios",
-      color: "hsl(var(--chart-3))",
+      color: chartColors.tertiary,
     },
     value: {
       label: "Cantidad",
-      color: "hsl(var(--chart-1))",
+      color: chartColors.primary,
     },
   }
 
@@ -130,7 +138,11 @@ export function StatisticsCharts() {
               />
               <YAxis tickLine={false} axisLine={false} tickMargin={8} />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="value" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {overviewData.map((item, index) => (
+                  <Cell key={`overview-${item.name}`} fill={barPalette[index % barPalette.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ChartContainer>
         </CardContent>
@@ -154,7 +166,11 @@ export function StatisticsCharts() {
               />
               <YAxis tickLine={false} axisLine={false} tickMargin={8} />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="value" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {resultsData.map((item, index) => (
+                  <Cell key={`results-${item.name}`} fill={barPalette[index % barPalette.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ChartContainer>
         </CardContent>
