@@ -317,7 +317,7 @@ export function ExpedienteDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[95vw] sm:w-full sm:max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-4xl h-[90vh] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
             <DialogTitle className="text-lg sm:text-xl truncate pr-8">
               Expediente - {afiliado.nombres} {afiliado.apellidoPaterno}
@@ -371,7 +371,7 @@ export function ExpedienteDialog({
             </div>
 
             {/* Contenido con scroll */}
-            <ScrollArea className="flex-1 min-h-0">
+            <ScrollArea className="flex-1 min-h-0 h-full">
               <div className="px-4 sm:px-6 py-4">
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
