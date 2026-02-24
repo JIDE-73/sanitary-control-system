@@ -18,7 +18,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   isAuthenticated: boolean;
-  setUserFromLoginResponse: (response: any) => void;
+  setUserFromLoginResponse: (response: any) => AuthUser | null;
   logout: () => void;
   hasPermission: (module: string, action: PermissionAction) => boolean;
 }
@@ -51,6 +51,33 @@ function normalizeUserFromResponse(response: any): AuthUser | null {
       email: raw.persona?.email ?? "",
     },
   };
+}
+
+const moduleRoutePriority: Array<{ module: string; href: string }> = [
+  { module: "dashboard", href: "/dashboard" },
+  { module: "afiliados", href: "/afiliados" },
+  { module: "ciudadanos", href: "/ciudadano" },
+  { module: "usuarios", href: "/usuarios" },
+  { module: "medicos", href: "/medicos" },
+  { module: "lugares_trabajo", href: "/lugares-trabajo" },
+  { module: "laboratorios", href: "/laboratorios" },
+  { module: "infecciones", href: "/infecciones" },
+  { module: "notas_medicas_cs", href: "/notas-medicas" },
+  { module: "notas_medicas_alm", href: "/notas-medicas-alm" },
+  { module: "examenes_cs", href: "/examenes" },
+  { module: "certificados_alm", href: "/certificados" },
+];
+
+export function getFirstAccessibleRoute(user: AuthUser | null): string {
+  if (!user?.activo) return "/auth";
+
+  const modules = user.rol?.permisos?.modulos ?? {};
+  const match = moduleRoutePriority.find(({ module }) => {
+    const actions = modules[module];
+    return Array.isArray(actions) && actions.includes("read");
+  });
+
+  return match?.href ?? "/auth";
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -86,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         window.localStorage.removeItem(STORAGE_KEY);
         window.localStorage.removeItem(TOKEN_KEY);
       }
-      return;
+      return null;
     }
     setUser(normalized);
     if (typeof window !== "undefined") {
@@ -100,6 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.warn("No se pudo guardar la sesión", error);
       }
     }
+    return normalized;
   }, []);
 
   const logout = useCallback(() => {
@@ -122,7 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       "click",
     ];
 
-    let timeoutId: ReturnType<typeof window.setTimeout> | null = null;
+    let timeoutId: number | null = null;
 
     const clearInactivityTimeout = () => {
       if (timeoutId !== null) {

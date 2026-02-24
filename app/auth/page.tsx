@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { request } from "@/lib/request";
-import { useAuth } from "@/components/auth/auth-context";
+import { getFirstAccessibleRoute, useAuth } from "@/components/auth/auth-context";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -70,7 +70,7 @@ export default function LoginPage() {
       }
 
       // Guardar información de usuario y permisos
-      setUserFromLoginResponse(response);
+      const normalizedUser = setUserFromLoginResponse(response);
 
       toast({
         title: response?.message || "Sesión iniciada",
@@ -78,7 +78,7 @@ export default function LoginPage() {
           "Redirigiendo al Dashboard del Sistema Integral de Control Sanitario",
       });
 
-      router.push("/dashboard");
+      router.push(getFirstAccessibleRoute(normalizedUser));
     } catch (error) {
       console.error("Error al iniciar sesión", error);
       toast({
