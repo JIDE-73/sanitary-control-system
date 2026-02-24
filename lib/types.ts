@@ -413,9 +413,10 @@ export interface AuthUser {
 // Bitácora de auditoría
 export interface BitacoraEntry {
   id: string;
-  usuario_id: string;
+  usuario_id: string | null;
   action: string;
   ip_address: string;
+  resultado?: string | null;
   datos_antiguos: any | null;
   datos_nuevos: any | null;
   fecha_hora: string;

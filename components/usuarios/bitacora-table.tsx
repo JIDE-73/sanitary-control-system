@@ -60,6 +60,58 @@ const formatAction = (action: string) => {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 };
 
+const UUID_REGEX =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
+
+const redactIdsInValue = (value: any): any => {
+  if (value === null || value === undefined) return value;
+
+  if (typeof value === "string") {
+    return value.replace(UUID_REGEX, "[id oculto]");
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => redactIdsInValue(item));
+  }
+
+  if (typeof value === "object") {
+    return Object.entries(value).reduce<Record<string, any>>((acc, [key, val]) => {
+      const keyLooksLikeId = key === "id" || key.endsWith("_id");
+      acc[key] = keyLooksLikeId ? "[oculto]" : redactIdsInValue(val);
+      return acc;
+    }, {});
+  }
+
+  return value;
+};
+
+const normalizeBitacoraEntry = (entry: any): BitacoraEntry => ({
+  id: String(entry?.id ?? crypto.randomUUID()),
+  usuario_id: entry?.usuario_id ? String(entry.usuario_id) : null,
+  action: String(entry?.action ?? "DESCONOCIDO"),
+  ip_address: String(entry?.ip_address ?? ""),
+  resultado: entry?.resultado ?? null,
+  datos_antiguos: entry?.datos_antiguos ?? null,
+  datos_nuevos: entry?.datos_nuevos ?? null,
+  fecha_hora: String(entry?.fecha_hora ?? ""),
+  usuario: entry?.usuario
+    ? {
+        nombre_usuario: String(entry.usuario?.nombre_usuario ?? "—"),
+        persona: entry.usuario?.persona
+          ? {
+              nombre: String(entry.usuario.persona?.nombre ?? ""),
+              apellido_paterno: String(
+                entry.usuario.persona?.apellido_paterno ?? ""
+              ),
+              apellido_materno: String(
+                entry.usuario.persona?.apellido_materno ?? ""
+              ),
+            }
+          : null,
+      }
+    : null,
+});
+
 export function BitacoraTable({
   loading = false,
   onReload,
@@ -96,12 +148,15 @@ export function BitacoraTable({
     setInternalLoading(true);
     try {
       const response = await request("/admin/binnacle/getBinnacle", "GET");
-      
+
+      const entriesRaw = Array.isArray(response?.binnacle)
+        ? response.binnacle
+        : Array.isArray(response?.data)
+        ? response.data
+        : [];
+
       if (response.status >= 200 && response.status < 300) {
-        const entries = Array.isArray(response?.binnacle)
-          ? response.binnacle
-          : [];
-        setBitacora(entries);
+        setBitacora(entriesRaw.map(normalizeBitacoraEntry));
       } else {
         toast({
           title: "No se pudo cargar la bitácora",
@@ -165,12 +220,11 @@ export function BitacoraTable({
     setDownloading(true);
     try {
       const headers = [
-        "id",
-        "usuario_id",
         "usuario",
         "nombre_completo",
         "accion",
         "direccion_ip",
+        "resultado",
         "fecha_hora",
         "datos_antiguos",
         "datos_nuevos",
@@ -187,16 +241,23 @@ export function BitacoraTable({
               .join(" ")
           : "";
 
+        const resultadoSanitizado = redactIdsInValue(entry.resultado);
+        const datosAntiguosSanitizados = redactIdsInValue(entry.datos_antiguos);
+        const datosNuevosSanitizados = redactIdsInValue(entry.datos_nuevos);
+
         return [
-          entry.id,
-          entry.usuario_id,
           entry.usuario?.nombre_usuario || "",
           nombreCompleto,
           formatAction(entry.action),
           entry.ip_address || "",
+          typeof resultadoSanitizado === "string"
+            ? resultadoSanitizado
+            : JSON.stringify(resultadoSanitizado),
           formatFecha(entry.fecha_hora),
-          entry.datos_antiguos ? JSON.stringify(entry.datos_antiguos) : "",
-          entry.datos_nuevos ? JSON.stringify(entry.datos_nuevos) : "",
+          datosAntiguosSanitizados
+            ? JSON.stringify(datosAntiguosSanitizados)
+            : "",
+          datosNuevosSanitizados ? JSON.stringify(datosNuevosSanitizados) : "",
         ];
       });
 
@@ -324,6 +385,10 @@ export function BitacoraTable({
                     .join(" ")
                 : "";
 
+              const resultadoSanitizado = redactIdsInValue(entry.resultado);
+              const datosAntiguosSanitizados = redactIdsInValue(entry.datos_antiguos);
+              const datosNuevosSanitizados = redactIdsInValue(entry.datos_nuevos);
+
               return (
                 <TableRow key={entry.id}>
                   <TableCell className="font-medium">
@@ -373,22 +438,6 @@ export function BitacoraTable({
                           <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                             <div className="flex flex-col gap-1">
                               <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                ID
-                              </dt>
-                              <dd className="font-mono text-xs break-all">
-                                {entry.id}
-                              </dd>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                Usuario ID
-                              </dt>
-                              <dd className="font-mono text-xs break-all">
-                                {entry.usuario_id}
-                              </dd>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
                                 Nombre de Usuario
                               </dt>
                               <dd className="font-medium">
@@ -429,27 +478,35 @@ export function BitacoraTable({
                                 {formatFecha(entry.fecha_hora)}
                               </dd>
                             </div>
+                            <div className="flex flex-col gap-1 sm:col-span-2">
+                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                Resultado
+                              </dt>
+                              <dd className="font-medium whitespace-pre-wrap">
+                                {resultadoSanitizado || "—"}
+                              </dd>
+                            </div>
                           </dl>
 
-                          {(entry.datos_antiguos || entry.datos_nuevos) && (
+                          {(datosAntiguosSanitizados || datosNuevosSanitizados) && (
                             <div className="space-y-4">
-                              {entry.datos_antiguos && (
+                              {datosAntiguosSanitizados && (
                                 <div className="rounded-md border border-border p-4">
                                   <div className="mb-2 text-sm font-semibold">
                                     Datos Antiguos
                                   </div>
                                   <pre className="max-h-48 overflow-auto rounded bg-muted p-3 text-xs">
-                                    {JSON.stringify(entry.datos_antiguos, null, 2)}
+                                    {JSON.stringify(datosAntiguosSanitizados, null, 2)}
                                   </pre>
                                 </div>
                               )}
-                              {entry.datos_nuevos && (
+                              {datosNuevosSanitizados && (
                                 <div className="rounded-md border border-border p-4">
                                   <div className="mb-2 text-sm font-semibold">
                                     Datos Nuevos
                                   </div>
                                   <pre className="max-h-48 overflow-auto rounded bg-muted p-3 text-xs">
-                                    {JSON.stringify(entry.datos_nuevos, null, 2)}
+                                    {JSON.stringify(datosNuevosSanitizados, null, 2)}
                                   </pre>
                                 </div>
                               )}
