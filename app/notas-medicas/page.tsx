@@ -35,6 +35,24 @@ const extractArray = (response: any) => {
   return [];
 };
 
+const extractMedicalNotes = (response: any): NotaMedica[] => {
+  const directMedicalNotes = response?.medicalNotes;
+
+  if (Array.isArray(directMedicalNotes)) {
+    return directMedicalNotes as NotaMedica[];
+  }
+
+  if (directMedicalNotes?.persona?.Nota_Medica) {
+    const nestedNotes = Array.isArray(directMedicalNotes.persona.Nota_Medica)
+      ? directMedicalNotes.persona.Nota_Medica
+      : extractArray(directMedicalNotes.persona.Nota_Medica);
+    return Array.isArray(nestedNotes) ? (nestedNotes as NotaMedica[]) : [];
+  }
+
+  const fallback = extractArray(response);
+  return Array.isArray(fallback) ? (fallback as NotaMedica[]) : [];
+};
+
 export default function NotasMedicasPage() {
   const { toast } = useToast();
   const [notas, setNotas] = useState<NotaMedica[]>([]);
@@ -80,9 +98,7 @@ export default function NotasMedicasPage() {
         request("/sics/doctors/getDoctors", "GET"),
       ]);
 
-      const notasData = (notasResp?.medicalNotes ??
-        extractArray(notasResp)) as NotaMedica[];
-      setNotas(Array.isArray(notasData) ? notasData : []);
+      setNotas(extractMedicalNotes(notasResp));
 
       const afiliadosData = extractArray(afiliadosResp).map(normalizeAfiliado);
       setAfiliados(afiliadosData);
@@ -116,22 +132,11 @@ export default function NotasMedicasPage() {
         "GET"
       );
 
-      // La API devuelve un objeto con persona y sus Nota_Medica
       const medicalNotes = response?.medicalNotes;
       if (medicalNotes?.persona) {
-        const notasPersona = Array.isArray(medicalNotes.persona.Nota_Medica)
-          ? medicalNotes.persona.Nota_Medica
-          : extractArray(medicalNotes.persona.Nota_Medica);
-
-        setNotas(
-          Array.isArray(notasPersona) ? (notasPersona as NotaMedica[]) : []
-        );
         setAfiliados([normalizeAfiliado(medicalNotes)]);
-      } else {
-        const notasData = (medicalNotes ??
-          extractArray(response)) as NotaMedica[];
-        setNotas(Array.isArray(notasData) ? notasData : []);
       }
+      setNotas(extractMedicalNotes(response));
     } catch (error) {
       console.error("Error al buscar notas médicas", error);
       toast({

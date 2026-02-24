@@ -26,11 +26,38 @@ import { request } from "@/lib/request";
 export type NotaMedica = {
   id: string;
   persona_id: string;
-  medico_id: string;
+  medico_id: string | null;
   diagnostico: string;
   tratamiento: string;
   comentario?: string;
   consulta_fecha: string;
+  FC?: string | null;
+  TA?: string | null;
+  FR?: string | null;
+  Peso?: string | null;
+  Temperatura?: string | null;
+  cabeza?: string | null;
+  cuello?: string | null;
+  torax?: string | null;
+  abdomen?: string | null;
+  miembros?: string | null;
+  genitales?: string | null;
+  persona?: {
+    id?: string;
+    curp?: string;
+    nombre?: string;
+    apellido_paterno?: string;
+    apellido_materno?: string;
+  } | null;
+  medico?: {
+    id?: string;
+    persona_id?: string;
+    persona?: {
+      nombre?: string;
+      apellido_paterno?: string;
+      apellido_materno?: string;
+    } | null;
+  } | null;
 };
 
 export type AfiliadoTabla = {
@@ -53,6 +80,7 @@ interface NotasMedicasTableProps {
 }
 
 const ITEMS_PER_PAGE = 10;
+const emptyValue = (value?: string | null) => (value ? value : "-");
 
 export function NotasMedicasTable({
   notas,
@@ -86,7 +114,8 @@ export function NotasMedicasTable({
       : Math.min((page + 1) * ITEMS_PER_PAGE, notas.length);
 
   const getAfiliado = (id: string) => afiliados.find((a) => a.id === id);
-  const getMedico = (id: string) => medicos.find((m) => m.id === id);
+  const getMedico = (id?: string | null) =>
+    id ? medicos.find((m) => m.id === id) : undefined;
 
   const afiliadoSeleccionado = useMemo(
     () => (selectedNota ? getAfiliado(selectedNota.persona_id) : undefined),
@@ -97,6 +126,24 @@ export function NotasMedicasTable({
     () => (selectedNota ? getMedico(selectedNota.medico_id) : undefined),
     [selectedNota, medicos]
   );
+
+  const afiliadoNombreFromNota = useMemo(() => {
+    const persona = selectedNota?.persona;
+    if (!persona) return "";
+    return [persona.nombre, persona.apellido_paterno, persona.apellido_materno]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }, [selectedNota]);
+
+  const medicoNombreFromNota = useMemo(() => {
+    const persona = selectedNota?.medico?.persona;
+    if (!persona) return "";
+    return [persona.nombre, persona.apellido_paterno, persona.apellido_materno]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }, [selectedNota]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -288,7 +335,7 @@ export function NotasMedicasTable({
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Cargando notas médicas...
@@ -297,7 +344,7 @@ export function NotasMedicasTable({
             ) : notas.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No se encontraron notas médicas
@@ -391,11 +438,11 @@ export function NotasMedicasTable({
       </div>
 
       <Dialog open={!!selectedNota} onOpenChange={() => setSelectedNota(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Detalles de la nota médica</DialogTitle>
             <DialogDescription>
-              Información básica de la nota médica
+              Información completa de la nota médica
             </DialogDescription>
           </DialogHeader>
 
@@ -404,7 +451,9 @@ export function NotasMedicasTable({
               <div>
                 <p className="text-muted-foreground">Afiliado</p>
                 <p className="font-medium">
-                  {afiliadoSeleccionado?.nombre ?? "No disponible"}
+                  {afiliadoSeleccionado?.nombre ||
+                    afiliadoNombreFromNota ||
+                    "No disponible"}
                 </p>
                 {afiliadoSeleccionado?.numeroAfiliacion ? (
                   <p className="text-xs text-muted-foreground">
@@ -412,7 +461,7 @@ export function NotasMedicasTable({
                   </p>
                 ) : null}
                 <p className="font-mono text-xs">
-                  {afiliadoSeleccionado?.curp}
+                  {afiliadoSeleccionado?.curp || selectedNota?.persona?.curp || "-"}
                 </p>
               </div>
               <div>
@@ -420,25 +469,55 @@ export function NotasMedicasTable({
                 <p className="font-medium">
                   {medicoSeleccionado
                     ? `Dr(a). ${medicoSeleccionado.nombre}`
+                    : medicoNombreFromNota
+                    ? `Dr(a). ${medicoNombreFromNota}`
                     : "No disponible"}
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <p className="text-muted-foreground">Fecha</p>
                 <p className="font-medium">
-                  {selectedNota?.consulta_fecha? new Date(selectedNota.consulta_fecha).toLocaleDateString(
-                            "es-MX"
-                          )
-                        : "-"}
+                  {selectedNota?.consulta_fecha
+                    ? new Date(selectedNota.consulta_fecha).toLocaleDateString(
+                        "es-MX"
+                      )
+                    : "-"}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground">Diagnóstico</p>
                 <p className="font-medium">
-                  {selectedNota?.diagnostico || "-"}
+                  {emptyValue(selectedNota?.diagnostico)}
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div>
+                <p className="text-muted-foreground">FC</p>
+                <p className="font-medium">{emptyValue(selectedNota?.FC)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">TA</p>
+                <p className="font-medium">{emptyValue(selectedNota?.TA)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">FR</p>
+                <p className="font-medium">{emptyValue(selectedNota?.FR)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Peso</p>
+                <p className="font-medium">{emptyValue(selectedNota?.Peso)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Temperatura</p>
+                <p className="font-medium">
+                  {emptyValue(selectedNota?.Temperatura)}
                 </p>
               </div>
             </div>
@@ -448,15 +527,56 @@ export function NotasMedicasTable({
             <div>
               <p className="text-muted-foreground">Tratamiento</p>
               <p className="font-medium whitespace-pre-wrap">
-                {selectedNota?.tratamiento || "-"}
+                {emptyValue(selectedNota?.tratamiento)}
               </p>
             </div>
 
             <div>
               <p className="text-muted-foreground">Comentario</p>
               <p className="font-medium whitespace-pre-wrap">
-                {selectedNota?.comentario || "-"}
+                {emptyValue(selectedNota?.comentario)}
               </p>
+            </div>
+
+            <Separator />
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-muted-foreground">Cabeza</p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {emptyValue(selectedNota?.cabeza)}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Cuello</p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {emptyValue(selectedNota?.cuello)}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Tórax</p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {emptyValue(selectedNota?.torax)}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Abdomen</p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {emptyValue(selectedNota?.abdomen)}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Miembros</p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {emptyValue(selectedNota?.miembros)}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Genitales</p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {emptyValue(selectedNota?.genitales)}
+                </p>
+              </div>
             </div>
           </div>
 
