@@ -458,7 +458,7 @@ export function ExamenesTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 rounded-lg border border-border p-4 md:flex-row md:items-center md:gap-3">
+      <div className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:p-4 md:flex-row md:items-center md:gap-3">
         <div className="flex-1">
           <Input
             placeholder="Buscar por CURP, número de afiliado, nombre o apellido"
@@ -469,7 +469,7 @@ export function ExamenesTable() {
             }
           />
         </div>
-        <Button onClick={handleSearch} disabled={loading}>
+        <Button onClick={handleSearch} disabled={loading} className="w-full md:w-auto">
           {loading ? "Buscando..." : "Buscar"}
         </Button>
       </div>
@@ -491,19 +491,19 @@ export function ExamenesTable() {
         <div className="space-y-4">
           {paginatedAfiliados.map((afiliado) => (
             <Card key={afiliado.id}>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg">
+              <CardHeader className="pb-2 px-4 sm:px-6">
+                <CardTitle className="flex items-start gap-2 text-base sm:text-lg wrap-break-word">
                   <User className="h-5 w-5 text-primary" />
                   {afiliado.nombreCompleto}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 px-4 sm:px-6">
                 <div className="grid gap-2 text-sm md:grid-cols-2">
                   <p>
                     <span className="font-medium text-muted-foreground">
                       CURP:{" "}
                     </span>
-                    <span className="font-mono">{afiliado.curp || "N/D"}</span>
+                    <span className="font-mono break-all">{afiliado.curp || "N/D"}</span>
                   </p>
                   {afiliado.numeroAfiliacion ? (
                     <p>
@@ -524,6 +524,7 @@ export function ExamenesTable() {
                   type="button"
                   variant="outline"
                   onClick={() => setModalAfiliado(afiliado)}
+                  className="w-full sm:w-auto"
                 >
                   <TestTube className="mr-2 h-4 w-4" />
                   Ver exámenes
@@ -535,16 +536,17 @@ export function ExamenesTable() {
             <p className="text-muted-foreground">
               Mostrando {showingStart}-{showingEnd} de {afiliados.length}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2 sm:justify-start">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
                 disabled={page === 0 || afiliados.length === 0}
+                className="flex-1 sm:flex-none"
               >
                 Anterior
               </Button>
-              <span className="text-sm font-medium">
+              <span className="text-xs sm:text-sm font-medium text-center min-w-[112px]">
                 Página {afiliados.length === 0 ? 0 : page + 1} de{" "}
                 {afiliados.length === 0 ? 0 : totalPages}
               </span>
@@ -555,6 +557,7 @@ export function ExamenesTable() {
                   setPage((prev) => Math.min(prev + 1, (totalPages || 1) - 1))
                 }
                 disabled={afiliados.length === 0 || page >= totalPages - 1}
+                className="flex-1 sm:flex-none"
               >
                 Siguiente
               </Button>
@@ -567,26 +570,51 @@ export function ExamenesTable() {
         open={!!modalAfiliado}
         onOpenChange={(open) => !open && setModalAfiliado(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Exámenes — {modalAfiliado?.nombreCompleto}</DialogTitle>
-            <DialogDescription>
-              Listado de exámenes del afiliado. Puedes actualizar el estatus
-              desde aquí.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-4xl h-[90vh] max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+          <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b bg-muted/20 shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg wrap-break-word pr-8">
+                Exámenes — {modalAfiliado?.nombreCompleto}
+              </DialogTitle>
+              <DialogDescription>
+                Listado de exámenes del afiliado. Puedes actualizar el estatus
+                desde aquí.
+              </DialogDescription>
+            </DialogHeader>
+            {modalAfiliado ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                <Badge variant="secondary">
+                  Total: {modalAfiliado.examenes.length}
+                </Badge>
+                <Badge variant="outline">
+                  Pendientes:{" "}
+                  {
+                    modalAfiliado.examenes.filter(
+                      (exam) =>
+                        !exam.estatus ||
+                        exam.estatus.toLowerCase() === "pendiente" ||
+                        !exam.dilucionVDRL
+                    ).length
+                  }
+                </Badge>
+                <span className="text-muted-foreground sm:ml-auto">
+                  Desliza horizontalmente para ver todas las columnas
+                </span>
+              </div>
+            ) : null}
+          </div>
           {modalAfiliado ? (
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0 px-4 sm:px-6 py-4">
               <div className="rounded-lg border border-border overflow-auto flex-1">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
                       <TableHead className="min-w-[150px]">Examen</TableHead>
                       <TableHead className="min-w-[120px]">Fecha orden</TableHead>
-                      <TableHead className="min-w-[120px]">Próximo examen</TableHead>
-                      <TableHead className="min-w-[100px]">Estatus</TableHead>
+                      <TableHead className="min-w-[130px]">Próximo examen</TableHead>
+                      <TableHead className="min-w-[110px]">Estatus</TableHead>
                       <TableHead className="text-right min-w-[180px]">Actualizar</TableHead>
-                      <TableHead className="text-right min-w-[150px]">Acciones</TableHead>
+                      <TableHead className="text-right min-w-[170px]">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -594,9 +622,17 @@ export function ExamenesTable() {
                       <TableRow>
                         <TableCell
                           colSpan={6}
-                          className="text-center text-muted-foreground py-8"
+                          className="py-12"
                         >
-                          Sin exámenes registrados.
+                          <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                            <TestTube className="h-6 w-6" />
+                            <p className="text-sm font-medium">
+                              Sin exámenes registrados.
+                            </p>
+                            <p className="text-xs">
+                              Cuando existan exámenes aparecerán en esta tabla.
+                            </p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -604,7 +640,7 @@ export function ExamenesTable() {
                         const s =
                           examen.estatus ?? examen.dilucionVDRL;
                         return (
-                          <TableRow key={examen.id}>
+                          <TableRow key={examen.id} className="hover:bg-muted/30">
                             <TableCell className="font-medium">
                               <div className="max-w-[200px] truncate" title={examen.examenId || "N/D"}>
                                 {examen.examenId || "N/D"}
@@ -628,7 +664,11 @@ export function ExamenesTable() {
                               {s ? (
                                 <Badge
                                   variant={
-                                    s === "negativo" ? "default" : "destructive"
+                                    s === "negativo"
+                                      ? "default"
+                                      : s === "pendiente"
+                                      ? "outline"
+                                      : "destructive"
                                   }
                                   className={
                                     s === "negativo"
@@ -636,7 +676,7 @@ export function ExamenesTable() {
                                       : ""
                                   }
                                 >
-                                  {s}
+                                  {s.charAt(0).toUpperCase() + s.slice(1)}
                                 </Badge>
                               ) : (
                                 <Badge variant="outline">Pendiente</Badge>
@@ -655,7 +695,7 @@ export function ExamenesTable() {
                                   }
                                   disabled={updatingStatusId === examen.id}
                                 >
-                                  <SelectTrigger className="w-[130px]">
+                                  <SelectTrigger className="w-[120px] sm:w-[130px]">
                                     <SelectValue placeholder="Estatus" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -679,6 +719,7 @@ export function ExamenesTable() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleOpenResultadoDialog(examen)}
+                                className="whitespace-nowrap"
                               >
                                 <Plus className="mr-2 h-4 w-4" />
                                 Agregar Resultado
@@ -698,8 +739,8 @@ export function ExamenesTable() {
 
       {/* Dialog para crear resultado */}
       <Dialog open={dialogResultadoOpen} onOpenChange={setDialogResultadoOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pr-8">
             <DialogTitle>Agregar Resultado de Examen</DialogTitle>
             <DialogDescription>
               Registra el resultado del examen de laboratorio.
@@ -823,15 +864,20 @@ export function ExamenesTable() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
               onClick={() => setDialogResultadoOpen(false)}
               disabled={savingResultado}
+              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
-            <Button onClick={handleCreateResultado} disabled={savingResultado}>
+            <Button
+              onClick={handleCreateResultado}
+              disabled={savingResultado}
+              className="w-full sm:w-auto"
+            >
               {savingResultado ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
