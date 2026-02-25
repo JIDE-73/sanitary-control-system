@@ -1052,8 +1052,18 @@ export function CertificadosTable() {
       ], marginX, y);
 
       // Campos de firma al final
-      ensureSpace(30);
-      y += 10;
+      const signatureBlockHeight = 20;
+      const signatureBottomPadding = 8;
+      const signatureStartY =
+        pageHeight - marginY - signatureBottomPadding - signatureBlockHeight;
+
+      if (y > signatureStartY) {
+        doc.addPage();
+        currentPage++;
+        y = marginY;
+      }
+
+      y = signatureStartY;
       
       // Calcular posiciones X para los 3 campos de firma
       const availableWidth = pageWidth - marginX * 2;
@@ -1062,7 +1072,7 @@ export function CertificadosTable() {
       const column2X = marginX + columnWidth;
       const column3X = marginX + columnWidth * 2;
       
-      // Línea para firmas
+      // Línea para firmas (ancladas casi al final de la hoja)
       const lineY = y;
       doc.setLineWidth(0.1);
       doc.line(column1X, lineY, column1X + columnWidth - 10, lineY);
