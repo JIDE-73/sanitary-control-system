@@ -237,6 +237,14 @@ interface FormCertificadoProps {
   submitting?: boolean;
 }
 
+type CitizenLookupOption = {
+  id: string;
+  nombreCompleto: string;
+  genero?: string;
+  direccion?: string;
+  fechaNacimiento?: string;
+};
+
 const initialState: CertificadoFormState = {
   // Header
   ciudad: "Tijuana, B.C.",
@@ -349,6 +357,9 @@ export function FormCertificado({
 }: FormCertificadoProps) {
   const router = useRouter();
   const [formData, setFormData] = useState<CertificadoFormState>(initialState);
+  const [personaSearch, setPersonaSearch] = useState("");
+  const [citizenOptions, setCitizenOptions] = useState<CitizenLookupOption[]>([]);
+  const [selectedCitizenOptionId, setSelectedCitizenOptionId] = useState("");
   const [loadingCitizen, setLoadingCitizen] = useState(false);
   const [loadingDoctor, setLoadingDoctor] = useState(false);
 
@@ -399,8 +410,19 @@ export function FormCertificado({
     return years >= 0 ? String(years) : "";
   };
 
+  const applyCitizenToForm = (citizen: CitizenLookupOption) => {
+    setFormData((prev) => ({
+      ...prev,
+      persona_id: citizen.id,
+      nombre: citizen.nombreCompleto || prev.nombre,
+      genero: citizen.genero || prev.genero,
+      direccion: citizen.direccion || prev.direccion,
+      edad: computeAge(citizen.fechaNacimiento),
+    }));
+  };
+
   const fetchCitizen = async () => {
-    const param = formData.persona_id.trim();
+    const param = personaSearch.trim();
     if (!param) {
       toast.error(
         "Ingresa un parámetro para buscar ciudadano (id/curp/nombre)"
@@ -416,31 +438,44 @@ export function FormCertificado({
       );
 
       if (!response?.persona?.length) {
+        setCitizenOptions([]);
+        setSelectedCitizenOptionId("");
+        setFormData((prev) => ({ ...prev, persona_id: "" }));
         toast.error("No se encontró al ciudadano");
         return;
       }
 
-      const persona = response.persona[0];
-      const nombreCompleto = [
-        persona.nombre,
-        persona.apellido_paterno,
-        persona.apellido_materno,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-
-      setFormData((prev) => ({
-        ...prev,
-        persona_id: persona.id,
-        nombre: nombreCompleto || prev.nombre,
-        genero: persona.genero || prev.genero,
-        direccion: persona.direccion || prev.direccion,
-        edad: computeAge(persona.fecha_nacimiento),
+      const options: CitizenLookupOption[] = response.persona.map((persona: any) => ({
+        id: String(persona.id ?? ""),
+        nombreCompleto: [
+          persona.nombre,
+          persona.apellido_paterno,
+          persona.apellido_materno,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .trim(),
+        genero: persona.genero ?? "",
+        direccion: persona.direccion ?? "",
+        fechaNacimiento: persona.fecha_nacimiento ?? "",
       }));
 
-      toast.success("Ciudadano cargado", {
-        description: nombreCompleto || persona.id,
+      setCitizenOptions(options);
+
+      if (options.length === 1) {
+        const onlyOption = options[0];
+        setSelectedCitizenOptionId(onlyOption.id);
+        applyCitizenToForm(onlyOption);
+        toast.success("Ciudadano cargado", {
+          description: onlyOption.nombreCompleto || onlyOption.id,
+        });
+        return;
+      }
+
+      setSelectedCitizenOptionId("");
+      setFormData((prev) => ({ ...prev, persona_id: "" }));
+      toast.success("Se encontraron ciudadanos", {
+        description: "Selecciona una persona de la lista.",
       });
     } catch (error) {
       console.error("Error al obtener ciudadano", error);
@@ -718,15 +753,17 @@ export function FormCertificado({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="persona_id">Persona ID *</Label>
-              <div className="flex gap-2">
+              <Label htmlFor="persona_id">Buscar ciudadano *</Label>
+              <div className="flex gap-2 flex-wrap">
                 <Input
                   id="persona_id"
-                  value={formData.persona_id}
-                  onChange={(e) =>
-                    handleInputChange("persona_id", e.target.value)
-                  }
-                  required
+                  value={personaSearch}
+                  onChange={(e) => {
+                    setPersonaSearch(e.target.value);
+                    setSelectedCitizenOptionId("");
+                    setFormData((prev) => ({ ...prev, persona_id: "" }));
+                  }}
+                  placeholder="Buscar por id/curp/nombre"
                 />
                 <Button
                   type="button"
@@ -737,6 +774,29 @@ export function FormCertificado({
                   {loadingCitizen ? "Buscando..." : "Buscar"}
                 </Button>
               </div>
+              {citizenOptions.length > 1 && (
+                <Select
+                  value={selectedCitizenOptionId}
+                  onValueChange={(value) => {
+                    setSelectedCitizenOptionId(value);
+                    const selected = citizenOptions.find((option) => option.id === value);
+                    if (selected) {
+                      applyCitizenToForm(selected);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una persona" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {citizenOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {(option.nombreCompleto || "Sin nombre")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="medico_id">Autoridad / Médico ID *</Label>
