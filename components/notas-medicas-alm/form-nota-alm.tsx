@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { request } from "@/lib/request";
+import { useAuth } from "@/components/auth/auth-context";
 
 export type NotaMedicaALMFormValues = {
   fecha_expedicion: string;
@@ -88,13 +89,18 @@ export function FormNotaMedicaALM({
 }: FormNotaMedicaALMProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [citizens, setCitizens] = useState<CitizenOption[]>([]);
-  const [loadingDoctorSearch, setLoadingDoctorSearch] = useState(false);
   const [loadingCitizenSearch, setLoadingCitizenSearch] = useState(false);
   const [citizenQuery, setCitizenQuery] = useState("");
-  const [doctorQuery, setDoctorQuery] = useState("");
+  const [doctorFieldLocks, setDoctorFieldLocks] = useState({
+    idMedico: false,
+    cedula: false,
+    nombre_oficial: false,
+    dependencia: false,
+  });
 
   const [formData, setFormData] = useState<NotaMedicaALMFormValues>({
     fecha_expedicion: formatDate(new Date().toISOString()),
@@ -117,6 +123,63 @@ export function FormNotaMedicaALM({
     lesiones_visibles: false,
   });
 
+  useEffect(() => {
+    const fromSession = user;
+    const fromStorage =
+      typeof window !== "undefined"
+        ? (() => {
+            try {
+              const raw = window.localStorage.getItem("sics-auth-user");
+              return raw ? JSON.parse(raw) : null;
+            } catch {
+              return null;
+            }
+          })()
+        : null;
+
+    const authData = fromSession ?? fromStorage;
+    const medico = authData?.persona?.Medico;
+    const idMedico = String(medico?.id ?? "");
+    const cedula = String(medico?.cedula_profesional ?? "");
+    const nombreOficial = [
+      authData?.persona?.nombre,
+      authData?.persona?.apellido_paterno,
+      authData?.persona?.apellido_materno,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    setDoctorFieldLocks({
+      idMedico: Boolean(idMedico),
+      cedula: Boolean(cedula),
+      nombre_oficial: Boolean(nombreOficial),
+      dependencia: false,
+    });
+
+    setFormData((prev) => ({
+      ...prev,
+      idMedico: idMedico || prev.idMedico,
+      cedula: cedula || prev.cedula,
+      nombre_oficial: nombreOficial || prev.nombre_oficial,
+    }));
+
+    if (idMedico) {
+      setDoctors((prev) => {
+        const exists = prev.some((doctor) => doctor.id === idMedico);
+        if (exists) return prev;
+        return [
+          {
+            id: idMedico,
+            nombre: nombreOficial || "Médico en sesión",
+            cedula,
+            especialidad: String(medico?.especialidad ?? ""),
+          },
+        ];
+      });
+    }
+  }, [user]);
+
   const doctorSeleccionado = useMemo(
     () => doctors.find((doctor) => doctor.id === formData.idMedico),
     [doctors, formData.idMedico]
@@ -126,90 +189,6 @@ export function FormNotaMedicaALM({
     () => citizens.find((citizen) => citizen.id === formData.idPersona),
     [citizens, formData.idPersona]
   );
-
-  const mapDoctor = (doctor: any): DoctorOption | null => {
-    const id =
-      doctor?.persona_id ??
-      doctor?.persona?.id ??
-      doctor?.id ??
-      doctor?.personaId ??
-      "";
-    if (!id) return null;
-    return {
-      id,
-      nombre: [
-        doctor?.persona?.nombre,
-        doctor?.persona?.apellido_paterno ?? doctor?.persona?.apellidoPaterno,
-        doctor?.persona?.apellido_materno ?? doctor?.persona?.apellidoMaterno,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim(),
-      cedula: doctor?.cedula_profesional ?? doctor?.cedula ?? "",
-      especialidad: doctor?.especialidad ?? "",
-    };
-  };
-
-  const handleSearchDoctor = async () => {
-    const trimmed = doctorQuery.trim();
-    if (!trimmed) {
-      toast({
-        title: "Captura un identificador",
-        description: "Ingresa ID o dato del médico para buscar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoadingDoctorSearch(true);
-    try {
-      const response = await request(
-        `/sics/doctors/getDoctor/${trimmed}`,
-        "GET"
-      );
-
-      const candidate =
-        (response as any)?.doctor ??
-        (response as any)?.data ??
-        response ??
-        null;
-
-      const mapped = candidate ? mapDoctor(candidate) : null;
-
-      if (!mapped) {
-        setDoctors([]);
-        setFormData((prev) => ({
-          ...prev,
-          idMedico: "",
-          cedula: "",
-          nombre_oficial: "",
-        }));
-        toast({
-          title: "No se encontró médico",
-          description: "Verifica el dato e intenta nuevamente.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setDoctors([mapped]);
-      setFormData((prev) => ({
-        ...prev,
-        idMedico: mapped.id,
-        cedula: mapped.cedula || prev.cedula,
-        nombre_oficial: mapped.nombre || prev.nombre_oficial,
-      }));
-    } catch (error) {
-      console.error("No se pudo buscar médico", error);
-      toast({
-        title: "Error al buscar",
-        description: "No se pudo consultar el médico en el backend.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingDoctorSearch(false);
-    }
-  };
 
   const mapCitizen = (citizen: any): CitizenOption | null => {
     const persona = citizen?.persona ?? citizen;
@@ -472,44 +451,6 @@ export function FormNotaMedicaALM({
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Médico *</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="ID o referencia del médico"
-                value={doctorQuery}
-                onChange={(e) => setDoctorQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void handleSearchDoctor();
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                onClick={() => void handleSearchDoctor()}
-                disabled={loadingDoctorSearch}
-              >
-                {loadingDoctorSearch ? "Buscando..." : "Buscar"}
-              </Button>
-            </div>
-            {doctors.length > 0 ? (
-              <Select
-                value={formData.idMedico}
-                onValueChange={(value) => handleChange("idMedico", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona el médico" />
-                </SelectTrigger>
-                <SelectContent>
-                  {doctors.map((doctor) => (
-                    <SelectItem key={doctor.id} value={doctor.id}>
-                      {doctor.nombre}
-                      {doctor.especialidad ? ` — ${doctor.especialidad}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
             {doctorSeleccionado ? (
               <div className="rounded-md border border-dashed border-border bg-muted/30 p-3">
                 <p className="text-sm font-medium">
@@ -521,7 +462,11 @@ export function FormNotaMedicaALM({
                   </p>
                 ) : null}
               </div>
-            ) : null}
+            ) : (
+              <div className="rounded-md border border-dashed border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                Sin datos de médico en sesión.
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="cedula">Cédula profesional</Label>
@@ -529,6 +474,7 @@ export function FormNotaMedicaALM({
               id="cedula"
               value={formData.cedula}
               onChange={(e) => handleChange("cedula", e.target.value)}
+              readOnly={doctorFieldLocks.cedula}
               placeholder="Número de cédula"
             />
           </div>
@@ -538,6 +484,7 @@ export function FormNotaMedicaALM({
               id="nombre_oficial"
               value={formData.nombre_oficial}
               onChange={(e) => handleChange("nombre_oficial", e.target.value)}
+              readOnly={doctorFieldLocks.nombre_oficial}
               placeholder="Nombre completo"
             />
           </div>
@@ -547,6 +494,7 @@ export function FormNotaMedicaALM({
               id="dependencia"
               value={formData.dependencia}
               onChange={(e) => handleChange("dependencia", e.target.value)}
+              readOnly={doctorFieldLocks.dependencia}
               placeholder="Ej. Otay, Centro..."
             />
           </div>
