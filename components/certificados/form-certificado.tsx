@@ -18,6 +18,7 @@ import {
 import { ArrowLeft, FileText, Save, User } from "lucide-react";
 import { toast } from "sonner";
 import { request } from "@/lib/request";
+import { useAuth } from "@/components/auth/auth-context";
 
 type CertificadoFormState = {
   // Header fields
@@ -140,7 +141,7 @@ export interface CertificadoFormPayload {
   fecha_expedicion: string;
   medico_id: string;
   persona_id: string;
-  cedula_perito: number | null;
+  cedula_perito: string;
   nombre: string;
   identifica_con: string;
   edad: number | null;
@@ -399,12 +400,12 @@ export function FormCertificado({
   submitting = false,
 }: FormCertificadoProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const [formData, setFormData] = useState<CertificadoFormState>(initialState);
   const [personaSearch, setPersonaSearch] = useState("");
   const [citizenOptions, setCitizenOptions] = useState<CitizenLookupOption[]>([]);
   const [selectedCitizenOptionId, setSelectedCitizenOptionId] = useState("");
   const [loadingCitizen, setLoadingCitizen] = useState(false);
-  const [loadingDoctor, setLoadingDoctor] = useState(false);
 
   useEffect(() => {
     const refreshTijuanaDateTime = () => {
@@ -422,6 +423,30 @@ export function FormCertificado({
 
     refreshTijuanaDateTime();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const medico = user.persona?.Medico;
+    const medicoId = medico?.id ?? "";
+    const cedula = medico?.cedula_profesional ?? "";
+    const nombreMedico = [
+      user.persona?.nombre,
+      user.persona?.apellido_paterno,
+      user.persona?.apellido_materno,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    setFormData((prev) => ({
+      ...prev,
+      medico_id: prev.medico_id || medicoId,
+      nombre_medico: prev.nombre_medico || nombreMedico,
+      registro_profesiones: prev.registro_profesiones || cedula,
+      cedula_perito: prev.cedula_perito || cedula,
+    }));
+  }, [user]);
 
   const toNumber = (value: string): number | null => {
     if (value === "") return null;
@@ -545,47 +570,6 @@ export function FormCertificado({
     }
   };
 
-  const fetchDoctor = async () => {
-    const param = formData.medico_id.trim();
-    if (!param) {
-      toast.error("Ingresa un parámetro para buscar médico");
-      return;
-    }
-
-    try {
-      setLoadingDoctor(true);
-      const response = await request(`/sics/doctors/getDoctor/${param}`, "GET");
-
-      if (!response?.persona_id) {
-        toast.error("No se encontró al médico");
-        return;
-      }
-
-      const nombreMedico = response.persona
-        ? `${response.persona.nombre ?? ""} ${
-            response.persona.apellido_paterno ?? ""
-          } ${response.persona.apellido_materno ?? ""}`.trim()
-        : response.persona_id;
-
-      setFormData((prev) => ({
-        ...prev,
-        medico_id: response.persona_id,
-        cedula_perito: response.cedula_profesional || prev.cedula_perito,
-        nombre_medico: nombreMedico || prev.nombre_medico,
-        registro_profesiones: response.cedula_profesional || prev.registro_profesiones,
-      }));
-
-      toast.success("Médico cargado", {
-        description: nombreMedico || response.persona_id,
-      });
-    } catch (error) {
-      console.error("Error al obtener médico", error);
-      toast.error("Error al obtener médico");
-    } finally {
-      setLoadingDoctor(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const now = getTijuanaDateParts();
@@ -608,7 +592,7 @@ export function FormCertificado({
       fecha_expedicion: now.fechaISO,
       medico_id: formData.medico_id,
       persona_id: formData.persona_id,
-      cedula_perito: toNumber(formData.cedula_perito),
+      cedula_perito: formData.cedula_perito.trim(),
       nombre: formData.nombre,
       identifica_con: formData.identifica_con,
       edad: toNumber(formData.edad),
@@ -782,7 +766,7 @@ export function FormCertificado({
               <Input
                 className="flex-1 min-w-[300px]"
                 value={formData.nombre_medico}
-                onChange={(e) => handleInputChange("nombre_medico", e.target.value)}
+                readOnly
                 placeholder="Nombre del médico"
               />
               <span>adscrito a la Dirección Municipal de Prevención, Control y Sanidad legalmente autorizado (a) para el ejercicio de la profesión con registro de la Dirección General de Profesiones</span>
@@ -853,34 +837,13 @@ export function FormCertificado({
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="medico_id">Autoridad / Médico ID *</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="medico_id"
-                  value={formData.medico_id}
-                  onChange={(e) => handleInputChange("medico_id", e.target.value)}
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={fetchDoctor}
-                  disabled={loadingDoctor || submitting}
-                >
-                  {loadingDoctor ? "Buscando..." : "Buscar"}
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="cedula_perito">Cédula del perito</Label>
               <Input
                 id="cedula_perito"
-                type="number"
+                type="text"
                 value={formData.cedula_perito}
-                onChange={(e) =>
-                  handleInputChange("cedula_perito", e.target.value)
-                }
-                min={0}
+                readOnly
+                placeholder="Ej. HDF123BB"
               />
             </div>
           </div>
