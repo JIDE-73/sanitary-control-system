@@ -657,7 +657,7 @@ export function FormNotaMedicaALM({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Diagnósticos del catálogo (CIE10)</Label>
+            <Label>Sugerencia de diagnósticos del catálogo (CIE10), selecciona los que sean relevantes</Label>
             <div className="flex gap-2">
               <Input
                 value={diagnosticQuery}
