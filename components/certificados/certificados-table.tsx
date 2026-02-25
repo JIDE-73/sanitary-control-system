@@ -389,7 +389,6 @@ export function CertificadosTable() {
         title: "Datos del médico",
         items: [
           { label: "Nombre completo", value: getDoctorName(selected) },
-          { label: "ID médico", value: selected.medico_id },
           { label: "Cédula perito", value: selected.cedula_perito },
           {
             label: "Cédula profesional",
