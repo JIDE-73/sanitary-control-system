@@ -20,6 +20,14 @@ interface GaleriaItem {
   fecha: string;
 }
 
+interface GalleryResponse {
+  status: number;
+  message?: string;
+  gallery?: GaleriaItem[];
+  galery?: GaleriaItem[];
+  data?: GaleriaItem[] | { gallery?: GaleriaItem[]; galery?: GaleriaItem[] };
+}
+
 const baseUrl = process.env.NEXT_PUBLIC_URL || "";
 
 export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
@@ -31,20 +39,34 @@ export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
   const loadGaleria = async () => {
     setLoading(true);
     try {
-      const response = await request(
+      const response = (await request(
         "/alcoholimetria/gallery/getAllGallery",
         "GET"
-      );
+      )) as GalleryResponse;
 
       if (response.status >= 200 && response.status < 300) {
-        // Intentar diferentes posibles nombres de la propiedad
-        const items = 
-          Array.isArray(response.galery) ? response.galery :
-          Array.isArray(response.gallery) ? response.gallery :
-          Array.isArray(response.data) ? response.data :
-          Array.isArray(response) ? response : [];
-        
-        
+        // Nuevo contrato: { message, gallery: [] }. Se mantiene fallback por compatibilidad.
+        const nestedData =
+          response.data && !Array.isArray(response.data) ? response.data : undefined;
+        const nestedGallery = Array.isArray(nestedData?.gallery)
+          ? nestedData?.gallery
+          : undefined;
+        const nestedGalery = Array.isArray(nestedData?.galery)
+          ? nestedData?.galery
+          : undefined;
+
+        const items = Array.isArray(response.gallery)
+          ? response.gallery
+          : Array.isArray(response.galery)
+            ? response.galery
+            : Array.isArray(response.data)
+              ? response.data
+              : nestedGallery
+                ? nestedGallery
+                : nestedGalery
+                  ? nestedGalery
+                  : [];
+
         setGaleria(items);
       } else {
         toast({
