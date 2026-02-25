@@ -366,7 +366,28 @@ export function FormCertificado({
   const handleCheckboxChange = (
     field: keyof CertificadoFormState,
     checked: boolean | "indeterminate"
-  ) => setFormData((prev) => ({ ...prev, [field]: Boolean(checked) }));
+  ) =>
+    setFormData((prev) => {
+      const nextChecked = Boolean(checked);
+
+      if (field === "residencia_nacional") {
+        return {
+          ...prev,
+          residencia_nacional: nextChecked,
+          extranjera: nextChecked ? false : prev.extranjera,
+        };
+      }
+
+      if (field === "extranjera") {
+        return {
+          ...prev,
+          extranjera: nextChecked,
+          residencia_nacional: nextChecked ? false : prev.residencia_nacional,
+        };
+      }
+
+      return { ...prev, [field]: nextChecked };
+    });
 
   const computeAge = (isoDate?: string) => {
     if (!isoDate) return "";
