@@ -186,9 +186,6 @@ export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
                 <p className="text-xs text-muted-foreground truncate">
                   {formatDate(item.fecha)}
                 </p>
-                <p className="text-xs text-muted-foreground/50 truncate" title={item.path_foto}>
-                  {item.path_foto}
-                </p>
               </div>
             </div>
           );
@@ -223,7 +220,6 @@ export function GaleriaEvidencias({ onRefresh }: { onRefresh?: () => void }) {
               )}
               <div className="text-xs text-muted-foreground">
                 <p>ID: {selectedImage.id}</p>
-                <p>Path: {selectedImage.path_foto}</p>
               </div>
             </div>
           )}

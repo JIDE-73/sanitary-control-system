@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { uploadRequest } from "@/lib/request";
+import { request, uploadRequest } from "@/lib/request";
 
 const MAX_FILES = 5;
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -22,10 +22,56 @@ interface FormEvidenciasProps {
   onUploadSuccess?: () => void;
 }
 
+interface CertificadoOption {
+  id: string;
+  folio: string;
+  nombre?: string;
+}
+
 export function FormEvidencias({ onUploadSuccess }: FormEvidenciasProps) {
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [certificados, setCertificados] = useState<CertificadoOption[]>([]);
+  const [loadingCertificados, setLoadingCertificados] = useState(true);
+  const [certificadoId, setCertificadoId] = useState("");
+  const [descripcion, setDescripcion] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadCertificados = async () => {
+    setLoadingCertificados(true);
+    try {
+      const response = await request(
+        "/alcoholimetria/certificates/getCertificates",
+        "GET"
+      );
+
+      const certificates = Array.isArray(response?.certificates)
+        ? response.certificates
+        : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
+
+      const mapped: CertificadoOption[] = certificates
+        .map((item: any) => ({
+          id: String(item?.id ?? ""),
+          folio: String(item?.folio ?? ""),
+          nombre: item?.nombre ? String(item.nombre) : undefined,
+        }))
+        .filter((item: CertificadoOption) => item.id);
+
+      setCertificados(mapped);
+    } catch (error) {
+      console.error("Error al cargar certificados", error);
+      setCertificados([]);
+      toast.error("No se pudieron cargar los certificados", {
+        description: "Recarga la página e intenta nuevamente.",
+      });
+    } finally {
+      setLoadingCertificados(false);
+    }
+  };
 
   const validateFile = (file: File): boolean => {
     // Validar tipo MIME
@@ -105,6 +151,13 @@ export function FormEvidencias({ onUploadSuccess }: FormEvidenciasProps) {
       return;
     }
 
+    if (!certificadoId) {
+      toast.error("Selecciona un certificado", {
+        description: "Debes elegir el certificado al que pertenece la evidencia.",
+      });
+      return;
+    }
+
     try {
       setUploading(true);
 
@@ -112,6 +165,8 @@ export function FormEvidencias({ onUploadSuccess }: FormEvidenciasProps) {
       selectedFiles.forEach((selectedFile) => {
         formData.append("fotos", selectedFile.file);
       });
+      formData.append("certificado_id", certificadoId);
+      formData.append("descripcion", descripcion.trim());
 
       const response = await uploadRequest(
         "/alcoholimetria/gallery/createGallery",
@@ -129,6 +184,8 @@ export function FormEvidencias({ onUploadSuccess }: FormEvidenciasProps) {
           URL.revokeObjectURL(file.preview);
         });
         setSelectedFiles([]);
+        setDescripcion("");
+        setCertificadoId("");
         
         // Notificar que se deben recargar las evidencias
         if (onUploadSuccess) {
@@ -161,6 +218,10 @@ export function FormEvidencias({ onUploadSuccess }: FormEvidenciasProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    loadCertificados();
+  }, []);
+
   const cleanup = () => {
     selectedFiles.forEach((file) => {
       URL.revokeObjectURL(file.preview);
@@ -170,6 +231,43 @@ export function FormEvidencias({ onUploadSuccess }: FormEvidenciasProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="certificado_id">Certificado</Label>
+            <select
+              id="certificado_id"
+              value={certificadoId}
+              onChange={(e) => setCertificadoId(e.target.value)}
+              disabled={uploading || loadingCertificados}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">
+                {loadingCertificados
+                  ? "Cargando certificados..."
+                  : "Selecciona un certificado"}
+              </option>
+              {certificados.map((certificado) => (
+                <option key={certificado.id} value={certificado.id}>
+                  {certificado.folio || certificado.id}
+                  {certificado.nombre ? ` - ${certificado.nombre}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="descripcion">Descripción</Label>
+            <Input
+              id="descripcion"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              disabled={uploading}
+              placeholder="Descripción de la evidencia"
+              maxLength={255}
+            />
+          </div>
+        </div>
+
         <div>
           <Label htmlFor="fotos">Seleccionar Fotos</Label>
           <p className="text-sm text-muted-foreground mt-1">
