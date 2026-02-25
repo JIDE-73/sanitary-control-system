@@ -27,6 +27,14 @@ import QRCode from "qrcode";
 const LOGO_PATH = "/Logo_XXVAyto_Horizontal.png";
 let logoDataUrlCache: string | null = null;
 const validationBaseUrl = process.env.NEXT_PUBLIC_CERV || process.env.NEXT_PUBLIC_URL || "https://localhost:3000";
+const apiBaseUrl = process.env.NEXT_PUBLIC_URL || "";
+
+type GalleryEvidence = {
+  id?: string;
+  path_foto?: string;
+  descripcion?: string | null;
+  imageUrl?: string;
+};
 
 const getVigenciaCertificado = (): string => {
   if (typeof window === "undefined") return "30";
@@ -90,6 +98,16 @@ const formatDate = (value?: string) => {
   if (!value) return "Sin fecha";
   const parsed = new Date(value);
   return isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("es-MX");
+};
+
+const getImageUrl = (path?: string) => {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  const baseUrlClean = apiBaseUrl.endsWith("/")
+    ? apiBaseUrl.slice(0, -1)
+    : apiBaseUrl;
+  return `${baseUrlClean}/${cleanPath}`;
 };
 
 const getPatientName = (certificate: AlcoholCertificate) => {
@@ -159,6 +177,7 @@ export function CertificadosTable() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AlcoholCertificate | null>(null);
+  const [expandedImage, setExpandedImage] = useState<GalleryEvidence | null>(null);
   const [open, setOpen] = useState<boolean>(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -197,12 +216,32 @@ export function CertificadosTable() {
 
         if (!active) return;
 
-        if (
-          response.status >= 200 &&
-          response.status < 300 &&
-          Array.isArray(response.certificates)
-        ) {
-          setCertificates(response.certificates);
+        if (response.status >= 200 && response.status < 300) {
+          const certificatesRaw = Array.isArray(response.certificates)
+            ? response.certificates
+            : Array.isArray(response.data)
+              ? response.data
+              : [];
+
+          const mappedCertificates = certificatesRaw.map((certificate: any) => {
+            const rawGallery = Array.isArray(certificate?.Galeria_Alcoholimetria)
+              ? certificate.Galeria_Alcoholimetria
+              : [];
+
+            const galleryWithUrls: GalleryEvidence[] = rawGallery.map(
+              (item: any) => ({
+                ...item,
+                imageUrl: getImageUrl(item?.path_foto),
+              })
+            );
+
+            return {
+              ...certificate,
+              Galeria_Alcoholimetria: galleryWithUrls,
+            };
+          });
+
+          setCertificates(mappedCertificates);
         } else {
           setError(
             response.message || "No se pudieron cargar los certificados"
@@ -1262,7 +1301,10 @@ export function CertificadosTable() {
         open={open}
         onOpenChange={(value) => {
           setOpen(value);
-          if (!value) setSelected(null);
+          if (!value) {
+            setSelected(null);
+            setExpandedImage(null);
+          }
         }}
       >
         <DialogContent className="max-w-5xl">
@@ -1283,6 +1325,46 @@ export function CertificadosTable() {
           {selected && (
             <ScrollArea className="max-h-[70vh] pr-2">
               <div className="space-y-6">
+                {Array.isArray((selected as any).Galeria_Alcoholimetria) &&
+                  (selected as any).Galeria_Alcoholimetria.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-primary">
+                        Evidencias fotográficas
+                      </p>
+                      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                        {(selected as any).Galeria_Alcoholimetria.map(
+                          (image: GalleryEvidence, idx: number) => (
+                            <button
+                              type="button"
+                              key={image.id || `${selected.id}-img-${idx}`}
+                              onClick={() => setExpandedImage(image)}
+                              className="rounded-lg border bg-muted/40 p-2 hover:bg-muted/70 transition-colors"
+                            >
+                              <div className="aspect-square overflow-hidden rounded-md bg-muted">
+                                {image.imageUrl ? (
+                                  <img
+                                    src={image.imageUrl}
+                                    alt={
+                                      image.descripcion ||
+                                      `Evidencia ${idx + 1} del certificado`
+                                    }
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground px-2 text-center">
+                                    Imagen no disponible
+                                  </div>
+                                )}
+                              </div>
+                              <p className="mt-2 text-xs text-muted-foreground truncate">
+                                {image.descripcion || `Evidencia ${idx + 1}`}
+                              </p>
+                            </button>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
                 {modalSections.map((section) => (
                   <div key={section.title} className="space-y-3">
                     <p className="text-sm font-semibold text-primary">
@@ -1308,6 +1390,35 @@ export function CertificadosTable() {
               </div>
             </ScrollArea>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(expandedImage)}
+        onOpenChange={(value) => {
+          if (!value) setExpandedImage(null);
+        }}
+      >
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Imagen ampliada</DialogTitle>
+            <DialogDescription>
+              {expandedImage?.descripcion || "Evidencia fotográfica"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border bg-muted/20 p-2">
+            {expandedImage?.imageUrl ? (
+              <img
+                src={expandedImage.imageUrl}
+                alt={expandedImage.descripcion || "Evidencia ampliada"}
+                className="w-full max-h-[75vh] object-contain rounded-md"
+              />
+            ) : (
+              <div className="flex h-72 w-full items-center justify-center text-sm text-muted-foreground">
+                Imagen no disponible
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
