@@ -59,7 +59,7 @@ export function TestResultsChart() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle>Cargando...</CardTitle>
         </CardHeader>
@@ -111,7 +111,7 @@ export function TestResultsChart() {
           <CardTitle>Pruebas Realizadas vs Resultados</CardTitle>
           <CardDescription>Comparación de pruebas realizadas y resultados obtenidos</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0">
           <ChartContainer config={chartConfig} className="h-[240px] sm:h-[320px]">
             <BarChart data={testsPerformed}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -139,12 +139,12 @@ export function TestResultsChart() {
       </Card>
 
       {/* Gráfico de resultados de cultivos */}
-      <Card>
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle>Resultados de Cultivos</CardTitle>
           <CardDescription>Resultados específicos de exámenes de cultivo</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0">
           <ChartContainer config={chartConfig} className="h-[240px] sm:h-[320px]">
             <BarChart data={cultureResults}>
               <CartesianGrid strokeDasharray="3 3" />

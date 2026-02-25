@@ -29,18 +29,18 @@ export default function AlcoholimetriaDashboardPage() {
   const trendConfig = {
     total: {
       label: "Pruebas totales",
-      color: "hsl(var(--chart-1))",
+      color: "#2563eb",
     },
     positivos: {
       label: "Pruebas positivas",
-      color: "hsl(var(--chart-2))",
+      color: "#dc2626",
     },
   };
 
   const distributionConfig = {
     personas: {
       label: "Personas",
-      color: "hsl(var(--chart-3))",
+      color: "#0891b2",
     },
   };
 
@@ -125,14 +125,14 @@ export default function AlcoholimetriaDashboardPage() {
 
           {/* Gráficas de ejemplo */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="h-full">
+            <Card className="h-full min-w-0">
               <CardHeader>
                 <CardTitle>Tendencia de pruebas por día</CardTitle>
                 <CardDescription>
                   Gráfico de líneas con volumen de pruebas de alcoholimetría (datos de ejemplo).
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="min-w-0">
                 <ChartContainer config={trendConfig} className="h-[240px] sm:h-[320px]">
                   <LineChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -147,7 +147,7 @@ export default function AlcoholimetriaDashboardPage() {
                     <Line
                       type="monotone"
                       dataKey="total"
-                      stroke="hsl(var(--chart-1))"
+                      stroke="var(--color-total)"
                       strokeWidth={2}
                       dot={{ r: 3 }}
                       activeDot={{ r: 5 }}
@@ -155,7 +155,7 @@ export default function AlcoholimetriaDashboardPage() {
                     <Line
                       type="monotone"
                       dataKey="positivos"
-                      stroke="hsl(var(--chart-2))"
+                      stroke="var(--color-positivos)"
                       strokeWidth={2}
                       dot={{ r: 3 }}
                       activeDot={{ r: 5 }}
@@ -165,14 +165,14 @@ export default function AlcoholimetriaDashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="h-full">
+            <Card className="h-full min-w-0">
               <CardHeader>
                 <CardTitle>Distribución de niveles de BAC</CardTitle>
                 <CardDescription>
                   Gráfico de barras por rangos de BAC (datos de ejemplo).
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="min-w-0">
                 <ChartContainer config={distributionConfig} className="h-[240px] sm:h-[320px]">
                   <BarChart data={distributionData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -186,7 +186,7 @@ export default function AlcoholimetriaDashboardPage() {
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Bar
                       dataKey="personas"
-                      fill="hsl(var(--chart-3))"
+                      fill="var(--color-personas)"
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>

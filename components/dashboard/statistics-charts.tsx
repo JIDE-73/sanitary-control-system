@@ -120,12 +120,12 @@ export function StatisticsCharts() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {/* Gráfico de resumen general */}
-      <Card>
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle>Resumen General</CardTitle>
           <CardDescription>Distribución de registros principales</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0">
           <ChartContainer config={chartConfig} className="h-[240px] sm:h-[320px]">
             <BarChart data={overviewData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -149,12 +149,12 @@ export function StatisticsCharts() {
       </Card>
 
       {/* Gráfico de resultados de laboratorio */}
-      <Card>
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle>Resultados de Pruebas</CardTitle>
           <CardDescription>Resultados de exámenes de laboratorio</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0">
           <ChartContainer config={chartConfig} className="h-[240px] sm:h-[320px]">
             <BarChart data={resultsData}>
               <CartesianGrid strokeDasharray="3 3" />
