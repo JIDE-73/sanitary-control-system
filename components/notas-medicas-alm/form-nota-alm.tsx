@@ -68,6 +68,11 @@ type CitizenOption = {
   edad?: number;
 };
 
+type DiagnosticOption = {
+  id: string;
+  descripcion_cie10: string;
+};
+
 const formatDate = (value: string) => (value ? value.split("T")[0] : "");
 
 const calculateAge = (birthday?: string) => {
@@ -94,7 +99,13 @@ export function FormNotaMedicaALM({
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [citizens, setCitizens] = useState<CitizenOption[]>([]);
   const [loadingCitizenSearch, setLoadingCitizenSearch] = useState(false);
+  const [loadingDiagnosticSearch, setLoadingDiagnosticSearch] = useState(false);
   const [citizenQuery, setCitizenQuery] = useState("");
+  const [diagnosticQuery, setDiagnosticQuery] = useState("");
+  const [diagnosticOptions, setDiagnosticOptions] = useState<DiagnosticOption[]>([]);
+  const [selectedDiagnostics, setSelectedDiagnostics] = useState<DiagnosticOption[]>(
+    []
+  );
   const [doctorFieldLocks, setDoctorFieldLocks] = useState({
     idMedico: false,
     cedula: false,
@@ -275,6 +286,72 @@ export function FormNotaMedicaALM({
     }
   };
 
+  const handleSearchDiagnostics = async () => {
+    const trimmed = diagnosticQuery.trim();
+    if (!trimmed) {
+      toast({
+        title: "Captura un diagnóstico",
+        description: "Ingresa una descripción para buscar en catálogo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingDiagnosticSearch(true);
+    try {
+      const response = await request(
+        `/sics/catalog/getDiagnosticCatalogByDescription/${encodeURIComponent(
+          trimmed
+        )}`,
+        "GET"
+      );
+
+      const diagnostics = Array.isArray((response as any)?.diagnostics)
+        ? (response as any).diagnostics
+        : [];
+
+      const mapped = diagnostics
+        .map((item: any) => ({
+          id: String(item?.id ?? ""),
+          descripcion_cie10: String(item?.descripcion_cie10 ?? "").trim(),
+        }))
+        .filter((item: DiagnosticOption) => item.id && item.descripcion_cie10);
+
+      setDiagnosticOptions(mapped);
+
+      if (mapped.length === 0) {
+        toast({
+          title: "Sin resultados",
+          description: "No se encontraron diagnósticos con ese criterio.",
+        });
+      }
+    } catch (error) {
+      console.error("No se pudieron buscar diagnósticos", error);
+      toast({
+        title: "Error al buscar diagnóstico",
+        description: "No se pudo consultar el catálogo de diagnósticos.",
+        variant: "destructive",
+      });
+      setDiagnosticOptions([]);
+    } finally {
+      setLoadingDiagnosticSearch(false);
+    }
+  };
+
+  const addDiagnosticSelection = (diagnosticId: string) => {
+    const selected = diagnosticOptions.find((item) => item.id === diagnosticId);
+    if (!selected) return;
+    setSelectedDiagnostics((prev) =>
+      prev.some((item) => item.id === selected.id) ? prev : [...prev, selected]
+    );
+  };
+
+  const removeDiagnosticSelection = (diagnosticId: string) => {
+    setSelectedDiagnostics((prev) =>
+      prev.filter((item) => item.id !== diagnosticId)
+    );
+  };
+
   useEffect(() => {
     if (!formData.idMedico) return;
     const doctor = doctors.find((d) => d.id === formData.idMedico);
@@ -325,14 +402,25 @@ export function FormNotaMedicaALM({
       return;
     }
 
+    const lesionesBase = formData.descripcion_lesiones_hallazgos.trim();
+    const selectedDescriptions = selectedDiagnostics
+      .map((item) => item.descripcion_cie10.trim())
+      .filter(Boolean)
+      .join(", ");
+    const diagnosticsString = selectedDescriptions ? `${selectedDescriptions}, ` : "";
+    const descripcionConDiagnosticos = lesionesBase
+      ? diagnosticsString
+        ? `${lesionesBase}, ${diagnosticsString}`
+        : lesionesBase
+      : diagnosticsString;
+
     await onSubmit({
       ...formData,
       fecha_expedicion: formatDate(formData.fecha_expedicion),
       cedula: formData.cedula.trim(),
       se_identifica: formData.se_identifica.trim(),
       adicciones_referidas: formData.adicciones_referidas.trim(),
-      descripcion_lesiones_hallazgos:
-        formData.descripcion_lesiones_hallazgos.trim(),
+      descripcion_lesiones_hallazgos: descripcionConDiagnosticos,
       recomendacion_medico: formData.recomendacion_medico.trim(),
       nombre_oficial: formData.nombre_oficial.trim(),
       dependencia: formData.dependencia.trim(),
@@ -568,6 +656,63 @@ export function FormNotaMedicaALM({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Diagnósticos del catálogo (CIE10)</Label>
+            <div className="flex gap-2">
+              <Input
+                value={diagnosticQuery}
+                onChange={(e) => setDiagnosticQuery(e.target.value)}
+                placeholder="Buscar diagnóstico por descripción"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleSearchDiagnostics();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                onClick={() => void handleSearchDiagnostics()}
+                disabled={loadingDiagnosticSearch}
+              >
+                {loadingDiagnosticSearch ? "Buscando..." : "Buscar"}
+              </Button>
+            </div>
+            {diagnosticOptions.length > 0 ? (
+              <Select onValueChange={addDiagnosticSelection}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona diagnóstico para agregar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {diagnosticOptions.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.descripcion_cie10}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {selectedDiagnostics.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {selectedDiagnostics.map((item) => (
+                  <Badge
+                    key={item.id}
+                    variant="secondary"
+                    className="flex items-center gap-2"
+                  >
+                    {item.descripcion_cie10}
+                    <button
+                      type="button"
+                      className="text-xs underline"
+                      onClick={() => removeDiagnosticSelection(item.id)}
+                    >
+                      Quitar
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="recomendacion_medico">Recomendación médica</Label>
@@ -579,20 +724,6 @@ export function FormNotaMedicaALM({
                   handleChange("recomendacion_medico", e.target.value)
                 }
                 placeholder="Tratamiento, seguimiento o indicaciones"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="descripcion_lesiones_hallazgos">
-                Lesiones o hallazgos
-              </Label>
-              <Textarea
-                id="descripcion_lesiones_hallazgos"
-                rows={3}
-                value={formData.descripcion_lesiones_hallazgos}
-                onChange={(e) =>
-                  handleChange("descripcion_lesiones_hallazgos", e.target.value)
-                }
-                placeholder="Observaciones clínicas relevantes"
               />
             </div>
           </div>
