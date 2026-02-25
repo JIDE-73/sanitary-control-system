@@ -286,12 +286,6 @@ export function CiudadanosTable({
                         <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                           <div className="flex flex-col gap-1">
                             <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Identificador
-                            </dt>
-                            <dd className="font-medium">{ciudadano.id}</dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
                               CURP
                             </dt>
                             <dd className="font-medium break-all">
