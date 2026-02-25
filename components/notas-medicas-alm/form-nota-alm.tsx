@@ -150,7 +150,7 @@ export function FormNotaMedicaALM({
 
     const authData = fromSession ?? fromStorage;
     const medico = authData?.persona?.Medico;
-    const idMedico = String(medico?.id ?? "");
+    const idMedico = String(medico?.persona_id ?? medico?.id ?? "");
     const cedula = String(medico?.cedula_profesional ?? "");
     const nombreOficial = [
       authData?.persona?.nombre,
