@@ -12,18 +12,38 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { request } from "@/lib/request";
+import { useAuth } from "@/components/auth/auth-context";
 
 function FormCertificadoWrapper() {
   const router = useRouter();
+  const { user } = useAuth();
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (data: CertificadoFormPayload) => {
+    const medicoIdFromSession = user?.persona?.Medico?.id;
+    let medicoId = medicoIdFromSession || data.medico_id;
+
+    if (!medicoId && typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem("sics-auth-user");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          medicoId = parsed?.persona?.Medico?.id || medicoId;
+        }
+      } catch {
+        // Ignore storage read errors and keep fallback value
+      }
+    }
+
     try {
       setSaving(true);
       const response = await request(
         "/alcoholimetria/certificates/createCertificate",
         "POST",
-        data
+        {
+          ...data,
+          medico_id: medicoId,
+        }
       );
 
       if (response.status >= 200 && response.status < 300) {
