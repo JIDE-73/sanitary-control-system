@@ -33,6 +33,8 @@ const initialForm: CitizenPayload = {
   lugar_procedencia: "",
   ocupacion: "",
   nivel_riesgo: "BAJO",
+  tipo_identificacion: "",
+  numero_identificacion: "",
 };
 
 interface FormCiudadanoProps {
@@ -71,6 +73,8 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
       telefono: formData.telefono.trim(),
       direccion: formData.direccion.trim(),
       ocupacion: formData.ocupacion?.trim() || undefined,
+      tipo_identificacion: formData.tipo_identificacion?.trim() || undefined,
+      numero_identificacion: formData.numero_identificacion?.trim() || undefined,
       genero: normalizeGenero(formData.genero),
       nivel_riesgo: formData.nivel_riesgo as NivelRiesgo,
     };
@@ -284,6 +288,30 @@ export function FormCiudadano({ onSubmit }: FormCiudadanoProps) {
                 )
               }
               placeholder="Profesión u oficio"
+              maxLength={80}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tipo_identificacion">Tipo de identificación</Label>
+            <Input
+              id="tipo_identificacion"
+              value={formData.tipo_identificacion || ""}
+              onChange={(e) =>
+                handleChange("tipo_identificacion", e.target.value)
+              }
+              placeholder="INE, Pasaporte, Licencia..."
+              maxLength={40}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="numero_identificacion">Número de identificación</Label>
+            <Input
+              id="numero_identificacion"
+              value={formData.numero_identificacion || ""}
+              onChange={(e) =>
+                handleChange("numero_identificacion", e.target.value)
+              }
+              placeholder="Folio o número"
               maxLength={80}
             />
           </div>

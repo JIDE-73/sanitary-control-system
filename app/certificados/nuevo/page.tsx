@@ -19,31 +19,59 @@ function FormCertificadoWrapper() {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
 
-  const handleSubmit = async (data: CertificadoFormPayload) => {
-    const medicoIdFromSession = user?.persona?.Medico?.id;
-    let medicoId = medicoIdFromSession || data.medico_id;
+  const resolveMedicoId = (fallback?: string) => {
+    const fromSession = user?.persona?.Medico?.id;
+    if (fromSession) return fromSession;
+    if (fallback) return fallback;
 
-    if (!medicoId && typeof window !== "undefined") {
+    if (typeof window !== "undefined") {
       try {
         const raw = window.localStorage.getItem("sics-auth-user");
         if (raw) {
           const parsed = JSON.parse(raw);
-          medicoId = parsed?.persona?.Medico?.id || medicoId;
+          return parsed?.persona?.Medico?.id || "";
         }
       } catch {
-        // Ignore storage read errors and keep fallback value
+        // Ignore storage read errors and fallback to empty id
       }
     }
 
+    return "";
+  };
+
+  const handleSubmit = async (data: CertificadoFormPayload) => {
+    const medicoId = resolveMedicoId(data.medico_id);
+    if (!medicoId) {
+      toast.error("No se encontro el medico en sesion", {
+        description:
+          "Inicia sesion nuevamente para obtener el medico asociado y emitir el certificado.",
+      });
+      return;
+    }
+
+    const cedulaPeritoDigits = String(data.cedula_perito ?? "")
+      .replace(/\D/g, "")
+      .trim();
+
     try {
       setSaving(true);
+      const payload = {
+        ...data,
+        medico_id: medicoId,
+        ...(cedulaPeritoDigits
+          ? { cedula_perito: Number(cedulaPeritoDigits) }
+          : {}),
+        Medico: {
+          connect: {
+            id: medicoId,
+          },
+        },
+      };
+
       const response = await request(
         "/alcoholimetria/certificates/createCertificate",
         "POST",
-        {
-          ...data,
-          medico_id: medicoId,
-        }
+        payload
       );
 
       if (response.status >= 200 && response.status < 300) {
@@ -112,3 +140,4 @@ export default function NuevoCertificadoPage() {
     </MainLayout>
   );
 }
+

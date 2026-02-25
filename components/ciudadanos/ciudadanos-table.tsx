@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -43,6 +44,24 @@ export interface CiudadanoListado {
   ocupacion?: string;
   direccion?: string;
   fechaRegistro?: string;
+  tipoIdentificacion?: string;
+  numeroIdentificacion?: string;
+  totalNotasMedicas?: number;
+  totalCertificados?: number;
+  notaMedicaBasica?: {
+    id?: string;
+    fecha?: string;
+    cedula?: string;
+    nombreOficial?: string;
+    dependencia?: string;
+  };
+  certificadoBasico?: {
+    id?: string;
+    folio?: string;
+    fecha?: string;
+    nombre?: string;
+    cedulaPerito?: string;
+  };
 }
 
 interface CiudadanosTableProps {
@@ -283,141 +302,229 @@ export function CiudadanosTable({
                             Información de ciudadano
                           </DialogDescription>
                         </DialogHeader>
-                        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              CURP
-                            </dt>
-                            <dd className="font-medium break-all">
-                              {ciudadano.curp}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Género
-                            </dt>
-                            <dd className="font-medium">
-                              {generoLabels[
-                                (ciudadano.genero || "").toLowerCase()
-                              ] ??
-                                ciudadano.genero ??
-                                "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Estatus
-                            </dt>
-                            <dd>
-                              <Badge
-                                variant={estatusVariants[ciudadano.estatus]}
-                              >
-                                {ciudadano.estatus.charAt(0).toUpperCase() +
-                                  ciudadano.estatus.slice(1)}
-                              </Badge>
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Nivel de riesgo
-                            </dt>
-                            <dd>
-                              {ciudadano.nivelRiesgo ? (
-                                <Badge
-                                  variant={
-                                    riesgoVariants[
-                                      ciudadano.nivelRiesgo.toLowerCase()
-                                    ] ?? "outline"
-                                  }
-                                >
-                                  {ciudadano.nivelRiesgo}
-                                </Badge>
-                              ) : (
-                                "—"
-                              )}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Teléfono
-                            </dt>
-                            <dd className="font-medium">
-                              {ciudadano.telefono ?? "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Email
-                            </dt>
-                            <dd className="font-medium break-all">
-                              {ciudadano.email ?? "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Ciudad
-                            </dt>
-                            <dd className="font-medium">
-                              {ciudadano.ciudad ?? "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Dirección
-                            </dt>
-                            <dd className="font-medium break-all">
-                              {ciudadano.direccion ?? ciudadano.ciudad ?? "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Lugar de procedencia
-                            </dt>
-                            <dd className="font-medium">
-                              {ciudadano.lugarProcedencia ?? "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Ocupación
-                            </dt>
-                            <dd className="font-medium">
-                              {ciudadano.ocupacion ?? "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Lugar de trabajo
-                            </dt>
-                            <dd className="font-medium">
-                              {ciudadano.lugarTrabajoCodigo
-                                ? `${ciudadano.lugarTrabajoCodigo} - ${
-                                    ciudadano.lugarTrabajoNombre ?? ""
-                                  }`
-                                : ciudadano.lugarTrabajoNombre ?? "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Fecha de nacimiento
-                            </dt>
-                            <dd className="font-medium">
-                              {ciudadano.fechaNacimiento
-                                ? ciudadano.fechaNacimiento.split("T")[0]
-                                : "—"}
-                            </dd>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Fecha de registro
-                            </dt>
-                            <dd className="font-medium">
-                              {ciudadano.fechaRegistro
-                                ? ciudadano.fechaRegistro.split("T")[0]
-                                : "—"}
-                            </dd>
-                          </div>
-                        </dl>
+                        <Tabs defaultValue="ciudadano" className="w-full">
+                          <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="ciudadano">Ciudadano</TabsTrigger>
+                            <TabsTrigger value="nota">
+                              Nota medica ({ciudadano.totalNotasMedicas ?? 0})
+                            </TabsTrigger>
+                            <TabsTrigger value="certificado">
+                              Certificado ({ciudadano.totalCertificados ?? 0})
+                            </TabsTrigger>
+                          </TabsList>
+
+                          <TabsContent value="ciudadano" className="pt-3">
+                            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  CURP
+                                </dt>
+                                <dd className="font-medium break-all">
+                                  {ciudadano.curp}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Genero
+                                </dt>
+                                <dd className="font-medium">
+                                  {generoLabels[
+                                    (ciudadano.genero || "").toLowerCase()
+                                  ] ??
+                                    ciudadano.genero ??
+                                    "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Estatus
+                                </dt>
+                                <dd>
+                                  <Badge
+                                    variant={estatusVariants[ciudadano.estatus]}
+                                  >
+                                    {ciudadano.estatus.charAt(0).toUpperCase() +
+                                      ciudadano.estatus.slice(1)}
+                                  </Badge>
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Nivel de riesgo
+                                </dt>
+                                <dd>
+                                  {ciudadano.nivelRiesgo ? (
+                                    <Badge
+                                      variant={
+                                        riesgoVariants[
+                                          ciudadano.nivelRiesgo.toLowerCase()
+                                        ] ?? "outline"
+                                      }
+                                    >
+                                      {ciudadano.nivelRiesgo}
+                                    </Badge>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Telefono
+                                </dt>
+                                <dd className="font-medium">
+                                  {ciudadano.telefono ?? "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Email
+                                </dt>
+                                <dd className="font-medium break-all">
+                                  {ciudadano.email ?? "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Direccion
+                                </dt>
+                                <dd className="font-medium break-all">
+                                  {ciudadano.direccion ?? ciudadano.ciudad ?? "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Ocupacion
+                                </dt>
+                                <dd className="font-medium">
+                                  {ciudadano.ocupacion ?? "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Tipo de identificacion
+                                </dt>
+                                <dd className="font-medium">
+                                  {ciudadano.tipoIdentificacion ?? "—"}
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Numero de identificacion
+                                </dt>
+                                <dd className="font-medium break-all">
+                                  {ciudadano.numeroIdentificacion ?? "—"}
+                                </dd>
+                              </div>
+                            </dl>
+                          </TabsContent>
+
+                          <TabsContent value="nota" className="pt-3">
+                            {ciudadano.notaMedicaBasica ? (
+                              <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    ID
+                                  </dt>
+                                  <dd className="font-medium break-all">
+                                    {ciudadano.notaMedicaBasica.id || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Fecha expedicion
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {ciudadano.notaMedicaBasica.fecha
+                                      ? ciudadano.notaMedicaBasica.fecha.split("T")[0]
+                                      : "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Cedula
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {ciudadano.notaMedicaBasica.cedula || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Nombre oficial
+                                  </dt>
+                                  <dd className="font-medium break-all">
+                                    {ciudadano.notaMedicaBasica.nombreOficial || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1 sm:col-span-2">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Dependencia
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {ciudadano.notaMedicaBasica.dependencia || "—"}
+                                  </dd>
+                                </div>
+                              </dl>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                Este ciudadano no tiene notas medicas registradas.
+                              </p>
+                            )}
+                          </TabsContent>
+
+                          <TabsContent value="certificado" className="pt-3">
+                            {ciudadano.certificadoBasico ? (
+                              <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    ID
+                                  </dt>
+                                  <dd className="font-medium break-all">
+                                    {ciudadano.certificadoBasico.id || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Folio
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {ciudadano.certificadoBasico.folio || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Fecha expedicion
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {ciudadano.certificadoBasico.fecha
+                                      ? ciudadano.certificadoBasico.fecha.split("T")[0]
+                                      : "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Nombre
+                                  </dt>
+                                  <dd className="font-medium break-all">
+                                    {ciudadano.certificadoBasico.nombre || "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1 sm:col-span-2">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Cedula perito
+                                  </dt>
+                                  <dd className="font-medium">
+                                    {ciudadano.certificadoBasico.cedulaPerito || "—"}
+                                  </dd>
+                                </div>
+                              </dl>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                Este ciudadano no tiene certificados registrados.
+                              </p>
+                            )}
+                          </TabsContent>
+                        </Tabs>
                       </DialogContent>
                     </Dialog>
                   </div>

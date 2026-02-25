@@ -46,6 +46,8 @@ export interface CitizenPayload {
   lugar_procedencia: string;
   ocupacion?: string;
   nivel_riesgo: NivelRiesgo;
+  tipo_identificacion?: string;
+  numero_identificacion?: string;
 }
 
 export interface UserPayload {
