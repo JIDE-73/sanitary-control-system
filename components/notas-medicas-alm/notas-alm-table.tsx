@@ -62,6 +62,20 @@ const formatDateTime = (value?: string, withTime?: boolean) => {
     : date.toLocaleDateString("es-MX");
 };
 
+const getPersonaFullName = (nota: NotaMedicaALMRecord) => {
+  const persona = nota.Persona;
+  if (!persona) return "-";
+  const fullName = [
+    persona.nombre,
+    persona.apellido_paterno,
+    persona.apellido_materno,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return fullName || "-";
+};
+
 export function NotasMedicasALMTable({
   notas,
   loading,
@@ -479,19 +493,17 @@ export function NotasMedicasALMTable({
       </div>
 
       <Dialog open={!!selectedNota} onOpenChange={() => setSelectedNota(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
+          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b shrink-0">
             <DialogTitle>Nota médica ALM</DialogTitle>
             <DialogDescription>Detalle clínico registrado</DialogDescription>
           </DialogHeader>
 
           {selectedNota && (
-            <div className="space-y-4 text-sm">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+              <div className="space-y-4 text-sm">
               <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <p className="text-muted-foreground">ID</p>
-                  <p className="font-medium">{selectedNota.id}</p>
-                </div>
+
                 <div>
                   <p className="text-muted-foreground">Fecha</p>
                   <p className="font-medium">
@@ -504,11 +516,53 @@ export function NotasMedicasALMTable({
                 </div>
               </div>
 
+              <div className="rounded-md border border-border p-3">
+                <p className="text-muted-foreground mb-2">Persona evaluada</p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <p className="text-muted-foreground">Nombre completo</p>
+                    <p className="font-medium wrap-break-word">
+                      {getPersonaFullName(selectedNota)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">CURP</p>
+                    <p className="font-medium break-all">
+                      {selectedNota.Persona?.curp || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Género</p>
+                    <p className="font-medium">
+                      {selectedNota.Persona?.genero || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Fecha de nacimiento</p>
+                    <p className="font-medium">
+                      {formatDateTime(selectedNota.Persona?.fecha_nacimiento)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Teléfono</p>
+                    <p className="font-medium">
+                      {selectedNota.Persona?.telefono || "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Dirección</p>
+                    <p className="font-medium wrap-break-word">
+                      {selectedNota.Persona?.direccion || "-"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
                   <p className="text-muted-foreground">Oficial</p>
-                  <p className="font-medium">{selectedNota.nombre_oficial}</p>
-                  <p className="font-mono text-xs">
+                  <p className="font-medium wrap-break-word">{selectedNota.nombre_oficial}</p>
+                  <p className="font-mono text-xs wrap-break-word">
                     Dependencia: {selectedNota.dependencia}
                   </p>
                 </div>
@@ -525,7 +579,7 @@ export function NotasMedicasALMTable({
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
                   <p className="text-muted-foreground">Se identifica con</p>
-                  <p className="font-medium">{selectedNota.se_identifica}</p>
+                  <p className="font-medium wrap-break-word">{selectedNota.se_identifica}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Recomendación médica</p>
@@ -592,19 +646,21 @@ export function NotasMedicasALMTable({
                 </div>
               </div>
             </div>
+            </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="px-4 sm:px-6 py-4 border-t shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               onClick={() =>
                 selectedNota ? void handleDownloadPdf(selectedNota) : null
               }
               disabled={!selectedNota || downloadingId === selectedNota?.id}
+              className="w-full sm:w-auto"
             >
               <Download className="mr-2 h-4 w-4" />
               Descargar PDF
             </Button>
-            <Button variant="outline" onClick={() => setSelectedNota(null)}>
+            <Button variant="outline" onClick={() => setSelectedNota(null)} className="w-full sm:w-auto">
               Cerrar
             </Button>
           </DialogFooter>
