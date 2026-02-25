@@ -443,8 +443,8 @@ export function CertificadosTable() {
         return `${value}`.trim();
       };
       
-      const checkboxMark = (checked: boolean | undefined) => 
-        checked ? "X" : " ";
+      const checkboxMark = (checked: boolean | undefined) =>
+        checked === undefined || checked === null ? "N/D" : checked ? "SI" : "NO";
       
       const boolLabel = (value?: boolean) =>
         value === undefined || value === null ? "" : value ? "Sí" : "No";
@@ -557,6 +557,113 @@ export function CertificadosTable() {
         return lineY + lineHeight - currentY;
       };
 
+      const writeLabelValue = (label: string, value: string, width = 52) => {
+        ensureSpace(6);
+        doc.setFont(baseFont, "bold");
+        doc.setFontSize(9);
+        doc.text(label, marginX, y);
+        doc.setFont(baseFont, "normal");
+        const valueLines = doc.splitTextToSize(
+          value,
+          pageWidth - marginX * 2 - width
+        );
+        doc.text(valueLines, marginX + width, y);
+        y += Math.max(5, valueLines.length * 4.5);
+      };
+
+      const writeTwoColumnRows = (
+        rows: Array<{
+          left: { label: string; value: string };
+          right?: { label: string; value: string };
+        }>
+      ) => {
+        const gap = 6;
+        const sectionWidth = pageWidth - marginX * 2;
+        const columnWidth = (sectionWidth - gap) / 2;
+        const labelWidth = 40;
+        const lineHeight = 4.5;
+
+        const getFieldHeight = (field: { label: string; value: string }) => {
+          const valueLines = doc.splitTextToSize(
+            field.value,
+            Math.max(12, columnWidth - labelWidth - 1)
+          );
+          const lines = Math.max(1, valueLines.length);
+          return Math.max(5, lines * lineHeight);
+        };
+
+        const drawField = (
+          x: number,
+          field: { label: string; value: string },
+          currentY: number
+        ) => {
+          doc.setFont(baseFont, "bold");
+          doc.setFontSize(9);
+          doc.text(field.label, x, currentY);
+          doc.setFont(baseFont, "normal");
+          const valueLines = doc.splitTextToSize(
+            field.value,
+            Math.max(12, columnWidth - labelWidth - 1)
+          );
+          doc.text(valueLines, x + labelWidth, currentY);
+        };
+
+        rows.forEach((row) => {
+          const leftHeight = getFieldHeight(row.left);
+          const rightHeight = row.right ? getFieldHeight(row.right) : 0;
+          const rowHeight = Math.max(leftHeight, rightHeight);
+          ensureSpace(rowHeight + 1);
+
+          drawField(marginX, row.left, y);
+          if (row.right) {
+            drawField(marginX + columnWidth + gap, row.right, y);
+          }
+          y += rowHeight;
+        });
+      };
+
+      const drawSectionHeader = (title: string) => {
+        ensureSpace(12);
+        const headerTop = y - 4;
+        const headerHeight = 7;
+        const headerWidth = pageWidth - marginX * 2;
+
+        doc.setFillColor(245, 247, 250);
+        doc.setDrawColor(220, 225, 230);
+        doc.rect(marginX, headerTop, headerWidth, headerHeight, "FD");
+
+        doc.setFont(baseFont, "bold");
+        doc.setFontSize(10);
+        doc.text(title, marginX + 2, y + 0.8);
+        y += 8;
+        doc.setFont(baseFont, "normal");
+        doc.setFontSize(9);
+      };
+
+      const drawSingleLineFittedText = (
+        text: string,
+        x: number,
+        yPos: number,
+        maxWidth: number,
+        options?: { minFontSize?: number; maxFontSize?: number; bold?: boolean }
+      ) => {
+        const minFontSize = options?.minFontSize ?? 6.5;
+        const maxFontSize = options?.maxFontSize ?? 9;
+        const fontStyle = options?.bold ? "bold" : "normal";
+        let fontSize = maxFontSize;
+
+        doc.setFont(baseFont, fontStyle);
+        doc.setFontSize(fontSize);
+        while (fontSize > minFontSize && doc.getTextWidth(text) > maxWidth) {
+          fontSize -= 0.25;
+          doc.setFontSize(fontSize);
+        }
+
+        doc.text(text, x, yPos);
+        doc.setFont(baseFont, "normal");
+        doc.setFontSize(9);
+      };
+
       // Logo, Folio y Vigencia en el encabezado
       const logoWidth = 50;
       const logoHeight = 12;
@@ -587,6 +694,16 @@ export function CertificadosTable() {
       
       y += 18;
 
+      // Resumen para mejorar lectura inicial del documento
+      drawSectionHeader("RESUMEN DEL CERTIFICADO");
+      const resumenFecha = `${dia}/${String(date.getMonth() + 1).padStart(2, "0")}/${ano} ${horas}:${minutos}`;
+      y += writeMixedText([
+        { text: "Folio: " },
+        { text: folioText, bold: true },
+        { text: "  |  Fecha de emisión: " },
+        { text: resumenFecha, bold: true },
+      ], marginX, y) + 2;
+
       // Encabezado del certificado
       ensureSpace(12);
       
@@ -595,7 +712,7 @@ export function CertificadosTable() {
       const medicoNombreValor = medicoNombreCompleto || "__________________________";
       const registroValor = registroProfesiones || "______________________";
       
-      const headerHeight = writeMixedText([
+      y += writeMixedText([
         { text: "En la ciudad de " },
         { text: ciudadValor, bold: true },
         { text: `, Siendo las ` },
@@ -608,20 +725,27 @@ export function CertificadosTable() {
         { text: mes, bold: true },
         { text: ` del año ` },
         { text: ano, bold: true },
-        { text: ` el suscrito médico ` },
-        { text: medicoNombreValor, bold: true },
-        { text: ` adscrito a la Dirección Municipal de Prevención, Control y Sanidad legalmente autorizado (a) para el ejercicio de la profesión con registro de la Dirección General de Profesiones ` },
+        { text: ` el suscrito médico:` },
+      ], marginX, y) + 2;
+
+      ensureSpace(6);
+      drawSingleLineFittedText(
+        medicoNombreValor,
+        marginX + 4,
+        y,
+        pageWidth - (marginX * 2 + 4),
+        { bold: true, minFontSize: 6.5, maxFontSize: 9 }
+      );
+      y += 5.5;
+
+      y += writeMixedText([
+        { text: `adscrito a la Dirección Municipal de Prevención, Control y Sanidad legalmente autorizado (a) para el ejercicio de la profesión con registro de la Dirección General de Profesiones ` },
         { text: registroValor, bold: true },
         { text: ` y bajo protesta de conducirse de decir verdad, certifico que:` }
-      ], marginX, y);
-      y += headerHeight + 5;
+      ], marginX, y) + 5;
 
       // DATOS DE IDENTIFICACIÓN DEL PACIENTE
-      ensureSpace(15);
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text("DATOS DE IDENTIFICACIÓN DEL PACIENTE", marginX, y);
-      y += 6;
+      drawSectionHeader("DATOS DE IDENTIFICACIÓN DEL PACIENTE");
       
       // Nombre se id. con de años de edad
       const identificaCon = safe(certificate.identifica_con);
@@ -643,8 +767,8 @@ export function CertificadosTable() {
       // de sexo de nacionalidad con residencia nacional o extranjera
       const generoText = safe(patientGender, "");
       const nacionalidadText = safe(certificate.nacionalidad, "");
-      const residenciaNacional = certificate.residencia_nacional ? "X" : " ";
-      const extranjera = certificate.extranjera ? "X" : " ";
+      const residenciaNacional = checkboxMark(certificate.residencia_nacional);
+      const extranjera = checkboxMark(certificate.extranjera);
       const generoValor = generoText || "__________________";
       const nacionalidadValor = nacionalidadText || "__________________";
       
@@ -669,190 +793,135 @@ export function CertificadosTable() {
       ], marginX, y) + 5;
 
       // EXPLORACIÓN FÍSICA
-      ensureSpace(25);
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text("EXPLORACIÓN FÍSICA", marginX, y);
-      y += 6;
-      
-      doc.setFont(baseFont, "normal");
-      doc.setFontSize(9);
-      
-      // Helper para escribir línea de exploración física con valores en negrita
-      const writeExploracionLine = (parts: Array<{label: string, value: string | boolean | undefined, isCheckbox?: boolean}>) => {
-        const mixedParts: Array<{text: string, bold?: boolean}> = [];
-        parts.forEach((part, idx) => {
-          if (idx > 0) mixedParts.push({ text: "  " });
-          mixedParts.push({ text: part.label });
-          if (part.isCheckbox) {
-            const boolValue = typeof part.value === "boolean" ? part.value : !!part.value;
-            mixedParts.push({ text: ` ${checkboxMark(boolValue)}`, bold: true });
-          } else {
-            const value = typeof part.value === "string" ? safe(part.value, "____________") : "____________";
-            mixedParts.push({ text: ` ${value}`, bold: true });
-          }
-        });
-        writeMixedText(mixedParts, marginX, y);
-        y += 5;
-      };
-      
-      // Primera línea
-      writeExploracionLine([
-        { label: "Estado de conciencia", value: certificate.estado_conciencia },
-        { label: "Excitado", value: certificate.excitado, isCheckbox: true },
-        { label: "Facies", value: certificate.facies },
-        { label: "Conjuntivas", value: certificate.conjuntivas },
-        { label: "Pupilas", value: certificate.pupilas }
+      drawSectionHeader("EXPLORACIÓN FÍSICA");
+      writeTwoColumnRows([
+        {
+          left: { label: "Estado conciencia", value: safe(certificate.estado_conciencia, "Sin dato") },
+          right: { label: "Excitado", value: checkboxMark(certificate.excitado) },
+        },
+        {
+          left: { label: "Facies", value: safe(certificate.facies, "Sin dato") },
+          right: { label: "Conjuntivas", value: safe(certificate.conjuntivas, "Sin dato") },
+        },
+        {
+          left: { label: "Pupilas", value: safe(certificate.pupilas, "Sin dato") },
+          right: { label: "Aliento", value: safe(certificate.aliento, "Sin dato") },
+        },
+        {
+          left: { label: "Hipo", value: checkboxMark(certificate.hipo) },
+          right: { label: "Náuseas", value: checkboxMark(certificate.nauseas) },
+        },
+        {
+          left: {
+            label: "Vómito",
+            value: checkboxMark(
+              certificate.vomito === "sí" ||
+                certificate.vomito === "Sí" ||
+                certificate.vomito === "SI"
+            ),
+          },
+          right: { label: "Signo Romberg", value: safe(certificate.signo_romberg, "Sin dato") },
+        },
+        {
+          left: { label: "Trastabillea/Cae", value: `${checkboxMark(certificate.trastabillea)} / ${checkboxMark(certificate.cae)}` },
+          right: { label: "Eq. marcha", value: safe(certificate.equilibrio_marcha, "Sin dato") },
+        },
+        {
+          left: { label: "T/C (marcha)", value: `${checkboxMark(certificate.trastabillea1)} / ${checkboxMark(certificate.cae1)}` },
+          right: { label: "Prueba tándem", value: safe(certificate.prueba_tandem, "Sin dato") },
+        },
+        {
+          left: { label: "T/C (tándem)", value: `${checkboxMark(certificate.trastabillea2)} / ${checkboxMark(certificate.cae2)}` },
+          right: { label: "Eq. vertical", value: safe(certificate.equilibrio_vertical, "Sin dato") },
+        },
+        {
+          left: { label: "T/C (vertical)", value: `${checkboxMark(certificate.trastabillea3)} / ${checkboxMark(certificate.cae3)}` },
+          right: { label: "Gira sobre eje", value: checkboxMark(certificate.gira_sobre_eje) },
+        },
+        {
+          left: { label: "T/C (giro)", value: `${checkboxMark(certificate.trastabillea4)} / ${checkboxMark(certificate.cae4)}` },
+          right: { label: "Levantar objetos", value: safe(certificate.levantar_objetos, "Sin dato") },
+        },
+        {
+          left: { label: "T/C (objetos)", value: `${checkboxMark(certificate.trastabillea5)} / ${checkboxMark(certificate.cae5)}` },
+          right: { label: "Talón-rodilla", value: checkboxMark(certificate.prueba_talon_rodilla) },
+        },
+        {
+          left: { label: "T/C (talón)", value: `${checkboxMark(certificate.trastabillea6)} / ${checkboxMark(certificate.cae6)}` },
+        },
       ]);
-      
-      // Segunda línea
-      writeExploracionLine([
-        { label: "Aliento", value: certificate.aliento },
-        { label: "Hipo", value: certificate.hipo, isCheckbox: true },
-        { label: "Nauseas", value: certificate.nauseas, isCheckbox: true },
-        { label: "Vómito", value: certificate.vomito === "sí" || certificate.vomito === "Sí" || certificate.vomito === "SI", isCheckbox: true },
-        { label: "Signo de romberg", value: certificate.signo_romberg },
-        { label: "Trastabillea", value: certificate.trastabillea, isCheckbox: true },
-        { label: "Cae", value: certificate.cae, isCheckbox: true }
-      ]);
-      
-      // Tercera línea
-      writeExploracionLine([
-        { label: "Equilibrio a la marcha", value: certificate.equilibrio_marcha },
-        { label: "Trastabillea", value: certificate.trastabillea1, isCheckbox: true },
-        { label: "Cae", value: certificate.cae1, isCheckbox: true },
-        { label: "Prueba de tándem", value: certificate.prueba_tandem },
-        { label: "Trastabillea", value: certificate.trastabillea2, isCheckbox: true },
-        { label: "Cae", value: certificate.cae2, isCheckbox: true }
-      ]);
-      
-      // Cuarta línea
-      writeExploracionLine([
-        { label: "Equilibrio vertical de reposo", value: certificate.equilibrio_vertical },
-        { label: "Trastabillea", value: certificate.trastabillea3, isCheckbox: true },
-        { label: "Cae", value: certificate.cae3, isCheckbox: true },
-        { label: "Gira sobre su eje", value: certificate.gira_sobre_eje, isCheckbox: true },
-        { label: "Trastabillea", value: certificate.trastabillea4, isCheckbox: true },
-        { label: "Cae", value: certificate.cae4, isCheckbox: true }
-      ]);
-      
-      // Quinta línea
-      writeExploracionLine([
-        { label: "Levantar objetos del piso", value: certificate.levantar_objetos },
-        { label: "Trastabillea", value: certificate.trastabillea5, isCheckbox: true },
-        { label: "Cae", value: certificate.cae5, isCheckbox: true },
-        { label: "Prueba talón rodilla", value: certificate.prueba_talon_rodilla, isCheckbox: true },
-        { label: "Trastabillea", value: certificate.trastabillea6, isCheckbox: true },
-        { label: "Cae", value: certificate.cae6, isCheckbox: true }
-      ]);
-      y += 3;
+      y += 2;
 
       // PRUEBA DE COORDINACIÓN DIGITAL CON AMBAS MANOS
-      ensureSpace(20);
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text("PRUEBA DE COORDINACIÓN DIGITAL CON AMBAS MANOS", marginX, y);
-      y += 6;
+      drawSectionHeader("PRUEBA DE COORDINACIÓN DIGITAL CON AMBAS MANOS");
 
       doc.setFont(baseFont, "normal");
       doc.setFontSize(9);
       
       // DEDO - DEDO
       doc.setFont(baseFont, "bold");
-      doc.text("DEDO - DEDO:", marginX, y);
+      doc.text("DEDO - DEDO", marginX, y);
       y += 5;
-      
-      y += writeMixedText([
-        { text: "Mano derecha: mov. controlado " },
-        { text: checkboxMark(certificate.mano_derecha), bold: true },
-        { text: " falla " },
-        { text: checkboxMark(certificate.falla), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Mano izquierda: mov. controlado " },
-        { text: checkboxMark(certificate.mano_izquierda), bold: true },
-        { text: " falla " },
-        { text: checkboxMark(certificate.falla1), bold: true }
-      ], marginX, y) + 4;
-      
-      // dedo-nariz
+      writeTwoColumnRows([
+        {
+          left: { label: "Mano derecha", value: `${checkboxMark(certificate.mano_derecha)} / ${checkboxMark(certificate.falla)}` },
+          right: { label: "Mano izquierda", value: `${checkboxMark(certificate.mano_izquierda)} / ${checkboxMark(certificate.falla1)}` },
+        },
+      ]);
+
+      // DEDO - NARIZ
       doc.setFont(baseFont, "bold");
-      doc.text("dedo-nariz:", marginX, y);
+      doc.text("DEDO - NARIZ", marginX, y);
       y += 5;
-      
-      y += writeMixedText([
-        { text: "mano derecha: movimiento controlado " },
-        { text: checkboxMark(certificate.dedo_nariz_mano_derecha), bold: true },
-        { text: " falla " },
-        { text: checkboxMark(certificate.falla2), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "mano izquierda: movimiento controlado " },
-        { text: checkboxMark(certificate.dedo_nariz_mano_izquierda), bold: true },
-        { text: " falla " },
-        { text: checkboxMark(certificate.falla3), bold: true }
-      ], marginX, y) + 5;
+      writeTwoColumnRows([
+        {
+          left: { label: "Mano derecha", value: `${checkboxMark(certificate.dedo_nariz_mano_derecha)} / ${checkboxMark(certificate.falla2)}` },
+          right: { label: "Mano izquierda", value: `${checkboxMark(certificate.dedo_nariz_mano_izquierda)} / ${checkboxMark(certificate.falla3)}` },
+        },
+      ]);
+      y += 2;
       
       // CARACTERÍSTICAS DEL HABLA
-      ensureSpace(15);
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text("CARACTERÍSTICAS DEL HABLA", marginX, y);
-      y += 6;
+      drawSectionHeader("CARACTERÍSTICAS DEL HABLA");
       
-      y += writeMixedText([
-        { text: "Normal " },
-        { text: checkboxMark(certificate.normal), bold: true },
-        { text: "  Disartria " },
-        { text: checkboxMark(certificate.disartria), bold: true },
-        { text: "  Inteligible " },
-        { text: checkboxMark(certificate.ininteligible), bold: true },
-        { text: "  Verborrrea " },
-        { text: checkboxMark(certificate.verborrea), bold: true }
-      ], marginX, y) + 5;
+      writeTwoColumnRows([
+        {
+          left: { label: "Normal", value: checkboxMark(certificate.normal) },
+          right: { label: "Disartria", value: checkboxMark(certificate.disartria) },
+        },
+        {
+          left: { label: "Inteligible", value: checkboxMark(certificate.ininteligible) },
+          right: { label: "Verborrea", value: checkboxMark(certificate.verborrea) },
+        },
+      ]);
       
       // Signos vitales
       ensureSpace(20);
-      y += writeMixedText([
-        { text: "Signos vitales: pulso " },
-        { text: safe(certificate.signos_vitales, "_____"), bold: true },
-        { text: " /min." }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Frecuencia respiratoria " },
-        { text: safe(certificate.frecuencia_respiratoria, "_____"), bold: true },
-        { text: " resp/min." }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Tensión Arterial " },
-        { text: safe(certificate.tension_arterial, "_____"), bold: true },
-        { text: " / " },
-        { text: safe(certificate.tension_arterial1, "_____"), bold: true },
-        { text: " mm de hg" }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Temperatura " },
-        { text: safe(certificate.temperatura, "_____"), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Determinación de alcoholemia (en analizador de aire espirado) " },
-        { text: safe(certificate.determinacion_alcohol, "____________"), bold: true },
-        { text: " Br. AC " },
-        { text: checkboxMark(certificate.BR_AC), bold: true }
-      ], marginX, y) + 5;
+      writeTwoColumnRows([
+        {
+          left: { label: "Pulso", value: `${safe(certificate.signos_vitales, "Sin dato")} /min` },
+          right: { label: "Frec. respiratoria", value: `${safe(certificate.frecuencia_respiratoria, "Sin dato")} resp/min` },
+        },
+        {
+          left: {
+            label: "Tensión arterial",
+            value: `${safe(certificate.tension_arterial, "Sin dato")} / ${safe(
+              certificate.tension_arterial1,
+              "Sin dato"
+            )} mmHg`,
+          },
+          right: { label: "Temperatura", value: safe(certificate.temperatura, "Sin dato") },
+        },
+      ]);
+      writeLabelValue(
+        "Determinación alcoholemia",
+        `${safe(certificate.determinacion_alcohol, "Sin dato")} | Br. AC: ${checkboxMark(
+          certificate.BR_AC
+        )}`
+      );
 
       // OBSERVACIONES
-      ensureSpace(20);
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text("OBSERVACIONES", marginX, y);
-      y += 6;
+      drawSectionHeader("OBSERVACIONES");
       
       doc.setFont(baseFont, "normal");
       doc.setFontSize(9);
@@ -878,11 +947,7 @@ export function CertificadosTable() {
       y += 5;
 
       // PRUEBAS DE RESULTADO DE ALCOHOLÍMETRO
-      ensureSpace(15);
-        doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text("PRUEBAS DE RESULTADO DE ALCOHOLÍMETRO", marginX, y);
-      y += 6;
+      drawSectionHeader("PRUEBAS DE RESULTADO DE ALCOHOLÍMETRO");
       
       y += writeMixedText([
         { text: "Determinación de alcoholemia (analizador de aire de espirado) Resultado " },
@@ -899,7 +964,7 @@ export function CertificadosTable() {
       ], marginX, y) + 5;
 
       // EN BASE A LO ANTERIORMENTE EXPUESTO
-      ensureSpace(15);
+      drawSectionHeader("CONCLUSIÓN CLÍNICA");
       doc.setFont(baseFont, "bold");
       doc.setFontSize(10);
       doc.text(
@@ -922,11 +987,7 @@ export function CertificadosTable() {
       ], marginX, y) + 5;
 
       // DIAGNÓSTICO Y CONCLUSIONES
-      ensureSpace(15);
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text("DIAGNÓSTICO Y CONCLUSIONES", marginX, y);
-      y += 6;
+      drawSectionHeader("DIAGNÓSTICO Y CONCLUSIONES");
 
       y += writeMixedText([
         { text: "En base a lo anteriormente expuesto el ciudadano presenta un cuadro clínico de " },
@@ -940,11 +1001,7 @@ export function CertificadosTable() {
       ], marginX, y) + 5;
 
       // DATOS DE IDENTIFICACIÓN DEL SOLICITANTE
-      ensureSpace(20);
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text("DATOS DE IDENTIFICACIÓN DEL SOLICITANTE", marginX, y);
-      y += 6;
+      drawSectionHeader("DATOS DE IDENTIFICACIÓN DEL SOLICITANTE");
 
       y += writeMixedText([
         { text: "Nombre del solicitante " },
@@ -971,11 +1028,7 @@ export function CertificadosTable() {
       ], marginX, y) + 5;
 
       // DATOS COMPLEMENTARIOS
-      ensureSpace(20);
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text("DATOS COMPLEMENTARIOS", marginX, y);
-      y += 6;
+      drawSectionHeader("DATOS COMPLEMENTARIOS");
       
       y += writeMixedText([
         { text: "El ciudadano en cuestión era conductor de un vehículo " },
