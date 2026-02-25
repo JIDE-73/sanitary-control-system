@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -245,18 +245,61 @@ type CitizenLookupOption = {
   fechaNacimiento?: string;
 };
 
+const TIJUANA_TIMEZONE = "America/Tijuana";
+
+const getTijuanaDateParts = () => {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIJUANA_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+
+  const getPart = (type: string) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+
+  const year = getPart("year");
+  const monthNumber = getPart("month");
+  const day = getPart("day");
+  const hour = getPart("hour");
+  const minute = getPart("minute");
+
+  const monthName = new Intl.DateTimeFormat("es-MX", {
+    timeZone: TIJUANA_TIMEZONE,
+    month: "long",
+  }).format(now);
+
+  return {
+    fechaISO: `${year}-${monthNumber}-${day}`,
+    hora: hour,
+    minutos: minute,
+    dia: day,
+    mes: monthName,
+    ano: year,
+  };
+};
+
 const initialState: CertificadoFormState = {
+  ...(() => {
+    const tijuanaNow = getTijuanaDateParts();
+    return {
+      hora: tijuanaNow.hora,
+      minutos: tijuanaNow.minutos,
+      dia: tijuanaNow.dia,
+      mes: tijuanaNow.mes,
+      ano: tijuanaNow.ano,
+      fecha_expedicion: tijuanaNow.fechaISO,
+    };
+  })(),
   // Header
   ciudad: "Tijuana, B.C.",
-  hora: "",
-  minutos: "",
-  dia: "",
-  mes: "",
-  ano: "",
   nombre_medico: "",
   registro_profesiones: "",
   // Patient identification
-  fecha_expedicion: new Date().toISOString().split("T")[0],
   medico_id: "",
   persona_id: "",
   cedula_perito: "",
@@ -362,6 +405,23 @@ export function FormCertificado({
   const [selectedCitizenOptionId, setSelectedCitizenOptionId] = useState("");
   const [loadingCitizen, setLoadingCitizen] = useState(false);
   const [loadingDoctor, setLoadingDoctor] = useState(false);
+
+  useEffect(() => {
+    const refreshTijuanaDateTime = () => {
+      const now = getTijuanaDateParts();
+      setFormData((prev) => ({
+        ...prev,
+        fecha_expedicion: now.fechaISO,
+        hora: now.hora,
+        minutos: now.minutos,
+        dia: now.dia,
+        mes: now.mes,
+        ano: now.ano,
+      }));
+    };
+
+    refreshTijuanaDateTime();
+  }, []);
 
   const toNumber = (value: string): number | null => {
     if (value === "") return null;
@@ -528,6 +588,7 @@ export function FormCertificado({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const now = getTijuanaDateParts();
     const folio = `SICS-${new Date().getFullYear()}-${String(
       Math.floor(Math.random() * 100000)
     ).padStart(5, "0")}`;
@@ -536,15 +597,15 @@ export function FormCertificado({
       folio,
       // Header
       ciudad: formData.ciudad,
-      hora: formData.hora,
-      minutos: formData.minutos,
-      dia: formData.dia,
-      mes: formData.mes,
-      ano: formData.ano,
+      hora: now.hora,
+      minutos: now.minutos,
+      dia: now.dia,
+      mes: now.mes,
+      ano: now.ano,
       nombre_medico: formData.nombre_medico,
       registro_profesiones: formData.registro_profesiones,
       // Patient identification
-      fecha_expedicion: formData.fecha_expedicion,
+      fecha_expedicion: now.fechaISO,
       medico_id: formData.medico_id,
       persona_id: formData.persona_id,
       cedula_perito: toNumber(formData.cedula_perito),
@@ -678,8 +739,7 @@ export function FormCertificado({
                 className="w-16"
                 type="number"
                 value={formData.hora}
-                onChange={(e) => handleInputChange("hora", e.target.value)}
-                placeholder="00"
+                readOnly
                 min={0}
                 max={23}
               />
@@ -688,8 +748,7 @@ export function FormCertificado({
                 className="w-16"
                 type="number"
                 value={formData.minutos}
-                onChange={(e) => handleInputChange("minutos", e.target.value)}
-                placeholder="00"
+                readOnly
                 min={0}
                 max={59}
               />
@@ -698,8 +757,7 @@ export function FormCertificado({
                 className="w-16"
                 type="number"
                 value={formData.dia}
-                onChange={(e) => handleInputChange("dia", e.target.value)}
-                placeholder="DD"
+                readOnly
                 min={1}
                 max={31}
               />
@@ -707,16 +765,14 @@ export function FormCertificado({
               <Input
                 className="w-32"
                 value={formData.mes}
-                onChange={(e) => handleInputChange("mes", e.target.value)}
-                placeholder="mes"
+                readOnly
               />
               <span>del año</span>
               <Input
                 className="w-20"
                 type="number"
                 value={formData.ano}
-                onChange={(e) => handleInputChange("ano", e.target.value)}
-                placeholder="YYYY"
+                readOnly
                 min={1900}
                 max={2100}
               />
@@ -746,9 +802,7 @@ export function FormCertificado({
                 id="fecha_expedicion"
                 type="date"
                 value={formData.fecha_expedicion}
-                onChange={(e) =>
-                  handleInputChange("fecha_expedicion", e.target.value)
-                }
+                readOnly
                 required
               />
             </div>
