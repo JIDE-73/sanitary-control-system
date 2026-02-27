@@ -395,33 +395,6 @@ export function UsuariosListado({
                           <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                             <div className="flex flex-col gap-1">
                               <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                ID
-                              </dt>
-                              <dd className="font-mono text-xs break-all">
-                                {detalle?.id ?? usuario.id}
-                              </dd>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                Rol ID
-                              </dt>
-                              <dd className="font-mono text-xs break-all">
-                                {detalle?.rolId || usuario.rolId || "—"}
-                              </dd>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                Persona ID
-                              </dt>
-                              <dd className="font-mono text-xs break-all">
-                                {detalle?.persona?.id ||
-                                  detalle?.personaId ||
-                                  usuario.personaId ||
-                                  "—"}
-                              </dd>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
                                 Estatus
                               </dt>
                               <dd>
