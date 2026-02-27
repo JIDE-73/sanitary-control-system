@@ -9,6 +9,20 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
 import {
   User,
   Activity,
@@ -17,6 +31,7 @@ import {
   ArrowLeft,
   Search,
   HeartPulse,
+  X,
 } from "lucide-react";
 import type { ConsultaClinica } from "@/lib/types";
 import { request } from "@/lib/request";
@@ -40,6 +55,12 @@ type MedicoOpcion = {
   nombreCompleto: string;
   especialidad?: string;
   habilitado?: boolean;
+};
+
+type DiagnosticoCatalogo = {
+  id: string;
+  codigo_cie10: string;
+  descripcion_cie10: string;
 };
 
 const normalizeAfiliado = (item: any): AfiliadoResultado => {
@@ -78,7 +99,7 @@ const normalizeMedico = (item: any): MedicoOpcion => {
 const extractArray = (response: any) => {
   const candidate = Array.isArray(response?.data)
     ? response.data
-    : response?.data ?? response;
+    : (response?.data ?? response);
 
   if (Array.isArray(candidate)) return candidate;
 
@@ -119,7 +140,14 @@ export function FormNotaMedica({
   const [searchResults, setSearchResults] = useState<AfiliadoResultado[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingMedicos, setLoadingMedicos] = useState(false);
+  const [loadingDiagnosticos, setLoadingDiagnosticos] = useState(false);
   const [medicoOptions, setMedicoOptions] = useState<MedicoOpcion[]>([]);
+  const [diagnosticosCatalogo, setDiagnosticosCatalogo] = useState<
+    DiagnosticoCatalogo[]
+  >([]);
+  const [selectedDiagnosticos, setSelectedDiagnosticos] = useState<string[]>(
+    [],
+  );
   const [formData, setFormData] = useState<Partial<ConsultaClinica>>({
     afiliadoId: afiliadoIdParam || "",
     fecha: new Date().toISOString().split("T")[0],
@@ -145,6 +173,42 @@ export function FormNotaMedica({
     }
   };
 
+  const loadDiagnosticos = async () => {
+    setLoadingDiagnosticos(true);
+    try {
+      const response = await request(
+        "/sics/catalog/getDiagnosticCatalog",
+        "GET",
+      );
+
+      const data = Array.isArray(response?.getCatalog)
+        ? response.getCatalog
+        : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
+
+      const normalizados: DiagnosticoCatalogo[] = data.map((item: any) => ({
+        id: item.id ?? crypto.randomUUID(),
+        codigo_cie10: item.codigo_cie10 ?? "",
+        descripcion_cie10: item.descripcion_cie10 ?? "",
+      }));
+
+      setDiagnosticosCatalogo(normalizados);
+    } catch (error) {
+      console.error("No se pudieron cargar los diagnósticos", error);
+      toast({
+        title: "No se pudieron cargar los diagnósticos",
+        description: "Inténtalo nuevamente en unos momentos.",
+        variant: "destructive",
+      });
+      setDiagnosticosCatalogo([]);
+    } finally {
+      setLoadingDiagnosticos(false);
+    }
+  };
+
   const handleSearch = async (query?: string) => {
     const term = (query ?? searchQuery).trim();
     if (!term) {
@@ -156,7 +220,7 @@ export function FormNotaMedica({
     try {
       const response = await request(
         `/sics/affiliates/getAffiliateById/${encodeURIComponent(term)}`,
-        "GET"
+        "GET",
       );
       const data = extractArray(response);
       const normalizados = data.map(normalizeAfiliado);
@@ -189,6 +253,7 @@ export function FormNotaMedica({
 
   useEffect(() => {
     loadMedicos();
+    loadDiagnosticos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -200,7 +265,7 @@ export function FormNotaMedica({
   useEffect(() => {
     if (afiliadoIdParam && searchResults.length) {
       const encontrado = searchResults.find(
-        (a) => a.personaId === afiliadoIdParam
+        (a) => a.personaId === afiliadoIdParam,
       );
       if (encontrado) {
         setSelectedAfiliado(encontrado);
@@ -231,7 +296,7 @@ export function FormNotaMedica({
       });
       return;
     }
-    
+
     // Validar todos los campos obligatorios
     const camposObligatorios = {
       FC: "FC (Frecuencia Cardíaca)",
@@ -251,7 +316,7 @@ export function FormNotaMedica({
     };
 
     const camposFaltantes = Object.entries(camposObligatorios).filter(
-      ([key]) => !formData[key as keyof ConsultaClinica]?.toString().trim()
+      ([key]) => !formData[key as keyof ConsultaClinica]?.toString().trim(),
     );
 
     if (camposFaltantes.length > 0) {
@@ -262,7 +327,7 @@ export function FormNotaMedica({
       });
       return;
     }
-    
+
     onSubmit(formData);
   };
 
@@ -271,6 +336,20 @@ export function FormNotaMedica({
     if (!medicoOptions.length) return "Sin médicos disponibles";
     return "Seleccionar médico";
   }, [loadingMedicos, medicoOptions.length]);
+
+  const toggleDiagnostico = (descripcion: string) => {
+    setSelectedDiagnosticos((prev) => {
+      const exists = prev.includes(descripcion);
+      const next = exists
+        ? prev.filter((d) => d !== descripcion)
+        : [...prev, descripcion];
+      setFormData((old) => ({
+        ...old,
+        diagnostico: next.join(", "),
+      }));
+      return next;
+    });
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -526,15 +605,88 @@ export function FormNotaMedica({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="diagnostico">Diagnóstico *</Label>
+            <Label htmlFor="diagnostico">Diagnóstico (CIE-10) *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-between"
+                  disabled={loadingDiagnosticos}
+                >
+                  {selectedDiagnosticos.length > 0
+                    ? `${selectedDiagnosticos.length} seleccionado(s)`
+                    : "Seleccionar diagnóstico(s)"}
+                  <span className="text-xs text-muted-foreground">
+                    {loadingDiagnosticos ? "Cargando..." : "CIE-10"}
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[360px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar diagnóstico..." />
+                  <CommandEmpty>Sin resultados</CommandEmpty>
+                  <CommandGroup className="max-h-64 overflow-y-auto">
+                    {diagnosticosCatalogo.map((diag) => {
+                      const selected = selectedDiagnosticos.includes(
+                        diag.descripcion_cie10,
+                      );
+                      return (
+                        <CommandItem
+                          key={diag.id}
+                          onSelect={() =>
+                            toggleDiagnostico(diag.descripcion_cie10)
+                          }
+                          className="flex items-center gap-2"
+                        >
+                          <Checkbox checked={selected} />
+                          <div className="flex flex-col text-left">
+                            <span className="font-medium text-sm">
+                              {diag.descripcion_cie10}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              Código: {diag.codigo_cie10 || "N/D"}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            {selectedDiagnosticos.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {selectedDiagnosticos.map((diag) => (
+                  <Badge key={diag} variant="secondary" className="gap-1">
+                    {diag}
+                    <button
+                      type="button"
+                      onClick={() => toggleDiagnostico(diag)}
+                      className="ml-1 text-muted-foreground hover:text-foreground"
+                      aria-label={`Quitar ${diag}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+
             <Textarea
               id="diagnostico"
               value={formData.diagnostico || ""}
               onChange={(e) => handleChange("diagnostico", e.target.value)}
-              placeholder="Describir el diagnóstico del paciente..."
+              placeholder="Diagnóstico seleccionado (se enviará en este campo)"
               rows={3}
               required
+              readOnly
             />
+            <p className="text-xs text-muted-foreground">
+              Al seleccionar múltiples diagnósticos se concatenarán en este
+              campo como: "Diagnóstico 1, Diagnóstico 2".
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="tratamiento">Tratamiento *</Label>
