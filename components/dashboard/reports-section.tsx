@@ -30,6 +30,7 @@ const reportColors = {
   certificados: "#2563eb",
   reportes: "#16a34a",
   laboratorios: "#ea580c",
+  afiliados: "#7c3aed",
 };
 
 const statusColorMap: Record<StatusKey, string> = {
@@ -58,6 +59,9 @@ interface ReportsState {
     resultados: number;
   }>;
   afiliadosByStatus: Record<StatusKey, number>;
+  affiliatePerMonthTotal: number;
+  affiliatePerMonthMonth: number | null;
+  affiliatePerMonthYear: number | null;
 }
 
 const initialState: ReportsState = {
@@ -72,6 +76,9 @@ const initialState: ReportsState = {
     CANCELACION_TEMPORAL: 0,
     CANCELACION_DEFINITIVA: 0,
   },
+  affiliatePerMonthTotal: 0,
+  affiliatePerMonthMonth: null,
+  affiliatePerMonthYear: null,
 };
 
 function toSafeCount(value: unknown): number {
@@ -150,12 +157,14 @@ export function ReportsSection() {
           afiliadosStatusResponse,
           laboratoryResultsResponse,
           laboratoryResultsByLabResponse,
+          affiliatePerMonthResponse,
         ] = await Promise.all([
           request("/sics/reports/certificadosSanitarios", "GET"),
           request("/sics/reports/getCountReport", "GET"),
           request("/sics/reports/getAfiliadosCountByStatus", "GET"),
           request("/sics/reports/laboratoryResults", "GET"),
           request("/sics/laboratories/laboratoryResults", "GET"),
+          request("/sics/reports/affiliatePerMonth?month=1&year=2026", "GET"),
         ]);
 
         setReports({
@@ -170,6 +179,19 @@ export function ReportsSection() {
             CANCELACION_TEMPORAL: toSafeCount(afiliadosStatusResponse?.CANCELACION_TEMPORAL),
             CANCELACION_DEFINITIVA: toSafeCount(afiliadosStatusResponse?.CANCELACION_DEFINITIVA),
           },
+          affiliatePerMonthTotal: toSafeCount(affiliatePerMonthResponse?.total),
+          affiliatePerMonthMonth:
+            typeof affiliatePerMonthResponse?.month === "number"
+              ? affiliatePerMonthResponse.month
+              : Number.isFinite(Number(affiliatePerMonthResponse?.month))
+              ? Number(affiliatePerMonthResponse?.month)
+              : null,
+          affiliatePerMonthYear:
+            typeof affiliatePerMonthResponse?.year === "number"
+              ? affiliatePerMonthResponse.year
+              : Number.isFinite(Number(affiliatePerMonthResponse?.year))
+              ? Number(affiliatePerMonthResponse?.year)
+              : null,
         });
       } catch (err) {
         console.error("Error al cargar reportes:", err);
@@ -211,6 +233,30 @@ export function ReportsSection() {
       })),
     [reports.laboratoryResultsByLab],
   );
+
+  const affiliatePerMonthLabel = useMemo(() => {
+    if (reports.affiliatePerMonthMonth && reports.affiliatePerMonthYear) {
+      const monthNames = [
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre",
+      ];
+      const idx = reports.affiliatePerMonthMonth - 1;
+      const monthName =
+        monthNames[idx] ?? `Mes ${reports.affiliatePerMonthMonth}`;
+      return `${monthName} ${reports.affiliatePerMonthYear}`;
+    }
+    return "Mes seleccionado";
+  }, [reports.affiliatePerMonthMonth, reports.affiliatePerMonthYear]);
 
   const downloadSimpleCountPdf = async (config: {
     title: string;
@@ -386,6 +432,68 @@ export function ReportsSection() {
                   color: reportColors.certificados,
                   fileName: "reporte-certificados-sanitarios.pdf",
                   nombreReporte: "Certificados sanitarios obtenidos",
+                })
+              }
+            >
+              <FileDown className="h-4 w-4" />
+              Descargar PDF
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Afiliados registrados por mes</CardTitle>
+            <CardDescription>
+              Total de afiliados registrados en el período: {affiliatePerMonthLabel}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ChartContainer
+              config={{
+                value: { label: "Afiliados", color: reportColors.afiliados },
+              }}
+              className="h-[220px] sm:h-[280px]"
+            >
+              <BarChart
+                data={[
+                  {
+                    name: affiliatePerMonthLabel,
+                    value: reports.affiliatePerMonthTotal,
+                  },
+                ]}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="name"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                />
+                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar
+                  dataKey="value"
+                  fill={reportColors.afiliados}
+                  radius={[6, 6, 0, 0]}
+                />
+              </BarChart>
+            </ChartContainer>
+            <p className="text-xs text-muted-foreground">
+              Morado: total de afiliados reportados por el endpoint para el mes y año indicados.
+            </p>
+            <Button
+              variant="outline"
+              onClick={async () =>
+                downloadSimpleCountPdf({
+                  title: "Afiliados registrados por mes",
+                  endpoint:
+                    "/sics/reports/affiliatePerMonth?month=1&year=2026",
+                  description: `Afiliados registrados en ${affiliatePerMonthLabel}.`,
+                  count: reports.affiliatePerMonthTotal,
+                  color: reportColors.afiliados,
+                  fileName: "reporte-afiliados-por-mes.pdf",
+                  nombreReporte: "Afiliados por mes",
                 })
               }
             >
