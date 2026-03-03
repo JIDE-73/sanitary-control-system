@@ -62,6 +62,11 @@ interface ReportsState {
   affiliatePerMonthTotal: number;
   affiliatePerMonthMonth: number | null;
   affiliatePerMonthYear: number | null;
+  affiliatePerBar: Array<{
+    id: string;
+    nombre: string;
+    total: number;
+  }>;
 }
 
 const initialState: ReportsState = {
@@ -79,6 +84,7 @@ const initialState: ReportsState = {
   affiliatePerMonthTotal: 0,
   affiliatePerMonthMonth: null,
   affiliatePerMonthYear: null,
+  affiliatePerBar: [],
 };
 
 function toSafeCount(value: unknown): number {
@@ -158,6 +164,7 @@ export function ReportsSection() {
           laboratoryResultsResponse,
           laboratoryResultsByLabResponse,
           affiliatePerMonthResponse,
+          affiliatePerBarResponse,
         ] = await Promise.all([
           request("/sics/reports/certificadosSanitarios", "GET"),
           request("/sics/reports/getCountReport", "GET"),
@@ -165,6 +172,7 @@ export function ReportsSection() {
           request("/sics/reports/laboratoryResults", "GET"),
           request("/sics/laboratories/laboratoryResults", "GET"),
           request("/sics/reports/affiliatePerMonth?month=1&year=2026", "GET"),
+          request("/sics/reports/affiliatePerBar", "GET"),
         ]);
 
         setReports({
@@ -192,6 +200,39 @@ export function ReportsSection() {
               : Number.isFinite(Number(affiliatePerMonthResponse?.year))
               ? Number(affiliatePerMonthResponse?.year)
               : null,
+          affiliatePerBar:
+            Array.isArray(affiliatePerBarResponse?.result)
+              ? affiliatePerBarResponse.result
+                  .map((item: unknown) => {
+                    if (typeof item !== "object" || item === null) return null;
+                    const value = item as {
+                      id?: unknown;
+                      nombre?: unknown;
+                      total?: unknown;
+                    };
+                    const id = typeof value.id === "string" ? value.id : "";
+                    const nombre =
+                      typeof value.nombre === "string"
+                        ? value.nombre
+                        : "Sin nombre";
+                    const total = toSafeCount(value.total);
+                    if (!id) return null;
+                    return { id, nombre, total };
+                  })
+                  .filter(
+                    (
+                      item: {
+                        id: string;
+                        nombre: string;
+                        total: number;
+                      } | null,
+                    ): item is {
+                      id: string;
+                      nombre: string;
+                      total: number;
+                    } => item !== null,
+                  )
+              : [],
         });
       } catch (err) {
         console.error("Error al cargar reportes:", err);
@@ -232,6 +273,17 @@ export function ReportsSection() {
         value: item.resultados,
       })),
     [reports.laboratoryResultsByLab],
+  );
+
+  const affiliatePerBarChartData = useMemo(
+    () =>
+      reports.affiliatePerBar.map(
+        (item: { id: string; nombre: string; total: number }) => ({
+          name: item.nombre,
+          value: item.total,
+        }),
+      ),
+    [reports.affiliatePerBar],
   );
 
   const affiliatePerMonthLabel = useMemo(() => {
@@ -356,6 +408,38 @@ export function ReportsSection() {
     await createCountReport(reports.laboratoryResults, "Resultados de laboratorio");
   };
 
+  const downloadAffiliatePerBarPdf = async () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Reporte de afiliados por bar", 20, 20);
+
+    doc.setFontSize(11);
+    doc.setTextColor(80, 80, 80);
+    doc.text("Endpoint: /sics/reports/affiliatePerBar", 20, 30);
+    doc.text("Conteo de afiliados agrupados por bar.", 20, 40);
+
+    doc.setTextColor(33, 33, 33);
+    doc.setFontSize(12);
+    doc.text("Detalle por bar:", 20, 54);
+
+    let y = 64;
+    reports.affiliatePerBar.forEach((item) => {
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(`${item.nombre}: ${item.total}`, 24, y);
+      y += 10;
+    });
+
+    doc.save("reporte-afiliados-por-bar.pdf");
+    const totalAfiliados = reports.affiliatePerBar.reduce(
+      (acc, item) => acc + item.total,
+      0,
+    );
+    await createCountReport(totalAfiliados, "Afiliados por bar");
+  };
+
   if (loading) {
     return (
       <Card>
@@ -434,6 +518,60 @@ export function ReportsSection() {
                   nombreReporte: "Certificados sanitarios obtenidos",
                 })
               }
+            >
+              <FileDown className="h-4 w-4" />
+              Descargar PDF
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Afiliados por bar</CardTitle>
+            <CardDescription>
+              Conteo de afiliados agrupados por bar reportado por el endpoint.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ChartContainer
+              config={{
+                value: { label: "Afiliados", color: reportColors.afiliados },
+              }}
+              className="h-[220px] sm:h-[280px]"
+            >
+              <BarChart
+                data={
+                  affiliatePerBarChartData.length > 0
+                    ? affiliatePerBarChartData
+                    : [{ name: "Sin datos", value: 0 }]
+                }
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="name"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  tickFormatter={(value: string) =>
+                    value.length > 14 ? `${value.slice(0, 14)}...` : value
+                  }
+                />
+                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar
+                  dataKey="value"
+                  fill={reportColors.afiliados}
+                  radius={[6, 6, 0, 0]}
+                />
+              </BarChart>
+            </ChartContainer>
+            <p className="text-xs text-muted-foreground">
+              Morado: total de afiliados por cada bar devuelto por el endpoint
+              /sics/reports/affiliatePerBar.
+            </p>
+            <Button
+              variant="outline"
+              onClick={async () => downloadAffiliatePerBarPdf()}
             >
               <FileDown className="h-4 w-4" />
               Descargar PDF
