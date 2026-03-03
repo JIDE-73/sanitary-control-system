@@ -674,7 +674,7 @@ export function FormNotaMedica({
               </div>
             ) : null}
 
-            <Textarea
+            {/* <Textarea
               id="diagnostico"
               value={formData.diagnostico || ""}
               onChange={(e) => handleChange("diagnostico", e.target.value)}
@@ -682,7 +682,7 @@ export function FormNotaMedica({
               rows={3}
               required
               readOnly
-            />
+            /> */}
             <p className="text-xs text-muted-foreground">
               Al seleccionar múltiples diagnósticos se concatenarán en este
               campo como: "Diagnóstico 1, Diagnóstico 2".
