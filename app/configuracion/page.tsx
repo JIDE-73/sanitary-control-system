@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTheme } from "next-themes";
 import { MainLayout } from "@/components/layout/main-layout";
+import { useAuth } from "@/components/auth/auth-context";
 import {
   Card,
   CardContent,
@@ -13,7 +14,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -22,20 +22,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import {
   Settings,
-  Bell,
-  Building2,
-  FileText,
   Palette,
   Save,
   Clock,
+  Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
+import { request } from "@/lib/request";
 
 export default function ConfiguracionPage() {
   const { resolvedTheme, setTheme } = useTheme();
+  const { user } = useAuth();
   const currentTheme =
     (resolvedTheme as "light" | "dark" | undefined) ?? "light";
 
@@ -62,6 +63,14 @@ export default function ConfiguracionPage() {
     diasAlertaVencimiento: "7",
   });
 
+  const [passwordData, setPasswordData] = useState({
+    password: "",
+    confirmPassword: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+
   const handleSaveGeneral = () => {
     if (typeof window !== "undefined") {
       localStorage.setItem("config_vigenciaCertificado", general.vigenciaCertificado);
@@ -71,6 +80,50 @@ export default function ConfiguracionPage() {
 
   const handleSaveNotificaciones = () => {
     toast.success("Preferencias de notificaciones actualizadas");
+  };
+
+  const handleUpdatePassword = async () => {
+    const password = passwordData.password;
+    const confirmPassword = passwordData.confirmPassword;
+
+    if (!password || !confirmPassword) {
+      toast.error("Ingresa y confirma la nueva contraseña");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error("No se pudo identificar al usuario autenticado");
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const response = await request(
+        `/admin/users/updatePassword/${encodeURIComponent(user.id)}`,
+        "PUT",
+        { password }
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        toast.success("Contraseña actualizada correctamente");
+        setPasswordData({ password: "", confirmPassword: "" });
+        setShowPassword(false);
+        setShowConfirmPassword(false);
+        return;
+      }
+
+      toast.error(response.message || "No se pudo actualizar la contraseña");
+    } catch (error) {
+      console.error("Error al actualizar contraseña", error);
+      toast.error("Ocurrió un error al actualizar la contraseña");
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   return (
@@ -86,10 +139,14 @@ export default function ConfiguracionPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-none lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:grid-cols-none lg:inline-flex">
             <TabsTrigger value="general" className="gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">General</span>
+            </TabsTrigger>
+            <TabsTrigger value="seguridad" className="gap-2">
+              <Lock className="h-4 w-4" />
+              <span className="hidden sm:inline">Seguridad</span>
             </TabsTrigger>
             <TabsTrigger value="apariencia" className="gap-2">
               <Palette className="h-4 w-4" />
@@ -137,6 +194,103 @@ export default function ConfiguracionPage() {
                   <Button onClick={handleSaveGeneral}>
                     <Save className="mr-2 h-4 w-4" />
                     Guardar Cambios
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Seguridad */}
+          <TabsContent value="seguridad" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="h-5 w-5 text-primary" />
+                  Cambiar Contraseña
+                </CardTitle>
+                <CardDescription>
+                  Actualiza tu contraseña de acceso al sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">Nueva contraseña</Label>
+                    <div className="relative">
+                      <Input
+                        id="new-password"
+                        type={showPassword ? "text" : "password"}
+                        value={passwordData.password}
+                        onChange={(e) =>
+                          setPasswordData((prev) => ({
+                            ...prev,
+                            password: e.target.value,
+                          }))
+                        }
+                        autoComplete="new-password"
+                        disabled={savingPassword}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        aria-label={
+                          showPassword
+                            ? "Ocultar contraseña"
+                            : "Mostrar contraseña"
+                        }
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-new-password">
+                      Confirmar contraseña
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="confirm-new-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={passwordData.confirmPassword}
+                        onChange={(e) =>
+                          setPasswordData((prev) => ({
+                            ...prev,
+                            confirmPassword: e.target.value,
+                          }))
+                        }
+                        autoComplete="new-password"
+                        disabled={savingPassword}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        aria-label={
+                          showConfirmPassword
+                            ? "Ocultar confirmación"
+                            : "Mostrar confirmación"
+                        }
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleUpdatePassword} disabled={savingPassword}>
+                    <Save className="mr-2 h-4 w-4" />
+                    {savingPassword ? "Guardando..." : "Actualizar contraseña"}
                   </Button>
                 </div>
               </CardContent>
