@@ -26,8 +26,13 @@ type RoleState = {
 
 const modulosConfig: ModuleConfig[] = [
   {
-    key: "dashboard",
-    label: "Dashboard",
+    key: "dashboard_general",
+    label: "Dashboard general",
+    actions: ["create", "read", "update", "delete"],
+  },
+  {
+    key: "dashboard_alcoholimetria",
+    label: "Dashboard alcoholimetría",
     actions: ["create", "read", "update", "delete"],
   },
   {
@@ -106,7 +111,7 @@ export function RolesForm() {
   const togglePermission = (
     moduleKey: string,
     action: PermissionAction,
-    checked: boolean
+    checked: boolean,
   ) => {
     setPayload((prev) => {
       const current = prev.modulos[moduleKey] || [];
@@ -129,7 +134,7 @@ export function RolesForm() {
 
   const setAllForModule = (
     module: ModuleConfig,
-    actions: PermissionAction[]
+    actions: PermissionAction[],
   ) => {
     setPayload((prev) => ({
       ...prev,

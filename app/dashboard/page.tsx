@@ -16,7 +16,7 @@ import {
 export default function DashboardPage() {
   const router = useRouter();
   const { loading, isAuthenticated, hasPermission, user } = useAuth();
-  const canReadDashboard = hasPermission("dashboard", "read");
+  const canReadDashboard = hasPermission("dashboard_general", "read");
   const fallbackRoute = getFirstAccessibleRoute(user);
 
   useEffect(() => {

@@ -30,13 +30,13 @@ const navigation = [
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    module: "dashboard",
+    module: "dashboard_general",
   },
   {
     name: "Dashboard Alcoholimetría",
     href: "/dashboard/alcoholimetria",
     icon: FlaskConical,
-    module: "dashboard",
+    module: "dashboard_alcoholimetria",
   },
   {
     name: "Afiliados",
@@ -133,7 +133,8 @@ const navigation = [
     href: "/examenes",
     icon: TestTube,
     module: "examenes_cs",
-    submenu: [{ name: "Historial", href: "/examenes" },
+    submenu: [
+      { name: "Historial", href: "/examenes" },
       { name: "Resultados de examenes", href: "/examenes/resultados" },
     ],
   },
@@ -161,11 +162,14 @@ interface SidebarNavProps {
 export function SidebarNav({ isOpen }: SidebarNavProps) {
   const pathname = usePathname();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
-  
+
   // Safe access to auth context
-  let hasPermission: (module: string, action: PermissionAction) => boolean = () => false;
+  let hasPermission: (
+    module: string,
+    action: PermissionAction,
+  ) => boolean = () => false;
   let isAuthenticated = false;
-  
+
   try {
     const auth = useAuth();
     hasPermission = auth.hasPermission;
@@ -176,7 +180,7 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
 
   const toggleMenu = (name: string) => {
     setOpenMenus((prev) =>
-      prev.includes(name) ? prev.filter((m) => m !== name) : [...prev, name]
+      prev.includes(name) ? prev.filter((m) => m !== name) : [...prev, name],
     );
   };
 
@@ -189,7 +193,7 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
     <aside
       className={cn(
         "fixed left-0 top-0 z-60 h-screen w-64 transform bg-sidebar text-sidebar-foreground shadow-lg transition-transform duration-200",
-        isOpen ? "translate-x-0" : "-translate-x-full"
+        isOpen ? "translate-x-0" : "-translate-x-full",
       )}
     >
       <div className="flex h-full flex-col">
@@ -212,66 +216,67 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {navigation.map((item) => {
             const canReadModule =
-              !item.module || (isAuthenticated && hasPermission(item.module, "read"));
+              !item.module ||
+              (isAuthenticated && hasPermission(item.module, "read"));
             if (!canReadModule) return null;
 
             return (
               <div key={item.name}>
-              {item.submenu ? (
-                <>
-                  <button
-                    onClick={() => toggleMenu(item.name)}
+                {item.submenu ? (
+                  <>
+                    <button
+                      onClick={() => toggleMenu(item.name)}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        isActive(item.href)
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground z-20"
+                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="h-5 w-5" />
+                        {item.name}
+                      </div>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 transition-transform",
+                          openMenus.includes(item.name) && "rotate-180",
+                        )}
+                      />
+                    </button>
+                    {openMenus.includes(item.name) && (
+                      <div className="ml-8 mt-1 space-y-1">
+                        {item.submenu.map((subitem) => (
+                          <Link
+                            key={subitem.href}
+                            href={subitem.href}
+                            className={cn(
+                              "block rounded-lg px-3 py-2 text-sm transition-colors",
+                              pathname === subitem.href
+                                ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                            )}
+                          >
+                            {subitem.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Link
+                    href={item.href}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       isActive(item.href)
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground z-20"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
                     )}
                   >
-                    <div className="flex items-center gap-3">
-                      <item.icon className="h-5 w-5" />
-                      {item.name}
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 transition-transform",
-                        openMenus.includes(item.name) && "rotate-180"
-                      )}
-                    />
-                  </button>
-                  {openMenus.includes(item.name) && (
-                    <div className="ml-8 mt-1 space-y-1">
-                      {item.submenu.map((subitem) => (
-                        <Link
-                          key={subitem.href}
-                          href={subitem.href}
-                          className={cn(
-                            "block rounded-lg px-3 py-2 text-sm transition-colors",
-                            pathname === subitem.href
-                              ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                          )}
-                        >
-                          {subitem.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    isActive(item.href)
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {item.name}
-                </Link>
-              )}
+                    <item.icon className="h-5 w-5" />
+                    {item.name}
+                  </Link>
+                )}
               </div>
             );
           })}
@@ -287,7 +292,7 @@ export function SidebarNav({ isOpen }: SidebarNavProps) {
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive(item.href)
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
               )}
             >
               <item.icon className="h-5 w-5" />

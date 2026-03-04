@@ -28,7 +28,9 @@ type RoleRow = {
 };
 
 const MODULE_LABELS: Record<string, string> = {
-  dashboard: "Dashboard",
+  dashboard: "Dashboard (legacy)",
+  dashboard_general: "Dashboard general",
+  dashboard_alcoholimetria: "Dashboard alcoholimetría",
   afiliados: "Afiliados",
   ciudadanos: "Ciudadanos",
   usuarios: "Usuarios",
@@ -81,7 +83,7 @@ export function RolesTable() {
       const response = await request(
         `/admin/rol/deleteRol/${roleId}`,
         "DELETE",
-        { id_role: roleId }
+        { id_role: roleId },
       );
       if (response.status >= 200 && response.status < 300) {
         setRoles((prev) => prev.filter((role) => role.id !== roleId));
@@ -104,7 +106,7 @@ export function RolesTable() {
     () =>
       roles.map((role) => {
         const modulesWithPermissions = Object.entries(
-          role.permisos?.modulos || {}
+          role.permisos?.modulos || {},
         ).filter(([, actions]) => Array.isArray(actions) && actions.length > 0);
         return {
           id: role.id,
@@ -113,7 +115,7 @@ export function RolesTable() {
           modulesCount: modulesWithPermissions.length,
         };
       }),
-    [roles]
+    [roles],
   );
 
   const totalPages = Math.max(
@@ -224,7 +226,7 @@ export function RolesTable() {
                                 {(actions as PermissionAction[]).join(", ")}
                               </span>
                             </div>
-                          )
+                          ),
                         )
                       )}
                     </TableCell>

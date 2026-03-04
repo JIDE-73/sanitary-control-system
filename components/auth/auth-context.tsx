@@ -54,6 +54,8 @@ function normalizeUserFromResponse(response: any): AuthUser | null {
 }
 
 const moduleRoutePriority: Array<{ module: string; href: string }> = [
+  { module: "dashboard_general", href: "/dashboard" },
+  { module: "dashboard_alcoholimetria", href: "/dashboard/alcoholimetria" },
   { module: "dashboard", href: "/dashboard" },
   { module: "afiliados", href: "/afiliados" },
   { module: "ciudadanos", href: "/ciudadano" },
@@ -72,9 +74,24 @@ export function getFirstAccessibleRoute(user: AuthUser | null): string {
   if (!user?.activo) return "/auth";
 
   const modules = user.rol?.permisos?.modulos ?? {};
+
+  const hasModuleReadPermission = (moduleKey: string) => {
+    const actions = modules[moduleKey];
+    if (Array.isArray(actions) && actions.includes("read")) return true;
+
+    if (
+      moduleKey === "dashboard_general" ||
+      moduleKey === "dashboard_alcoholimetria"
+    ) {
+      const legacyActions = modules.dashboard;
+      return Array.isArray(legacyActions) && legacyActions.includes("read");
+    }
+
+    return false;
+  };
+
   const match = moduleRoutePriority.find(({ module }) => {
-    const actions = modules[module];
-    return Array.isArray(actions) && actions.includes("read");
+    return hasModuleReadPermission(module);
   });
 
   return match?.href ?? "/auth";
@@ -194,10 +211,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     (module: string, action: PermissionAction) => {
       if (!user?.rol?.permisos) return false;
       const modPerms = user.rol.permisos.modulos?.[module];
-      if (!Array.isArray(modPerms)) return false;
-      return modPerms.includes(action);
+      if (Array.isArray(modPerms) && modPerms.includes(action)) return true;
+
+      if (
+        module === "dashboard_general" ||
+        module === "dashboard_alcoholimetria"
+      ) {
+        const legacyDashboardPerms = user.rol.permisos.modulos?.dashboard;
+        return Array.isArray(legacyDashboardPerms)
+          ? legacyDashboardPerms.includes(action)
+          : false;
+      }
+
+      return false;
     },
-    [user]
+    [user],
   );
 
   const value = useMemo<AuthContextValue>(
@@ -209,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       logout,
       hasPermission,
     }),
-    [user, loading, setUserFromLoginResponse, logout, hasPermission]
+    [user, loading, setUserFromLoginResponse, logout, hasPermission],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

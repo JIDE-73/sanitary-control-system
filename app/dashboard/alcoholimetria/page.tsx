@@ -1,11 +1,29 @@
 "use client";
 
 import { MainLayout } from "@/components/layout/main-layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { RequireModuleAccess } from "@/components/auth/auth-context";
 import { Activity, AlertTriangle, Beer, Gauge } from "lucide-react";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 
 export default function AlcoholimetriaDashboardPage() {
   // Datos mock de ejemplo
@@ -45,7 +63,7 @@ export default function AlcoholimetriaDashboardPage() {
   };
 
   return (
-    <RequireModuleAccess module="dashboard" action="read">
+    <RequireModuleAccess module="dashboard_alcoholimetria" action="read">
       <MainLayout>
         <div className="space-y-6 px-4 sm:px-0">
           {/* Page Header */}
@@ -55,7 +73,8 @@ export default function AlcoholimetriaDashboardPage() {
                 Dashboard de Alcoholimetría
               </h1>
               <p className="text-sm sm:text-base text-muted-foreground">
-                Vista general (mockup) de controles y resultados de alcoholimetría.
+                Vista general (mockup) de controles y resultados de
+                alcoholimetría.
               </p>
             </div>
           </div>
@@ -129,11 +148,15 @@ export default function AlcoholimetriaDashboardPage() {
               <CardHeader>
                 <CardTitle>Tendencia de pruebas por día</CardTitle>
                 <CardDescription>
-                  Gráfico de líneas con volumen de pruebas de alcoholimetría (datos de ejemplo).
+                  Gráfico de líneas con volumen de pruebas de alcoholimetría
+                  (datos de ejemplo).
                 </CardDescription>
               </CardHeader>
               <CardContent className="min-w-0">
-                <ChartContainer config={trendConfig} className="h-[240px] sm:h-[320px]">
+                <ChartContainer
+                  config={trendConfig}
+                  className="h-[240px] sm:h-[320px]"
+                >
                   <LineChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
@@ -173,7 +196,10 @@ export default function AlcoholimetriaDashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="min-w-0">
-                <ChartContainer config={distributionConfig} className="h-[240px] sm:h-[320px]">
+                <ChartContainer
+                  config={distributionConfig}
+                  className="h-[240px] sm:h-[320px]"
+                >
                   <BarChart data={distributionData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
@@ -199,5 +225,3 @@ export default function AlcoholimetriaDashboardPage() {
     </RequireModuleAccess>
   );
 }
-
-
