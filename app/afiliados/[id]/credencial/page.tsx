@@ -226,7 +226,7 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
 
   const validateReference = async (referencia: string): Promise<boolean> => {
     try {
-      const endpoint = `${refBaseUrl.replace(/\/$/, "")}/${encodeURIComponent(referencia)}`;
+      const endpoint = `${refBaseUrl}/${encodeURIComponent(referencia)}`;
       const response = await fetch(endpoint, {
         method: "GET",
       });
