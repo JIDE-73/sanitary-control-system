@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -28,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Loader2, RotateCcw } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Loader2, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { request } from "@/lib/request";
 import type { UserRole } from "@/lib/types";
@@ -100,6 +101,13 @@ export function UsuariosListado({
   const [editRolId, setEditRolId] = useState<string>("");
   const [editActivo, setEditActivo] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
+  const [passwordUserId, setPasswordUserId] = useState<string | null>(null);
+  const [passwordUserName, setPasswordUserName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const [page, setPage] = useState(0);
 
   const totalPages = Math.max(
@@ -116,7 +124,8 @@ export function UsuariosListado({
     return localUsuarios.slice(start, start + ITEMS_PER_PAGE);
   }, [localUsuarios, page]);
 
-  const showingStart = localUsuarios.length === 0 ? 0 : page * ITEMS_PER_PAGE + 1;
+  const showingStart =
+    localUsuarios.length === 0 ? 0 : page * ITEMS_PER_PAGE + 1;
   const showingEnd =
     localUsuarios.length === 0
       ? 0
@@ -240,6 +249,27 @@ export function UsuariosListado({
     }
   };
 
+  const handlePasswordDialogChange = (
+    open: boolean,
+    usuario: UsuarioListado,
+  ) => {
+    if (open) {
+      setPasswordUserId(usuario.id);
+      setPasswordUserName(usuario.nombreUsuario);
+      setPassword("");
+      setConfirmPassword("");
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+    } else {
+      setPasswordUserId(null);
+      setPasswordUserName("");
+      setPassword("");
+      setConfirmPassword("");
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+    }
+  };
+
   useEffect(() => {
     if (detalle) {
       setEditRolId(detalle.rolId || "");
@@ -258,11 +288,7 @@ export function UsuariosListado({
         rol_id: editRolId,
       };
 
-      const response = await request(
-        "/admin/users/updateUser",
-        "PUT",
-        payload
-      );
+      const response = await request("/admin/users/updateUser", "PUT", payload);
       if (response.status >= 200 && response.status < 300) {
         toast({
           title: "Usuario actualizado",
@@ -274,8 +300,8 @@ export function UsuariosListado({
           prev.map((u) =>
             u.id === selectedId
               ? { ...u, activo: editActivo, rolId: editRolId }
-              : u
-          )
+              : u,
+          ),
         );
 
         if (onReload) {
@@ -297,6 +323,65 @@ export function UsuariosListado({
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!passwordUserId) return;
+
+    if (!password) {
+      toast({
+        title: "Contraseña requerida",
+        description: "Ingresa una contraseña para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Las contraseñas no coinciden",
+        description: "Verifica que ambos campos sean iguales.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const response = await request(
+        `/admin/users/updatePassword/${passwordUserId}`,
+        "PUT",
+        { password },
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        toast({
+          title: "Contraseña actualizada",
+          description: "La contraseña del usuario se actualizó correctamente.",
+        });
+        setPassword("");
+        setConfirmPassword("");
+        setShowPassword(false);
+        setShowConfirmPassword(false);
+        setPasswordUserId(null);
+        setPasswordUserName("");
+      } else {
+        toast({
+          title: "No se pudo actualizar la contraseña",
+          description: response?.message || "Inténtalo de nuevo.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error al actualizar contraseña", error);
+      toast({
+        title: "Error al actualizar contraseña",
+        description: "Ocurrió un problema. Intenta nuevamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -364,210 +449,348 @@ export function UsuariosListado({
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Dialog
-                    open={selectedId === usuario.id}
-                    onOpenChange={(open) => handleDialogChange(open, usuario)}
-                  >
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Ver detalles"
-                        aria-label="Ver detalles de usuario"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>{usuario.nombreUsuario}</DialogTitle>
-                        <DialogDescription>
-                          Información del usuario
-                        </DialogDescription>
-                      </DialogHeader>
-                      {detalleLoading ? (
-                        <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Cargando detalle...
-                        </div>
-                      ) : (
-                        <div className="space-y-6">
-                          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                            <div className="flex flex-col gap-1">
-                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                Estatus
-                              </dt>
-                              <dd>
-                                <Badge
-                                  variant={
-                                    estatusVariants[
-                                      detalle?.activo ?? usuario.activo
-                                        ? "activo"
-                                        : "inactivo"
-                                    ]
+                  <div className="flex justify-end gap-1">
+                    <Dialog
+                      open={selectedId === usuario.id}
+                      onOpenChange={(open) => handleDialogChange(open, usuario)}
+                    >
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Ver detalles"
+                          aria-label="Ver detalles de usuario"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>{usuario.nombreUsuario}</DialogTitle>
+                          <DialogDescription>
+                            Información del usuario
+                          </DialogDescription>
+                        </DialogHeader>
+                        {detalleLoading ? (
+                          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Cargando detalle...
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Estatus
+                                </dt>
+                                <dd>
+                                  <Badge
+                                    variant={
+                                      estatusVariants[
+                                        (detalle?.activo ?? usuario.activo)
+                                          ? "activo"
+                                          : "inactivo"
+                                      ]
+                                    }
+                                  >
+                                    {(detalle?.activo ?? usuario.activo)
+                                      ? "Activo"
+                                      : "Inactivo"}
+                                  </Badge>
+                                </dd>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                  Último acceso
+                                </dt>
+                                <dd className="font-medium">
+                                  {formatFecha(
+                                    detalle?.ultimoLogin ?? usuario.ultimoLogin,
+                                  )}
+                                </dd>
+                              </div>
+
+                              {detalle?.persona && (
+                                <>
+                                  <div className="flex flex-col gap-1">
+                                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                      CURP
+                                    </dt>
+                                    <dd className="font-mono text-xs break-all">
+                                      {detalle.persona.curp || "—"}
+                                    </dd>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                      Nombre
+                                    </dt>
+                                    <dd className="font-medium">
+                                      {[
+                                        detalle.persona.nombre,
+                                        detalle.persona.apellido_paterno,
+                                        detalle.persona.apellido_materno,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" ") || "—"}
+                                    </dd>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                      Email
+                                    </dt>
+                                    <dd className="font-medium break-all">
+                                      {detalle.persona.email || "—"}
+                                    </dd>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                      Teléfono
+                                    </dt>
+                                    <dd className="font-medium">
+                                      {detalle.persona.telefono || "—"}
+                                    </dd>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                      Dirección
+                                    </dt>
+                                    <dd className="font-medium break-all">
+                                      {detalle.persona.direccion || "—"}
+                                    </dd>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                      Fecha de nacimiento
+                                    </dt>
+                                    <dd className="font-medium">
+                                      {detalle.persona.fecha_nacimiento
+                                        ? detalle.persona.fecha_nacimiento.split(
+                                            "T",
+                                          )[0]
+                                        : "—"}
+                                    </dd>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                      Fecha de registro
+                                    </dt>
+                                    <dd className="font-medium">
+                                      {detalle.persona.created_at
+                                        ? detalle.persona.created_at.split(
+                                            "T",
+                                          )[0]
+                                        : "—"}
+                                    </dd>
+                                  </div>
+                                </>
+                              )}
+                            </dl>
+
+                            <div className="rounded-md border border-border p-4">
+                              <div className="mb-3 text-sm font-semibold">
+                                Actualizar usuario
+                              </div>
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                    Rol
+                                  </dt>
+                                  <Select
+                                    value={editRolId}
+                                    onValueChange={setEditRolId}
+                                    disabled={rolesLoading}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue
+                                        placeholder={
+                                          rolesLoading
+                                            ? "Cargando roles..."
+                                            : "Seleccionar rol"
+                                        }
+                                      />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {rolesLoading && (
+                                        <SelectItem value="loading" disabled>
+                                          Cargando roles...
+                                        </SelectItem>
+                                      )}
+                                      {!rolesLoading && roles.length === 0 && (
+                                        <SelectItem value="no-data" disabled>
+                                          No hay roles disponibles
+                                        </SelectItem>
+                                      )}
+                                      {!rolesLoading &&
+                                        roles.map((rol) => (
+                                          <SelectItem
+                                            key={rol.id}
+                                            value={rol.id}
+                                          >
+                                            {rol.nombre}
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Switch
+                                    id="usuario-activo"
+                                    checked={editActivo}
+                                    onCheckedChange={setEditActivo}
+                                  />
+                                  <label
+                                    htmlFor="usuario-activo"
+                                    className="text-sm"
+                                  >
+                                    Usuario activo
+                                  </label>
+                                </div>
+                              </div>
+                              <div className="mt-4 flex justify-end">
+                                <Button
+                                  onClick={handleUpdate}
+                                  disabled={
+                                    saving ||
+                                    savingPassword ||
+                                    rolesLoading ||
+                                    !editRolId
                                   }
                                 >
-                                  {detalle?.activo ?? usuario.activo
-                                    ? "Activo"
-                                    : "Inactivo"}
-                                </Badge>
-                              </dd>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                Último acceso
-                              </dt>
-                              <dd className="font-medium">
-                                {formatFecha(
-                                  detalle?.ultimoLogin ?? usuario.ultimoLogin
-                                )}
-                              </dd>
-                            </div>
-
-                            {detalle?.persona && (
-                              <>
-                                <div className="flex flex-col gap-1">
-                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                    CURP
-                                  </dt>
-                                  <dd className="font-mono text-xs break-all">
-                                    {detalle.persona.curp || "—"}
-                                  </dd>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                    Nombre
-                                  </dt>
-                                  <dd className="font-medium">
-                                    {[
-                                      detalle.persona.nombre,
-                                      detalle.persona.apellido_paterno,
-                                      detalle.persona.apellido_materno,
-                                    ]
-                                      .filter(Boolean)
-                                      .join(" ") || "—"}
-                                  </dd>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                    Email
-                                  </dt>
-                                  <dd className="font-medium break-all">
-                                    {detalle.persona.email || "—"}
-                                  </dd>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                    Teléfono
-                                  </dt>
-                                  <dd className="font-medium">
-                                    {detalle.persona.telefono || "—"}
-                                  </dd>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                    Dirección
-                                  </dt>
-                                  <dd className="font-medium break-all">
-                                    {detalle.persona.direccion || "—"}
-                                  </dd>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                    Fecha de nacimiento
-                                  </dt>
-                                  <dd className="font-medium">
-                                    {detalle.persona.fecha_nacimiento
-                                      ? detalle.persona.fecha_nacimiento.split(
-                                          "T"
-                                        )[0]
-                                      : "—"}
-                                  </dd>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                    Fecha de registro
-                                  </dt>
-                                  <dd className="font-medium">
-                                    {detalle.persona.created_at
-                                      ? detalle.persona.created_at.split("T")[0]
-                                      : "—"}
-                                  </dd>
-                                </div>
-                              </>
-                            )}
-                          </dl>
-
-                          <div className="rounded-md border border-border p-4">
-                            <div className="mb-3 text-sm font-semibold">
-                              Actualizar usuario
-                            </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                              <div className="space-y-2">
-                                <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  Rol
-                                </dt>
-                                <Select
-                                  value={editRolId}
-                                  onValueChange={setEditRolId}
-                                  disabled={rolesLoading}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue
-                                      placeholder={
-                                        rolesLoading
-                                          ? "Cargando roles..."
-                                          : "Seleccionar rol"
-                                      }
-                                    />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {rolesLoading && (
-                                      <SelectItem value="loading" disabled>
-                                        Cargando roles...
-                                      </SelectItem>
-                                    )}
-                                    {!rolesLoading && roles.length === 0 && (
-                                      <SelectItem value="no-data" disabled>
-                                        No hay roles disponibles
-                                      </SelectItem>
-                                    )}
-                                    {!rolesLoading &&
-                                      roles.map((rol) => (
-                                        <SelectItem key={rol.id} value={rol.id}>
-                                          {rol.nombre}
-                                        </SelectItem>
-                                      ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <Switch
-                                  id="usuario-activo"
-                                  checked={editActivo}
-                                  onCheckedChange={setEditActivo}
-                                />
-                                <label
-                                  htmlFor="usuario-activo"
-                                  className="text-sm"
-                                >
-                                  Usuario activo
-                                </label>
+                                  {saving ? "Guardando..." : "Guardar cambios"}
+                                </Button>
                               </div>
                             </div>
-                            <div className="mt-4 flex justify-end">
+                          </div>
+                        )}
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog
+                      open={passwordUserId === usuario.id}
+                      onOpenChange={(open) =>
+                        handlePasswordDialogChange(open, usuario)
+                      }
+                    >
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Actualizar contraseña"
+                          aria-label="Actualizar contraseña de usuario"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Actualizar contraseña</DialogTitle>
+                          <DialogDescription>
+                            Usuario: {passwordUserName || usuario.nombreUsuario}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-2">
+                          <div className="space-y-2">
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Nueva contraseña
+                            </p>
+                            <div className="relative">
+                              <Input
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Ingresa la nueva contraseña"
+                                disabled={savingPassword}
+                                className="pr-10"
+                              />
                               <Button
-                                onClick={handleUpdate}
-                                disabled={saving || rolesLoading || !editRolId}
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-1 top-1 h-8 w-8"
+                                onClick={() => setShowPassword((prev) => !prev)}
+                                disabled={savingPassword}
+                                title={
+                                  showPassword
+                                    ? "Ocultar contraseña"
+                                    : "Mostrar contraseña"
+                                }
+                                aria-label={
+                                  showPassword
+                                    ? "Ocultar contraseña"
+                                    : "Mostrar contraseña"
+                                }
                               >
-                                {saving ? "Guardando..." : "Guardar cambios"}
+                                {showPassword ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Confirmar contraseña
+                            </p>
+                            <div className="relative">
+                              <Input
+                                type={showConfirmPassword ? "text" : "password"}
+                                value={confirmPassword}
+                                onChange={(e) =>
+                                  setConfirmPassword(e.target.value)
+                                }
+                                placeholder="Vuelve a escribir la contraseña"
+                                disabled={savingPassword}
+                                className="pr-10"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-1 top-1 h-8 w-8"
+                                onClick={() =>
+                                  setShowConfirmPassword((prev) => !prev)
+                                }
+                                disabled={savingPassword}
+                                title={
+                                  showConfirmPassword
+                                    ? "Ocultar contraseña"
+                                    : "Mostrar contraseña"
+                                }
+                                aria-label={
+                                  showConfirmPassword
+                                    ? "Ocultar contraseña"
+                                    : "Mostrar contraseña"
+                                }
+                              >
+                                {showConfirmPassword ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
                               </Button>
                             </div>
                           </div>
                         </div>
-                      )}
-                    </DialogContent>
-                  </Dialog>
+                        <div className="flex justify-end">
+                          <Button
+                            onClick={handleUpdatePassword}
+                            disabled={
+                              savingPassword ||
+                              !password ||
+                              !confirmPassword ||
+                              password !== confirmPassword
+                            }
+                          >
+                            {savingPassword
+                              ? "Actualizando..."
+                              : "Actualizar contraseña"}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </TableCell>
               </TableRow>
             ))
