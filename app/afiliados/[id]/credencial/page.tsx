@@ -9,17 +9,25 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { request } from "@/lib/request";
 import { ArrowLeft, IdCard, RefreshCcw, Download } from "lucide-react";
 
 const baseUrl = process.env.NEXT_PUBLIC_URL;
-const validationBaseUrl = process.env.NEXT_PUBLIC_CERV || process.env.NEXT_PUBLIC_URL || "https://localhost:3000";
+const validationBaseUrl =
+  process.env.NEXT_PUBLIC_CERV ||
+  process.env.NEXT_PUBLIC_URL ||
+  "https://localhost:3000";
 const refBaseUrl = process.env.NEXT_PUBLIC_REF || "";
-const refUsuario = process.env.NEXT_PUBLIC_U || "";
-const refPassword = process.env.NEXT_PUBLIC_P || "";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -27,8 +35,10 @@ interface PageProps {
 
 const normalizeAfiliado = (item: any): AfiliadoListado => {
   // Normalizar estatus a minúsculas
-  const estatus = item?.estatus 
-    ? (item.estatus.toLowerCase() === "vigente" ? "activo" : item.estatus.toLowerCase())
+  const estatus = item?.estatus
+    ? item.estatus.toLowerCase() === "vigente"
+      ? "activo"
+      : item.estatus.toLowerCase()
     : "activo";
 
   return {
@@ -196,7 +206,7 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
 
       const photoUrl = `${baseUrl}/${afiliado.foto}`;
       const photo = await loadAssetAsDataUrl(photoUrl);
-      
+
       if (!mounted) return;
       setPhotoDataUrl(photo);
     };
@@ -216,58 +226,19 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
 
   const validateReference = async (referencia: string): Promise<boolean> => {
     try {
-      const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
-<soap12:Envelope
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-  xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
-  <soap12:Body>
-    <ConsultaRecibo xmlns="http://tempuri.org/">
-      <referencia>${referencia}</referencia>
-      <usuario>${refUsuario}</usuario>
-      <password>${refPassword}</password>
-    </ConsultaRecibo>
-  </soap12:Body>
-</soap12:Envelope>`;
-
-      const response = await fetch(refBaseUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/soap+xml; charset=utf-8",
-        },
-        body: soapEnvelope,
+      const endpoint = `${refBaseUrl.replace(/\/$/, "")}/${encodeURIComponent(referencia)}`;
+      const response = await fetch(endpoint, {
+        method: "GET",
       });
 
       if (response.status !== 200) {
         return false;
       }
 
-      const xmlText = await response.text();
-      
-      // Parsear la respuesta XML
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-      
-      // Verificar errores de parseo
-      const parserError = xmlDoc.querySelector("parsererror");
-      if (parserError) {
-        console.error("Error al parsear XML:", parserError.textContent);
-        return false;
-      }
-      
-      // Extraer mensaje e idstatus (buscar sin namespace primero, luego con namespace)
-      const mensajeElement = 
-        xmlDoc.querySelector("mensaje") || 
-        xmlDoc.querySelector("*[local-name()='mensaje']");
-      const idstatusElement = 
-        xmlDoc.querySelector("idstatus") || 
-        xmlDoc.querySelector("*[local-name()='idstatus']");
-      
-      const mensaje = mensajeElement?.textContent?.trim() || "";
-      const idstatus = idstatusElement?.textContent?.trim() || "";
+      const data = await response.json();
+      const estatus = Array.isArray(data) ? data[0]?.ESTATUS : undefined;
 
-      // Validar: no debe ser "RECIBO VENCIDO" ni idstatus "3"
-      if (mensaje === "RECIBO VENCIDO" || idstatus === "3") {
+      if (estatus !== "1") {
         return false;
       }
 
@@ -289,9 +260,11 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
 
     try {
       const isValid = await validateReference(referenceNumber.trim());
-      
+
       if (!isValid) {
-        setReferenceError("El número de referencia no es válido o está vencido");
+        setReferenceError(
+          "El número de referencia no es válido o está vencido",
+        );
         return;
       }
 
@@ -402,11 +375,20 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
       doc.setDrawColor(160, 170, 185);
       doc.setLineWidth(1);
       doc.roundedRect(photoX, photoY, photoW, photoH, 6, 6);
-      
+
       // Agregar la foto del afiliado si está disponible
       if (photoDataUrl) {
         try {
-          doc.addImage(photoDataUrl, "JPEG", photoX + 2, photoY + 2, photoW - 4, photoH - 4, undefined, "FAST");
+          doc.addImage(
+            photoDataUrl,
+            "JPEG",
+            photoX + 2,
+            photoY + 2,
+            photoW - 4,
+            photoH - 4,
+            undefined,
+            "FAST",
+          );
         } catch (error) {
           console.warn("No se pudo agregar la foto al PDF", error);
         }
@@ -448,9 +430,9 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
           signatureDataUrl,
           "JPEG",
           signatureX + 10,
-          signatureY+2,
+          signatureY + 2,
           signatureW - 20,
-          signatureH -10,
+          signatureH - 10,
           undefined,
           "FAST",
           -359.99,
@@ -488,7 +470,7 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
       }
 
       doc.save(`credencial-${afiliado.curp || afiliado.id}.pdf`);
-      
+
       // Registrar la generación del reporte
       try {
         await request("/sics/reports/createCountReport", "POST", {
@@ -568,9 +550,9 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
               <RefreshCcw className="mr-2 h-4 w-4" />
               Actualizar datos
             </Button>
-            <Button 
-              size="sm" 
-              onClick={() => setShowReferenceDialog(true)} 
+            <Button
+              size="sm"
+              onClick={() => setShowReferenceDialog(true)}
               disabled={downloading}
             >
               <Download className="mr-2 h-4 w-4" />
@@ -697,12 +679,16 @@ export default function CredencialAfiliadoPage({ params }: PageProps) {
         </Card>
 
         {/* Diálogo de validación de referencia */}
-        <Dialog open={showReferenceDialog} onOpenChange={setShowReferenceDialog}>
+        <Dialog
+          open={showReferenceDialog}
+          onOpenChange={setShowReferenceDialog}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Validar número de referencia</DialogTitle>
               <DialogDescription>
-                Ingresa el número de referencia del recibo para continuar con la descarga de la credencial.
+                Ingresa el número de referencia del recibo para continuar con la
+                descarga de la credencial.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
