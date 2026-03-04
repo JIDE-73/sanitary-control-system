@@ -18,6 +18,13 @@ import { request } from "@/lib/request";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type StatusKey =
   | "VIGENTE"
@@ -32,6 +39,21 @@ const reportColors = {
   laboratorios: "#ea580c",
   afiliados: "#7c3aed",
 };
+
+const monthNames = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
 const statusColorMap: Record<StatusKey, string> = {
   VIGENTE: "#16a34a",
@@ -147,8 +169,12 @@ function extractLaboratoryResultsByLab(response: unknown) {
 }
 
 export function ReportsSection() {
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
   const [reports, setReports] = useState<ReportsState>(initialState);
   const [loading, setLoading] = useState(true);
+  const [affiliatePerMonthLoading, setAffiliatePerMonthLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -163,7 +189,6 @@ export function ReportsSection() {
           afiliadosStatusResponse,
           laboratoryResultsResponse,
           laboratoryResultsByLabResponse,
-          affiliatePerMonthResponse,
           affiliatePerBarResponse,
         ] = await Promise.all([
           request("/sics/reports/certificadosSanitarios", "GET"),
@@ -171,7 +196,6 @@ export function ReportsSection() {
           request("/sics/reports/getAfiliadosCountByStatus", "GET"),
           request("/sics/reports/laboratoryResults", "GET"),
           request("/sics/laboratories/laboratoryResults", "GET"),
-          request("/sics/reports/affiliatePerMonth?month=1&year=2026", "GET"),
           request("/sics/reports/affiliatePerBar", "GET"),
         ]);
 
@@ -187,19 +211,9 @@ export function ReportsSection() {
             CANCELACION_TEMPORAL: toSafeCount(afiliadosStatusResponse?.CANCELACION_TEMPORAL),
             CANCELACION_DEFINITIVA: toSafeCount(afiliadosStatusResponse?.CANCELACION_DEFINITIVA),
           },
-          affiliatePerMonthTotal: toSafeCount(affiliatePerMonthResponse?.total),
-          affiliatePerMonthMonth:
-            typeof affiliatePerMonthResponse?.month === "number"
-              ? affiliatePerMonthResponse.month
-              : Number.isFinite(Number(affiliatePerMonthResponse?.month))
-              ? Number(affiliatePerMonthResponse?.month)
-              : null,
-          affiliatePerMonthYear:
-            typeof affiliatePerMonthResponse?.year === "number"
-              ? affiliatePerMonthResponse.year
-              : Number.isFinite(Number(affiliatePerMonthResponse?.year))
-              ? Number(affiliatePerMonthResponse?.year)
-              : null,
+          affiliatePerMonthTotal: 0,
+          affiliatePerMonthMonth: selectedMonth,
+          affiliatePerMonthYear: selectedYear,
           affiliatePerBar:
             Array.isArray(affiliatePerBarResponse?.result)
               ? affiliatePerBarResponse.result
@@ -245,6 +259,48 @@ export function ReportsSection() {
     loadReports();
   }, []);
 
+  useEffect(() => {
+    const loadAffiliatePerMonth = async () => {
+      try {
+        setAffiliatePerMonthLoading(true);
+
+        const affiliatePerMonthResponse = await request(
+          `/sics/reports/affiliatePerMonth?month=${selectedMonth}&year=${selectedYear}`,
+          "GET",
+        );
+
+        setReports((prev) => ({
+          ...prev,
+          affiliatePerMonthTotal: toSafeCount(affiliatePerMonthResponse?.total),
+          affiliatePerMonthMonth:
+            typeof affiliatePerMonthResponse?.month === "number"
+              ? affiliatePerMonthResponse.month
+              : Number.isFinite(Number(affiliatePerMonthResponse?.month))
+              ? Number(affiliatePerMonthResponse?.month)
+              : selectedMonth,
+          affiliatePerMonthYear:
+            typeof affiliatePerMonthResponse?.year === "number"
+              ? affiliatePerMonthResponse.year
+              : Number.isFinite(Number(affiliatePerMonthResponse?.year))
+              ? Number(affiliatePerMonthResponse?.year)
+              : selectedYear,
+        }));
+      } catch (err) {
+        console.error("Error al cargar afiliados por mes:", err);
+        setReports((prev) => ({
+          ...prev,
+          affiliatePerMonthTotal: 0,
+          affiliatePerMonthMonth: selectedMonth,
+          affiliatePerMonthYear: selectedYear,
+        }));
+      } finally {
+        setAffiliatePerMonthLoading(false);
+      }
+    };
+
+    loadAffiliatePerMonth();
+  }, [selectedMonth, selectedYear]);
+
   const afiliadosStatusData = useMemo(
     () =>
       (Object.keys(statusLabels) as StatusKey[]).map((status) => ({
@@ -288,20 +344,6 @@ export function ReportsSection() {
 
   const affiliatePerMonthLabel = useMemo(() => {
     if (reports.affiliatePerMonthMonth && reports.affiliatePerMonthYear) {
-      const monthNames = [
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre",
-      ];
       const idx = reports.affiliatePerMonthMonth - 1;
       const monthName =
         monthNames[idx] ?? `Mes ${reports.affiliatePerMonthMonth}`;
@@ -309,6 +351,17 @@ export function ReportsSection() {
     }
     return "Mes seleccionado";
   }, [reports.affiliatePerMonthMonth, reports.affiliatePerMonthYear]);
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const values = new Set<number>([selectedYear]);
+
+    for (let year = currentYear - 3; year <= currentYear + 1; year += 1) {
+      values.add(year);
+    }
+
+    return Array.from(values).sort((a, b) => b - a);
+  }, [selectedYear]);
 
   const downloadSimpleCountPdf = async (config: {
     title: string;
@@ -587,6 +640,46 @@ export function ReportsSection() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Mes</p>
+                <Select
+                  value={String(selectedMonth)}
+                  onValueChange={(value) => setSelectedMonth(Number(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona mes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthNames.map((month, index) => (
+                      <SelectItem key={month} value={String(index + 1)}>
+                        {month}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Año</p>
+                <Select
+                  value={String(selectedYear)}
+                  onValueChange={(value) => setSelectedYear(Number(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona año" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearOptions.map((year) => (
+                      <SelectItem key={year} value={String(year)}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <ChartContainer
               config={{
                 value: { label: "Afiliados", color: reportColors.afiliados },
@@ -620,13 +713,17 @@ export function ReportsSection() {
             <p className="text-xs text-muted-foreground">
               Morado: total de afiliados reportados por el endpoint para el mes y año indicados.
             </p>
+            {affiliatePerMonthLoading && (
+              <p className="text-xs text-muted-foreground">Consultando datos para el período seleccionado...</p>
+            )}
             <Button
               variant="outline"
+              disabled={affiliatePerMonthLoading}
               onClick={async () =>
                 downloadSimpleCountPdf({
                   title: "Afiliados registrados por mes",
                   endpoint:
-                    "/sics/reports/affiliatePerMonth?month=1&year=2026",
+                    `/sics/reports/affiliatePerMonth?month=${selectedMonth}&year=${selectedYear}`,
                   description: `Afiliados registrados en ${affiliatePerMonthLabel}.`,
                   count: reports.affiliatePerMonthTotal,
                   color: reportColors.afiliados,
