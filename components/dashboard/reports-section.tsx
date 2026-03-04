@@ -15,9 +15,19 @@ import {
 import { FileDown } from "lucide-react";
 
 import { request } from "@/lib/request";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import {
   Select,
   SelectContent,
@@ -115,9 +125,13 @@ function toSafeCount(value: unknown): number {
 
 function hexToRgb(hex: string): [number, number, number] {
   const sanitized = hex.replace("#", "");
-  const normalized = sanitized.length === 3
-    ? sanitized.split("").map((char) => `${char}${char}`).join("")
-    : sanitized;
+  const normalized =
+    sanitized.length === 3
+      ? sanitized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : sanitized;
 
   const parsed = Number.parseInt(normalized, 16);
   if (Number.isNaN(parsed)) return [0, 0, 0];
@@ -128,7 +142,12 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b];
 }
 
-function addColorLegendRow(doc: jsPDF, label: string, color: string, y: number) {
+function addColorLegendRow(
+  doc: jsPDF,
+  label: string,
+  color: string,
+  y: number,
+) {
   const [r, g, b] = hexToRgb(color);
   doc.setFillColor(r, g, b);
   doc.rect(20, y - 4, 6, 6, "F");
@@ -152,7 +171,9 @@ function extractLaboratoryResultsByLab(response: unknown) {
       };
       const id = typeof value.id === "string" ? value.id : "";
       const nombreComercial =
-        typeof value.nombre_comercial === "string" ? value.nombre_comercial : "Sin nombre";
+        typeof value.nombre_comercial === "string"
+          ? value.nombre_comercial
+          : "Sin nombre";
       const resultados = toSafeCount(value._count?.resultados);
       if (!id) return null;
       return { id, nombre_comercial: nombreComercial, resultados };
@@ -170,11 +191,14 @@ function extractLaboratoryResultsByLab(response: unknown) {
 
 export function ReportsSection() {
   const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+  const [selectedMonth, setSelectedMonth] = useState<number>(
+    now.getMonth() + 1,
+  );
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
   const [reports, setReports] = useState<ReportsState>(initialState);
   const [loading, setLoading] = useState(true);
-  const [affiliatePerMonthLoading, setAffiliatePerMonthLoading] = useState(false);
+  const [affiliatePerMonthLoading, setAffiliatePerMonthLoading] =
+    useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -203,50 +227,59 @@ export function ReportsSection() {
           certificadosSanitarios: toSafeCount(certificadosResponse?.count),
           getCountReport: toSafeCount(countReportResponse?.count),
           laboratoryResults: toSafeCount(laboratoryResultsResponse?.count),
-          laboratoryResultsByLab: extractLaboratoryResultsByLab(laboratoryResultsByLabResponse),
+          laboratoryResultsByLab: extractLaboratoryResultsByLab(
+            laboratoryResultsByLabResponse,
+          ),
           afiliadosByStatus: {
             VIGENTE: toSafeCount(afiliadosStatusResponse?.VIGENTE),
-            PENDIENTE_RENOVACION: toSafeCount(afiliadosStatusResponse?.PENDIENTE_RENOVACION),
-            SUSPENSION_TEMPORAL: toSafeCount(afiliadosStatusResponse?.SUSPENSION_TEMPORAL),
-            CANCELACION_TEMPORAL: toSafeCount(afiliadosStatusResponse?.CANCELACION_TEMPORAL),
-            CANCELACION_DEFINITIVA: toSafeCount(afiliadosStatusResponse?.CANCELACION_DEFINITIVA),
+            PENDIENTE_RENOVACION: toSafeCount(
+              afiliadosStatusResponse?.PENDIENTE_RENOVACION,
+            ),
+            SUSPENSION_TEMPORAL: toSafeCount(
+              afiliadosStatusResponse?.SUSPENSION_TEMPORAL,
+            ),
+            CANCELACION_TEMPORAL: toSafeCount(
+              afiliadosStatusResponse?.CANCELACION_TEMPORAL,
+            ),
+            CANCELACION_DEFINITIVA: toSafeCount(
+              afiliadosStatusResponse?.CANCELACION_DEFINITIVA,
+            ),
           },
           affiliatePerMonthTotal: 0,
           affiliatePerMonthMonth: selectedMonth,
           affiliatePerMonthYear: selectedYear,
-          affiliatePerBar:
-            Array.isArray(affiliatePerBarResponse?.result)
-              ? affiliatePerBarResponse.result
-                  .map((item: unknown) => {
-                    if (typeof item !== "object" || item === null) return null;
-                    const value = item as {
-                      id?: unknown;
-                      nombre?: unknown;
-                      total?: unknown;
-                    };
-                    const id = typeof value.id === "string" ? value.id : "";
-                    const nombre =
-                      typeof value.nombre === "string"
-                        ? value.nombre
-                        : "Sin nombre";
-                    const total = toSafeCount(value.total);
-                    if (!id) return null;
-                    return { id, nombre, total };
-                  })
-                  .filter(
-                    (
-                      item: {
-                        id: string;
-                        nombre: string;
-                        total: number;
-                      } | null,
-                    ): item is {
+          affiliatePerBar: Array.isArray(affiliatePerBarResponse?.result)
+            ? affiliatePerBarResponse.result
+                .map((item: unknown) => {
+                  if (typeof item !== "object" || item === null) return null;
+                  const value = item as {
+                    id?: unknown;
+                    nombre?: unknown;
+                    total?: unknown;
+                  };
+                  const id = typeof value.id === "string" ? value.id : "";
+                  const nombre =
+                    typeof value.nombre === "string"
+                      ? value.nombre
+                      : "Sin nombre";
+                  const total = toSafeCount(value.total);
+                  if (!id) return null;
+                  return { id, nombre, total };
+                })
+                .filter(
+                  (
+                    item: {
                       id: string;
                       nombre: string;
                       total: number;
-                    } => item !== null,
-                  )
-              : [],
+                    } | null,
+                  ): item is {
+                    id: string;
+                    nombre: string;
+                    total: number;
+                  } => item !== null,
+                )
+            : [],
         });
       } catch (err) {
         console.error("Error al cargar reportes:", err);
@@ -276,14 +309,14 @@ export function ReportsSection() {
             typeof affiliatePerMonthResponse?.month === "number"
               ? affiliatePerMonthResponse.month
               : Number.isFinite(Number(affiliatePerMonthResponse?.month))
-              ? Number(affiliatePerMonthResponse?.month)
-              : selectedMonth,
+                ? Number(affiliatePerMonthResponse?.month)
+                : selectedMonth,
           affiliatePerMonthYear:
             typeof affiliatePerMonthResponse?.year === "number"
               ? affiliatePerMonthResponse.year
               : Number.isFinite(Number(affiliatePerMonthResponse?.year))
-              ? Number(affiliatePerMonthResponse?.year)
-              : selectedYear,
+                ? Number(affiliatePerMonthResponse?.year)
+                : selectedYear,
         }));
       } catch (err) {
         console.error("Error al cargar afiliados por mes:", err);
@@ -422,7 +455,10 @@ export function ReportsSection() {
     });
 
     doc.save("reporte-afiliados-por-estatus.pdf");
-    const totalAfiliados = afiliadosStatusData.reduce((acc, item) => acc + item.value, 0);
+    const totalAfiliados = afiliadosStatusData.reduce(
+      (acc, item) => acc + item.value,
+      0,
+    );
     await createCountReport(totalAfiliados, "Afiliados por estatus sanitario");
   };
 
@@ -458,7 +494,10 @@ export function ReportsSection() {
     });
 
     doc.save("reporte-resultados-laboratorio.pdf");
-    await createCountReport(reports.laboratoryResults, "Resultados de laboratorio");
+    await createCountReport(
+      reports.laboratoryResults,
+      "Resultados de laboratorio",
+    );
   };
 
   const downloadAffiliatePerBarPdf = async () => {
@@ -526,9 +565,12 @@ export function ReportsSection() {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-lg sm:text-xl font-semibold tracking-tight">Reportes rapidos</h2>
+        <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
+          Reportes rapidos
+        </h2>
         <p className="text-sm text-muted-foreground">
-          Cada tarjeta consulta un endpoint de reportes, muestra su grafica y permite descargar un PDF individual.
+          Cada tarjeta consulta un endpoint de reportes, muestra su grafica y
+          permite descargar un PDF individual.
         </p>
       </div>
 
@@ -537,26 +579,47 @@ export function ReportsSection() {
           <CardHeader>
             <CardTitle>Certificados sanitarios obtenidos</CardTitle>
             <CardDescription>
-              Este grafico de barras muestra el total de certificados obtenidos exitosamente.
+              Este grafico de barras muestra el total de certificados obtenidos
+              exitosamente.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ChartContainer
               config={{
-                value: { label: "Certificados", color: reportColors.certificados },
+                value: {
+                  label: "Certificados",
+                  color: reportColors.certificados,
+                },
               }}
               className="h-[220px] sm:h-[280px]"
             >
-              <BarChart data={[{ name: "Certificados", value: reports.certificadosSanitarios }]}>
+              <BarChart
+                data={[
+                  {
+                    name: "Certificados",
+                    value: reports.certificadosSanitarios,
+                  },
+                ]}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                <XAxis
+                  dataKey="name"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                />
                 <YAxis tickLine={false} axisLine={false} tickMargin={8} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="value" fill={reportColors.certificados} radius={[6, 6, 0, 0]} />
+                <Bar
+                  dataKey="value"
+                  fill={reportColors.certificados}
+                  radius={[6, 6, 0, 0]}
+                />
               </BarChart>
             </ChartContainer>
             <p className="text-xs text-muted-foreground">
-              Color azul: total de certificados sanitarios reportados por el endpoint.
+              Color azul: total de certificados sanitarios reportados por el
+              endpoint.
             </p>
             <Button
               variant="outline"
@@ -636,7 +699,8 @@ export function ReportsSection() {
           <CardHeader>
             <CardTitle>Afiliados registrados por mes</CardTitle>
             <CardDescription>
-              Total de afiliados registrados en el período: {affiliatePerMonthLabel}.
+              Total de afiliados registrados en el período:{" "}
+              {affiliatePerMonthLabel}.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -711,10 +775,13 @@ export function ReportsSection() {
               </BarChart>
             </ChartContainer>
             <p className="text-xs text-muted-foreground">
-              Morado: total de afiliados reportados por el endpoint para el mes y año indicados.
+              Morado: total de afiliados reportados por el endpoint para el mes
+              y año indicados.
             </p>
             {affiliatePerMonthLoading && (
-              <p className="text-xs text-muted-foreground">Consultando datos para el período seleccionado...</p>
+              <p className="text-xs text-muted-foreground">
+                Consultando datos para el período seleccionado...
+              </p>
             )}
             <Button
               variant="outline"
@@ -722,8 +789,7 @@ export function ReportsSection() {
               onClick={async () =>
                 downloadSimpleCountPdf({
                   title: "Afiliados registrados por mes",
-                  endpoint:
-                    `/sics/reports/affiliatePerMonth?month=${selectedMonth}&year=${selectedYear}`,
+                  endpoint: `/sics/reports/affiliatePerMonth?month=${selectedMonth}&year=${selectedYear}`,
                   description: `Afiliados registrados en ${affiliatePerMonthLabel}.`,
                   count: reports.affiliatePerMonthTotal,
                   color: reportColors.afiliados,
@@ -742,7 +808,8 @@ export function ReportsSection() {
           <CardHeader>
             <CardTitle>Conteo general de reportes</CardTitle>
             <CardDescription>
-              Este grafico de barras representa el conteo general devuelto por el endpoint de reportes.
+              Este grafico de barras representa el conteo general devuelto por
+              el endpoint de reportes.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -752,16 +819,28 @@ export function ReportsSection() {
               }}
               className="h-[220px] sm:h-[280px]"
             >
-              <BarChart data={[{ name: "Reportes", value: reports.getCountReport }]}>
+              <BarChart
+                data={[{ name: "Reportes", value: reports.getCountReport }]}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                <XAxis
+                  dataKey="name"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                />
                 <YAxis tickLine={false} axisLine={false} tickMargin={8} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="value" fill={reportColors.reportes} radius={[6, 6, 0, 0]} />
+                <Bar
+                  dataKey="value"
+                  fill={reportColors.reportes}
+                  radius={[6, 6, 0, 0]}
+                />
               </BarChart>
             </ChartContainer>
             <p className="text-xs text-muted-foreground">
-              Color verde: cantidad total informada por el endpoint de conteo general.
+              Color verde: cantidad total informada por el endpoint de conteo
+              general.
             </p>
             <Button
               variant="outline"
@@ -787,17 +866,33 @@ export function ReportsSection() {
           <CardHeader>
             <CardTitle>Afiliados por estatus sanitario</CardTitle>
             <CardDescription>
-              Este grafico de pastel muestra la distribucion de afiliados por estatus.
+              Este grafico de pastel muestra la distribucion de afiliados por
+              estatus.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ChartContainer
               config={{
-                vigente: { label: statusLabels.VIGENTE, color: statusColorMap.VIGENTE },
-                pendiente: { label: statusLabels.PENDIENTE_RENOVACION, color: statusColorMap.PENDIENTE_RENOVACION },
-                suspension: { label: statusLabels.SUSPENSION_TEMPORAL, color: statusColorMap.SUSPENSION_TEMPORAL },
-                cancelacionTemporal: { label: statusLabels.CANCELACION_TEMPORAL, color: statusColorMap.CANCELACION_TEMPORAL },
-                cancelacionDefinitiva: { label: statusLabels.CANCELACION_DEFINITIVA, color: statusColorMap.CANCELACION_DEFINITIVA },
+                vigente: {
+                  label: statusLabels.VIGENTE,
+                  color: statusColorMap.VIGENTE,
+                },
+                pendiente: {
+                  label: statusLabels.PENDIENTE_RENOVACION,
+                  color: statusColorMap.PENDIENTE_RENOVACION,
+                },
+                suspension: {
+                  label: statusLabels.SUSPENSION_TEMPORAL,
+                  color: statusColorMap.SUSPENSION_TEMPORAL,
+                },
+                cancelacionTemporal: {
+                  label: statusLabels.CANCELACION_TEMPORAL,
+                  color: statusColorMap.CANCELACION_TEMPORAL,
+                },
+                cancelacionDefinitiva: {
+                  label: statusLabels.CANCELACION_DEFINITIVA,
+                  color: statusColorMap.CANCELACION_DEFINITIVA,
+                },
               }}
               className="h-[220px] sm:h-[280px]"
             >
@@ -819,9 +914,14 @@ export function ReportsSection() {
               </PieChart>
             </ChartContainer>
             <p className="text-xs text-muted-foreground">
-              Verde: vigente, amarillo: pendiente de renovacion, naranja: suspension temporal, azul: cancelacion temporal, rojo: cancelacion definitiva.
+              Verde: vigente, amarillo: pendiente de renovacion, naranja:
+              suspension temporal, azul: cancelacion temporal, rojo: cancelacion
+              definitiva.
             </p>
-            <Button variant="outline" onClick={async () => downloadAfiliadosStatusPdf()}>
+            <Button
+              variant="outline"
+              onClick={async () => downloadAfiliadosStatusPdf()}
+            >
               <FileDown className="h-4 w-4" />
               Descargar PDF
             </Button>
@@ -832,13 +932,17 @@ export function ReportsSection() {
           <CardHeader>
             <CardTitle>Resultados de laboratorio</CardTitle>
             <CardDescription>
-              Este grafico de barras muestra el total de resultados de laboratorios obtenidos exitosamente.
+              Este grafico de barras muestra el total de resultados de
+              laboratorios obtenidos exitosamente.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <ChartContainer
               config={{
-                value: { label: "Resultados", color: reportColors.laboratorios },
+                value: {
+                  label: "Resultados",
+                  color: reportColors.laboratorios,
+                },
               }}
               className="h-[220px] sm:h-[280px]"
             >
@@ -846,7 +950,12 @@ export function ReportsSection() {
                 data={
                   laboratoryResultsByLabChartData.length > 0
                     ? laboratoryResultsByLabChartData
-                    : [{ name: "Laboratorios", value: reports.laboratoryResults }]
+                    : [
+                        {
+                          name: "Laboratorios",
+                          value: reports.laboratoryResults,
+                        },
+                      ]
                 }
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -861,11 +970,16 @@ export function ReportsSection() {
                 />
                 <YAxis tickLine={false} axisLine={false} tickMargin={8} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="value" fill={reportColors.laboratorios} radius={[6, 6, 0, 0]} />
+                <Bar
+                  dataKey="value"
+                  fill={reportColors.laboratorios}
+                  radius={[6, 6, 0, 0]}
+                />
               </BarChart>
             </ChartContainer>
             <p className="text-xs text-muted-foreground">
-              Color naranja: conteo de resultados por laboratorio (endpoint de detalle) y total general.
+              Color naranja: conteo de resultados por laboratorio (endpoint de
+              detalle) y total general.
             </p>
             <Button
               variant="outline"
@@ -880,4 +994,3 @@ export function ReportsSection() {
     </section>
   );
 }
-
