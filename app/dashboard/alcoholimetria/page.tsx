@@ -73,7 +73,7 @@ export default function AlcoholimetriaDashboardPage() {
                 Dashboard de Alcoholimetría
               </h1>
               <p className="text-sm sm:text-base text-muted-foreground">
-                Vista general (mockup) de controles y resultados de
+                Vista general de controles y resultados de
                 alcoholimetría.
               </p>
             </div>
