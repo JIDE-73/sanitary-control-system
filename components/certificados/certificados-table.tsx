@@ -734,7 +734,7 @@ export function CertificadosTable() {
       y += 18;
 
       // Resumen para mejorar lectura inicial del documento
-      drawSectionHeader("RESUMEN DEL CERTIFICADO");
+      drawSectionHeader("CERTIFICADO");
       const resumenFecha = `${dia}/${String(date.getMonth() + 1).padStart(2, "0")}/${ano} ${horas}:${minutos}`;
       y += writeMixedText([
         { text: "Folio: " },
@@ -1003,7 +1003,7 @@ export function CertificadosTable() {
       ], marginX, y) + 5;
 
       // EN BASE A LO ANTERIORMENTE EXPUESTO
-      drawSectionHeader("CONCLUSIÓN CLÍNICA");
+      drawSectionHeader("DIAGNÓSTICO");
       doc.setFont(baseFont, "bold");
       doc.setFontSize(10);
       doc.text(
