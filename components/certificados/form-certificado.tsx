@@ -71,7 +71,7 @@ type CertificadoFormState = {
   levantar_objetos: string;
   trastabillea5: boolean;
   cae5: boolean;
-  prueba_talon_rodilla: boolean;
+  prueba_talon_rodilla: string;
   trastabillea6: boolean;
   cae6: boolean;
   // Digital coordination test
@@ -178,7 +178,7 @@ export interface CertificadoFormPayload {
   levantar_objetos: string;
   trastabillea5: boolean;
   cae5: boolean;
-  prueba_talon_rodilla: boolean;
+  prueba_talon_rodilla: string;
   trastabillea6: boolean;
   cae6: boolean;
   // Digital coordination test
@@ -340,7 +340,7 @@ const initialState: CertificadoFormState = {
   levantar_objetos: "",
   trastabillea5: false,
   cae5: false,
-  prueba_talon_rodilla: false,
+  prueba_talon_rodilla: "",
   trastabillea6: false,
   cae6: false,
   // Digital coordination test
@@ -481,6 +481,22 @@ export function FormCertificado({
           ...prev,
           extranjera: nextChecked,
           residencia_nacional: nextChecked ? false : prev.residencia_nacional,
+        };
+      }
+
+      if (field === "estado_ebriedad") {
+        return {
+          ...prev,
+          estado_ebriedad: nextChecked,
+          estupefacientes: nextChecked ? false : prev.estupefacientes,
+        };
+      }
+
+      if (field === "estupefacientes") {
+        return {
+          ...prev,
+          estupefacientes: nextChecked,
+          estado_ebriedad: nextChecked ? false : prev.estado_ebriedad,
         };
       }
 
@@ -1048,13 +1064,20 @@ export function FormCertificado({
                 }
               />
               <span>Signo de romberg</span>
-              <Input
-                className="w-32"
+              <Select
                 value={formData.signo_romberg}
-                onChange={(e) =>
-                  handleInputChange("signo_romberg", e.target.value)
+                onValueChange={(value) =>
+                  handleInputChange("signo_romberg", value)
                 }
-              />
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="positivo">Positivo</SelectItem>
+                  <SelectItem value="negativo">Negativo</SelectItem>
+                </SelectContent>
+              </Select>
               <span>Trastabillea</span>
               <Checkbox
                 id="trastabillea"
@@ -1074,13 +1097,20 @@ export function FormCertificado({
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span>Equilibrio a la marcha</span>
-              <Input
-                className="w-32"
+              <Select
                 value={formData.equilibrio_marcha}
-                onChange={(e) =>
-                  handleInputChange("equilibrio_marcha", e.target.value)
+                onValueChange={(value) =>
+                  handleInputChange("equilibrio_marcha", value)
                 }
-              />
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="perdida">Perdida</SelectItem>
+                  <SelectItem value="conservado">Conservado</SelectItem>
+                </SelectContent>
+              </Select>
               <span>Trastabillea</span>
               <Checkbox
                 id="trastabillea1"
@@ -1098,13 +1128,20 @@ export function FormCertificado({
                 }
               />
               <span>Prueba de tándem</span>
-              <Input
-                className="w-32"
+              <Select
                 value={formData.prueba_tandem}
-                onChange={(e) =>
-                  handleInputChange("prueba_tandem", e.target.value)
+                onValueChange={(value) =>
+                  handleInputChange("prueba_tandem", value)
                 }
-              />
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="positivo">Positivo</SelectItem>
+                  <SelectItem value="negativo">Negativo</SelectItem>
+                </SelectContent>
+              </Select>
               <span>Trastabillea</span>
               <Checkbox
                 id="trastabillea2"
@@ -1124,13 +1161,20 @@ export function FormCertificado({
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span>Equilibrio vertical de reposo</span>
-              <Input
-                className="w-32"
+              <Select
                 value={formData.equilibrio_vertical}
-                onChange={(e) =>
-                  handleInputChange("equilibrio_vertical", e.target.value)
+                onValueChange={(value) =>
+                  handleInputChange("equilibrio_vertical", value)
                 }
-              />
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="perdida">Perdida</SelectItem>
+                  <SelectItem value="conservado">Conservado</SelectItem>
+                </SelectContent>
+              </Select>
               <span>Trastabillea</span>
               <Checkbox
                 id="trastabillea3"
@@ -1174,13 +1218,20 @@ export function FormCertificado({
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span>Levantar objetos del piso</span>
-              <Input
-                className="w-32"
+              <Select
                 value={formData.levantar_objetos}
-                onChange={(e) =>
-                  handleInputChange("levantar_objetos", e.target.value)
+                onValueChange={(value) =>
+                  handleInputChange("levantar_objetos", value)
                 }
-              />
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="seguro">Seguro</SelectItem>
+                  <SelectItem value="inseguro">Inseguro</SelectItem>
+                </SelectContent>
+              </Select>
               <span>Trastabillea</span>
               <Checkbox
                 id="trastabillea5"
@@ -1198,13 +1249,20 @@ export function FormCertificado({
                 }
               />
               <span>Prueba talón rodilla</span>
-              <Checkbox
-                id="prueba_talon_rodilla"
-                checked={formData.prueba_talon_rodilla}
-                onCheckedChange={(checked) =>
-                  handleCheckboxChange("prueba_talon_rodilla", checked)
+              <Select
+                value={formData.prueba_talon_rodilla}
+                onValueChange={(value) =>
+                  handleInputChange("prueba_talon_rodilla", value)
                 }
-              />
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="positivo">Positivo</SelectItem>
+                  <SelectItem value="negativo">Negativo</SelectItem>
+                </SelectContent>
+              </Select>
               <span>Trastabillea</span>
               <Checkbox
                 id="trastabillea6"
@@ -1593,8 +1651,8 @@ export function FormCertificado({
               }
             />
             <Label htmlFor="estupefacientes" className="text-sm font-normal">
-              Estupefacientes, psicotrópicos u otras substancias tóxicas.
-              Especifique:
+              Bajo estupeciantes, psicotrópicos u otras sustacias depresoras del
+              sistema nervioso central
             </Label>
             <Input
               className="flex-1 min-w-[200px]"
@@ -1621,23 +1679,37 @@ export function FormCertificado({
                 En base a lo anteriormente expuesto el ciudadano presenta un
                 cuadro clínico de
               </span>
-              <Input
-                className="flex-1 min-w-[300px]"
+              <Select
                 value={formData.cuadro_clinico}
-                onChange={(e) =>
-                  handleInputChange("cuadro_clinico", e.target.value)
+                onValueChange={(value) =>
+                  handleInputChange("cuadro_clinico", value)
                 }
-                placeholder="Cuadro clínico"
-              />
+              >
+                <SelectTrigger className="w-52">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ebriedad">Ebriedad</SelectItem>
+                  <SelectItem value="aliento alcoholico">
+                    Aliento alcoholico
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span>el cual</span>
-              <Input
-                className="flex-1 min-w-[300px]"
+              <Select
                 value={formData.el_cual}
-                onChange={(e) => handleInputChange("el_cual", e.target.value)}
-                placeholder="Descripción"
-              />
+                onValueChange={(value) => handleInputChange("el_cual", value)}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="si">Si</SelectItem>
+                  <SelectItem value="no">No</SelectItem>
+                </SelectContent>
+              </Select>
               <span>
                 perturba o impide su habilidad para conducir un vehículo de
                 motor.
