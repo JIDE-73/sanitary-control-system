@@ -119,13 +119,19 @@ const navigation = [
     ],
   },
   {
-    name: "Notas Médicas ALM",
+    name: "Certificado de integrida fisica",
     href: "/notas-medicas-alm",
     icon: NotebookPen,
     module: "notas_medicas_alm",
     submenu: [
-      { name: "Nueva Nota ALM", href: "/notas-medicas-alm/nueva" },
-      { name: "Historial ALM", href: "/notas-medicas-alm" },
+      {
+        name: "Nuevo Certificado de integrida fisica",
+        href: "/notas-medicas-alm/nueva",
+      },
+      {
+        name: "Historial Certificado de integrida fisica",
+        href: "/notas-medicas-alm",
+      },
     ],
   },
   {

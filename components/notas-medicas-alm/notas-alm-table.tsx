@@ -81,7 +81,7 @@ export function NotasMedicasALMTable({
   loading,
 }: NotasMedicasALMTableProps) {
   const [selectedNota, setSelectedNota] = useState<NotaMedicaALMRecord | null>(
-    null
+    null,
   );
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -91,9 +91,9 @@ export function NotasMedicasALMTable({
       [...notas].sort(
         (a, b) =>
           new Date(b.fecha_expedicion).getTime() -
-          new Date(a.fecha_expedicion).getTime()
+          new Date(a.fecha_expedicion).getTime(),
       ),
-    [notas]
+    [notas],
   );
 
   const totalPages = Math.max(
@@ -178,7 +178,7 @@ export function NotasMedicasALMTable({
         "Dirección Municipal de Prevención\nControl y Sanidad",
         centerX,
         18,
-        { align: "center" }
+        { align: "center" },
       );
       doc.setFont(baseFont, "normal");
       doc.text("Departamento de Apoyo\n a Seguridad Pública", marginRight, 18, {
@@ -216,22 +216,23 @@ export function NotasMedicasALMTable({
       drawLabeledRow(
         "En Tijuana B.C. a las",
         `${hours} hrs. con ${minutes} minutos del día ${day} del mes de ${month} del año ${year}`,
-        cursorY
+        cursorY,
       );
       cursorY += 8;
 
       drawLabeledRow(
         "El suscrito Médico Perito Dr.",
         safe(nota.nombre_oficial),
-        cursorY
+        cursorY,
       );
       cursorY += 6;
       drawLabeledRow("Cédula Profesional No.", safe(nota.cedula), cursorY);
       cursorY += 6;
       drawLabeledRow(
         "Examinó a quien dijo llamarse",
-        personaNombreCompleto || "- (sin nombre en registro ALM)",
-        cursorY
+        personaNombreCompleto ||
+          "- (sin nombre en registro de certificado de integrida fisica)",
+        cursorY,
       );
       cursorY += 6;
       drawLabeledRow("CURP", safe(personaCurp), cursorY);
@@ -243,7 +244,7 @@ export function NotasMedicasALMTable({
       drawLabeledRow(
         "Que se identifica con",
         safe(nota.se_identifica),
-        cursorY
+        cursorY,
       );
       cursorY += 10;
 
@@ -252,7 +253,7 @@ export function NotasMedicasALMTable({
       doc.text(
         "CLINICAMENTE OBTENIENDO LOS SIGUIENTES RESULTADOS",
         marginX,
-        cursorY
+        cursorY,
       );
       cursorY += 4;
 
@@ -287,7 +288,7 @@ export function NotasMedicasALMTable({
         cursorY + 5,
         {
           align: "center",
-        }
+        },
       );
 
       tableRows.forEach((row, idx) => {
@@ -316,7 +317,7 @@ export function NotasMedicasALMTable({
         doc.setFont(baseFont, "normal");
         const lines = doc.splitTextToSize(
           text && text.trim() ? text : "-",
-          tableWidth
+          tableWidth,
         );
         doc.text(lines, marginX, cursorY);
         cursorY += lines.length * 5 + 6;
@@ -325,7 +326,7 @@ export function NotasMedicasALMTable({
       addParagraph("Adicciones referidas", safe(nota.adicciones_referidas));
       addParagraph(
         "Descripción de lesiones Agudas/Hallazgos Médicos",
-        safe(nota.descripcion_lesiones_hallazgos)
+        safe(nota.descripcion_lesiones_hallazgos),
       );
       addParagraph("Recomendación médica", safe(nota.recomendacion_medico));
       addParagraph("Nombre del Oficial", safe(nota.nombre_oficial));
@@ -334,10 +335,10 @@ export function NotasMedicasALMTable({
       doc.setFont(baseFont, "bold");
       doc.text(
         `Oficial No: ${safe(nota.noOficial)}    No de Unidad: ${safe(
-          nota.noUnidad
+          nota.noUnidad,
         )}`,
         marginX,
-        cursorY
+        cursorY,
       );
       cursorY += 18;
 
@@ -355,12 +356,12 @@ export function NotasMedicasALMTable({
       });
 
       doc.save(`nota-medica-alm-${nota.id}.pdf`);
-      
+
       // Registrar la generación del reporte
       try {
         await request("/sics/reports/createCountReport", "POST", {
           total: 1,
-          nombre_reporte: "Nota Médica ALM",
+          nombre_reporte: "Certificado de integrida fisica",
         });
       } catch (reportError) {
         console.warn("No se pudo registrar el reporte", reportError);
@@ -394,7 +395,7 @@ export function NotasMedicasALMTable({
                   colSpan={9}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  Cargando notas médicas ALM...
+                  Cargando certificado de integrida fisica...
                 </TableCell>
               </TableRow>
             ) : sortedNotas.length === 0 ? (
@@ -403,7 +404,7 @@ export function NotasMedicasALMTable({
                   colSpan={9}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  No hay notas registradas para ALM
+                  No hay registros de certificado de integrida fisica
                 </TableCell>
               </TableRow>
             ) : (
@@ -412,7 +413,7 @@ export function NotasMedicasALMTable({
                   <TableCell className="font-medium">
                     {nota.fecha_expedicion
                       ? new Date(nota.fecha_expedicion).toLocaleDateString(
-                          "es-MX"
+                          "es-MX",
                         )
                       : "-"}
                   </TableCell>
@@ -495,157 +496,168 @@ export function NotasMedicasALMTable({
       <Dialog open={!!selectedNota} onOpenChange={() => setSelectedNota(null)}>
         <DialogContent className="w-[95vw] sm:w-full sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0 gap-0">
           <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b shrink-0">
-            <DialogTitle>Nota médica ALM</DialogTitle>
+            <DialogTitle>Certificado de integrida fisica</DialogTitle>
             <DialogDescription>Detalle clínico registrado</DialogDescription>
           </DialogHeader>
 
           {selectedNota && (
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
               <div className="space-y-4 text-sm">
-              <div className="grid gap-3 md:grid-cols-2">
-
-                <div>
-                  <p className="text-muted-foreground">Fecha</p>
-                  <p className="font-medium">
-                    {selectedNota.fecha_expedicion
-                      ? new Date(selectedNota.fecha_expedicion).toLocaleString(
-                          "es-MX"
-                        )
-                      : "-"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-md border border-border p-3">
-                <p className="text-muted-foreground mb-2">Persona evaluada</p>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
-                    <p className="text-muted-foreground">Nombre completo</p>
+                    <p className="text-muted-foreground">Fecha</p>
+                    <p className="font-medium">
+                      {selectedNota.fecha_expedicion
+                        ? new Date(
+                            selectedNota.fecha_expedicion,
+                          ).toLocaleString("es-MX")
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-border p-3">
+                  <p className="text-muted-foreground mb-2">Persona evaluada</p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <p className="text-muted-foreground">Nombre completo</p>
+                      <p className="font-medium wrap-break-word">
+                        {getPersonaFullName(selectedNota)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">CURP</p>
+                      <p className="font-medium break-all">
+                        {selectedNota.Persona?.curp || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Género</p>
+                      <p className="font-medium">
+                        {selectedNota.Persona?.genero || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">
+                        Fecha de nacimiento
+                      </p>
+                      <p className="font-medium">
+                        {formatDateTime(selectedNota.Persona?.fecha_nacimiento)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Teléfono</p>
+                      <p className="font-medium">
+                        {selectedNota.Persona?.telefono || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Dirección</p>
+                      <p className="font-medium wrap-break-word">
+                        {selectedNota.Persona?.direccion || "-"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <p className="text-muted-foreground">Oficial</p>
                     <p className="font-medium wrap-break-word">
-                      {getPersonaFullName(selectedNota)}
+                      {selectedNota.nombre_oficial}
+                    </p>
+                    <p className="font-mono text-xs wrap-break-word">
+                      Dependencia: {selectedNota.dependencia}
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">CURP</p>
-                    <p className="font-medium break-all">
-                      {selectedNota.Persona?.curp || "-"}
-                    </p>
+                    <p className="text-muted-foreground">Cédula</p>
+                    <p className="font-medium">{selectedNota.cedula || "-"}</p>
+                    <p className="text-muted-foreground mt-2">Edad</p>
+                    <p className="font-medium">{selectedNota.edad || "-"}</p>
                   </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid gap-3 md:grid-cols-2">
                   <div>
-                    <p className="text-muted-foreground">Género</p>
-                    <p className="font-medium">
-                      {selectedNota.Persona?.genero || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Fecha de nacimiento</p>
-                    <p className="font-medium">
-                      {formatDateTime(selectedNota.Persona?.fecha_nacimiento)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Teléfono</p>
-                    <p className="font-medium">
-                      {selectedNota.Persona?.telefono || "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Dirección</p>
+                    <p className="text-muted-foreground">Se identifica con</p>
                     <p className="font-medium wrap-break-word">
-                      {selectedNota.Persona?.direccion || "-"}
+                      {selectedNota.se_identifica}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">
+                      Recomendación médica
+                    </p>
+                    <p className="font-medium whitespace-pre-wrap">
+                      {selectedNota.recomendacion_medico}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <p className="text-muted-foreground">
+                      Adicciones referidas
+                    </p>
+                    <p className="font-medium whitespace-pre-wrap">
+                      {selectedNota.adicciones_referidas}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">
+                      Descripción lesiones / hallazgos
+                    </p>
+                    <p className="font-medium whitespace-pre-wrap">
+                      {selectedNota.descripcion_lesiones_hallazgos}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div>
+                    <p className="text-muted-foreground">Consciente</p>
+                    <p className="font-medium">
+                      {booleanLabel(selectedNota.conciente)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">
+                      Orientación alopsíquica
+                    </p>
+                    <p className="font-medium">
+                      {booleanLabel(selectedNota.orientacion_alopsiquica)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">
+                      Control de esfínteres
+                    </p>
+                    <p className="font-medium">
+                      {booleanLabel(selectedNota.control_esfinteres)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div>
+                    <p className="text-muted-foreground">Aliento alcohólico</p>
+                    <p className="font-medium">
+                      {booleanLabel(selectedNota.aliento_alcoholico)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Lesiones visibles</p>
+                    <p className="font-medium">
+                      {booleanLabel(selectedNota.lesiones_visibles)}
                     </p>
                   </div>
                 </div>
               </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <p className="text-muted-foreground">Oficial</p>
-                  <p className="font-medium wrap-break-word">{selectedNota.nombre_oficial}</p>
-                  <p className="font-mono text-xs wrap-break-word">
-                    Dependencia: {selectedNota.dependencia}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Cédula</p>
-                  <p className="font-medium">{selectedNota.cedula || "-"}</p>
-                  <p className="text-muted-foreground mt-2">Edad</p>
-                  <p className="font-medium">{selectedNota.edad || "-"}</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <p className="text-muted-foreground">Se identifica con</p>
-                  <p className="font-medium wrap-break-word">{selectedNota.se_identifica}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Recomendación médica</p>
-                  <p className="font-medium whitespace-pre-wrap">
-                    {selectedNota.recomendacion_medico}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <p className="text-muted-foreground">Adicciones referidas</p>
-                  <p className="font-medium whitespace-pre-wrap">
-                    {selectedNota.adicciones_referidas}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">
-                    Descripción lesiones / hallazgos
-                  </p>
-                  <p className="font-medium whitespace-pre-wrap">
-                    {selectedNota.descripcion_lesiones_hallazgos}
-                  </p>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <div>
-                  <p className="text-muted-foreground">Consciente</p>
-                  <p className="font-medium">
-                    {booleanLabel(selectedNota.conciente)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">
-                    Orientación alopsíquica
-                  </p>
-                  <p className="font-medium">
-                    {booleanLabel(selectedNota.orientacion_alopsiquica)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Control de esfínteres</p>
-                  <p className="font-medium">
-                    {booleanLabel(selectedNota.control_esfinteres)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <div>
-                  <p className="text-muted-foreground">Aliento alcohólico</p>
-                  <p className="font-medium">
-                    {booleanLabel(selectedNota.aliento_alcoholico)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Lesiones visibles</p>
-                  <p className="font-medium">
-                    {booleanLabel(selectedNota.lesiones_visibles)}
-                  </p>
-                </div>
-              </div>
-            </div>
             </div>
           )}
 
@@ -660,7 +672,11 @@ export function NotasMedicasALMTable({
               <Download className="mr-2 h-4 w-4" />
               Descargar PDF
             </Button>
-            <Button variant="outline" onClick={() => setSelectedNota(null)} className="w-full sm:w-auto">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedNota(null)}
+              className="w-full sm:w-auto"
+            >
               Cerrar
             </Button>
           </DialogFooter>

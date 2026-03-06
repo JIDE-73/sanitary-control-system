@@ -25,7 +25,7 @@ function NuevaNotaALMContent() {
           ...data,
           // Enviar la edad como cadena (evita errores de parseo en backend)
           edad: data.edad?.toString().trim() ?? "",
-        }
+        },
       );
 
       if (response.status >= 200 && response.status < 300) {
@@ -65,7 +65,7 @@ export default function NuevaNotaALMPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Nueva nota médica ALM
+            Nuevo Certificado de integrida fisica
           </h1>
           <p className="text-muted-foreground">
             Captura y envío de nota médica para alcoholimetría

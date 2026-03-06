@@ -102,10 +102,12 @@ export function FormNotaMedicaALM({
   const [loadingDiagnosticSearch, setLoadingDiagnosticSearch] = useState(false);
   const [citizenQuery, setCitizenQuery] = useState("");
   const [diagnosticQuery, setDiagnosticQuery] = useState("");
-  const [diagnosticOptions, setDiagnosticOptions] = useState<DiagnosticOption[]>([]);
-  const [selectedDiagnostics, setSelectedDiagnostics] = useState<DiagnosticOption[]>(
-    []
-  );
+  const [diagnosticOptions, setDiagnosticOptions] = useState<
+    DiagnosticOption[]
+  >([]);
+  const [selectedDiagnostics, setSelectedDiagnostics] = useState<
+    DiagnosticOption[]
+  >([]);
   const [doctorFieldLocks, setDoctorFieldLocks] = useState({
     idMedico: false,
     cedula: false,
@@ -193,12 +195,12 @@ export function FormNotaMedicaALM({
 
   const doctorSeleccionado = useMemo(
     () => doctors.find((doctor) => doctor.id === formData.idMedico),
-    [doctors, formData.idMedico]
+    [doctors, formData.idMedico],
   );
 
   const ciudadanoSeleccionado = useMemo(
     () => citizens.find((citizen) => citizen.id === formData.idPersona),
-    [citizens, formData.idPersona]
+    [citizens, formData.idPersona],
   );
 
   const mapCitizen = (citizen: any): CitizenOption | null => {
@@ -240,7 +242,7 @@ export function FormNotaMedicaALM({
     try {
       const response = await request(
         `/alcoholimetria/citizens/getCitizenById/${trimmed}`,
-        "GET"
+        "GET",
       );
 
       const personaArray = Array.isArray((response as any)?.persona)
@@ -301,9 +303,9 @@ export function FormNotaMedicaALM({
     try {
       const response = await request(
         `/sics/catalog/getDiagnosticCatalogByDescription/${encodeURIComponent(
-          trimmed
+          trimmed,
         )}`,
-        "GET"
+        "GET",
       );
 
       const diagnostics = Array.isArray((response as any)?.diagnostics)
@@ -342,13 +344,13 @@ export function FormNotaMedicaALM({
     const selected = diagnosticOptions.find((item) => item.id === diagnosticId);
     if (!selected) return;
     setSelectedDiagnostics((prev) =>
-      prev.some((item) => item.id === selected.id) ? prev : [...prev, selected]
+      prev.some((item) => item.id === selected.id) ? prev : [...prev, selected],
     );
   };
 
   const removeDiagnosticSelection = (diagnosticId: string) => {
     setSelectedDiagnostics((prev) =>
-      prev.filter((item) => item.id !== diagnosticId)
+      prev.filter((item) => item.id !== diagnosticId),
     );
   };
 
@@ -369,13 +371,14 @@ export function FormNotaMedicaALM({
     if (!citizen) return;
     setFormData((prev) => ({
       ...prev,
-      edad: citizen.edad !== undefined ? String(citizen.edad) : prev.edad ?? "",
+      edad:
+        citizen.edad !== undefined ? String(citizen.edad) : (prev.edad ?? ""),
     }));
   }, [citizens, formData.idPersona]);
 
   const handleChange = <K extends keyof NotaMedicaALMFormValues>(
     field: K,
-    value: NotaMedicaALMFormValues[K]
+    value: NotaMedicaALMFormValues[K],
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -407,7 +410,9 @@ export function FormNotaMedicaALM({
       .map((item) => item.descripcion_cie10.trim())
       .filter(Boolean)
       .join(", ");
-    const diagnosticsString = selectedDescriptions ? `${selectedDescriptions}, ` : "";
+    const diagnosticsString = selectedDescriptions
+      ? `${selectedDescriptions}, `
+      : "";
     const descripcionConDiagnosticos = lesionesBase
       ? diagnosticsString
         ? `${lesionesBase}, ${diagnosticsString}`
@@ -637,8 +642,8 @@ export function FormNotaMedicaALM({
                   handleChange(
                     item.key as keyof NotaMedicaALMFormValues,
                     Boolean(
-                      checked
-                    ) as NotaMedicaALMFormValues[keyof NotaMedicaALMFormValues]
+                      checked,
+                    ) as NotaMedicaALMFormValues[keyof NotaMedicaALMFormValues],
                   )
                 }
               />
@@ -657,7 +662,10 @@ export function FormNotaMedicaALM({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Sugerencia de diagnósticos del catálogo (CIE10), selecciona los que sean relevantes</Label>
+            <Label>
+              Sugerencia de diagnósticos del catálogo (CIE10), selecciona los
+              que sean relevantes
+            </Label>
             <div className="flex gap-2">
               <Input
                 value={diagnosticQuery}
@@ -749,7 +757,9 @@ export function FormNotaMedicaALM({
         </Button>
         <Button type="submit" disabled={submitting}>
           <Thermometer className="mr-2 h-4 w-4" />
-          {submitting ? "Guardando..." : "Guardar nota ALM"}
+          {submitting
+            ? "Guardando..."
+            : "Guardar Certificado de integrida fisica"}
         </Button>
       </div>
     </form>

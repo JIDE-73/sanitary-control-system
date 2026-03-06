@@ -23,7 +23,7 @@ export default function NotasMedicasALMPage() {
       try {
         const response = await request(
           "/alcoholimetria/medicalNotes/getMedicalNotes",
-          "GET"
+          "GET",
         );
 
         if (response.status >= 200 && response.status < 300) {
@@ -61,7 +61,7 @@ export default function NotasMedicasALMPage() {
         nota.dependencia.toLowerCase().includes(term) ||
         `${nota.noOficial}`.includes(term) ||
         `${nota.noUnidad}`.includes(term) ||
-        nota.recomendacion_medico.toLowerCase().includes(term)
+        nota.recomendacion_medico.toLowerCase().includes(term),
     );
   }, [search, notas]);
 
@@ -71,17 +71,17 @@ export default function NotasMedicasALMPage() {
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Notas Médicas ALM
+              Certificado de integrida fisica
             </h1>
             <p className="text-muted-foreground">
-              Historial y trazabilidad de notas médicas para ALM
+              Historial y trazabilidad de certificado de integrida fisica
             </p>
           </div>
           <div className="flex gap-2">
             <Link href="/notas-medicas-alm/nueva">
               <Button>
                 <ClipboardPlus className="mr-2 h-4 w-4" />
-                Nueva nota ALM
+                Nuevo Certificado de integrida fisica
               </Button>
             </Link>
           </div>

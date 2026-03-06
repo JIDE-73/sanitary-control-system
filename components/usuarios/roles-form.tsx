@@ -72,7 +72,7 @@ const modulosConfig: ModuleConfig[] = [
   },
   {
     key: "notas_medicas_alm",
-    label: "Notas médicas ALM",
+    label: "Certificado de integrida fisica",
     actions: ["create", "read", "update", "delete"],
   },
   {

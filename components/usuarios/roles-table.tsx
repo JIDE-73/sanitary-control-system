@@ -38,7 +38,7 @@ const MODULE_LABELS: Record<string, string> = {
   lugares_trabajo: "Lugares de trabajo",
   laboratorios: "Laboratorios",
   notas_medicas_cs: "Notas médicas CS",
-  notas_medicas_alm: "Notas médicas ALM",
+  notas_medicas_alm: "Certificado de integrida fisica",
   examenes_cs: "Exámenes CS",
   certificados_alm: "Certificados ALM",
 };
