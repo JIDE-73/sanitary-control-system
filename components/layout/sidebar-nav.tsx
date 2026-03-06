@@ -46,6 +46,7 @@ const navigation = [
     submenu: [
       { name: "Buscar Afiliado", href: "/afiliados" },
       { name: "Nuevo Afiliado", href: "/afiliados/nuevo" },
+      { name: "Historial Clinico", href: "/afiliados/historial-clinico" },
     ],
   },
   {
