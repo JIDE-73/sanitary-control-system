@@ -321,7 +321,7 @@ const initialState: CertificadoFormState = {
   aliento: "",
   hipo: false,
   nauseas: false,
-  vomito: "",
+  vomito: "no",
   signo_romberg: "",
   trastabillea: false,
   cae: false,
@@ -403,7 +403,9 @@ export function FormCertificado({
   const { user } = useAuth();
   const [formData, setFormData] = useState<CertificadoFormState>(initialState);
   const [personaSearch, setPersonaSearch] = useState("");
-  const [citizenOptions, setCitizenOptions] = useState<CitizenLookupOption[]>([]);
+  const [citizenOptions, setCitizenOptions] = useState<CitizenLookupOption[]>(
+    [],
+  );
   const [selectedCitizenOptionId, setSelectedCitizenOptionId] = useState("");
   const [loadingCitizen, setLoadingCitizen] = useState(false);
 
@@ -456,12 +458,12 @@ export function FormCertificado({
 
   const handleInputChange = (
     field: keyof CertificadoFormState,
-    value: string
+    value: string,
   ) => setFormData((prev) => ({ ...prev, [field]: value }));
 
   const handleCheckboxChange = (
     field: keyof CertificadoFormState,
-    checked: boolean | "indeterminate"
+    checked: boolean | "indeterminate",
   ) =>
     setFormData((prev) => {
       const nextChecked = Boolean(checked);
@@ -510,7 +512,7 @@ export function FormCertificado({
     const param = personaSearch.trim();
     if (!param) {
       toast.error(
-        "Ingresa un parámetro para buscar ciudadano (id/curp/nombre)"
+        "Ingresa un parámetro para buscar ciudadano (id/curp/nombre)",
       );
       return;
     }
@@ -519,7 +521,7 @@ export function FormCertificado({
       setLoadingCitizen(true);
       const response = await request(
         `/alcoholimetria/citizens/getCitizenById/${param}`,
-        "GET"
+        "GET",
       );
 
       if (!response?.persona?.length) {
@@ -530,20 +532,22 @@ export function FormCertificado({
         return;
       }
 
-      const options: CitizenLookupOption[] = response.persona.map((persona: any) => ({
-        id: String(persona.id ?? ""),
-        nombreCompleto: [
-          persona.nombre,
-          persona.apellido_paterno,
-          persona.apellido_materno,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .trim(),
-        genero: persona.genero ?? "",
-        direccion: persona.direccion ?? "",
-        fechaNacimiento: persona.fecha_nacimiento ?? "",
-      }));
+      const options: CitizenLookupOption[] = response.persona.map(
+        (persona: any) => ({
+          id: String(persona.id ?? ""),
+          nombreCompleto: [
+            persona.nombre,
+            persona.apellido_paterno,
+            persona.apellido_materno,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .trim(),
+          genero: persona.genero ?? "",
+          direccion: persona.direccion ?? "",
+          fechaNacimiento: persona.fecha_nacimiento ?? "",
+        }),
+      );
 
       setCitizenOptions(options);
 
@@ -574,7 +578,7 @@ export function FormCertificado({
     e.preventDefault();
     const now = getTijuanaDateParts();
     const folio = `SICS-${new Date().getFullYear()}-${String(
-      Math.floor(Math.random() * 100000)
+      Math.floor(Math.random() * 100000),
     ).padStart(5, "0")}`;
 
     const payload: CertificadoFormPayload = {
@@ -610,7 +614,7 @@ export function FormCertificado({
       aliento: formData.aliento,
       hipo: formData.hipo,
       nauseas: formData.nauseas,
-      vomito: formData.vomito,
+      vomito: formData.vomito === "si" ? "si" : "no",
       signo_romberg: formData.signo_romberg,
       trastabillea: formData.trastabillea,
       cae: formData.cae,
@@ -698,7 +702,7 @@ export function FormCertificado({
       formData.medico_id,
       formData.persona_id,
       formData.nombre,
-    ]
+    ],
   );
 
   return (
@@ -706,7 +710,9 @@ export function FormCertificado({
       {/* Header Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">ENCABEZADO DEL CERTIFICADO</CardTitle>
+          <CardTitle className="text-lg text-center">
+            CERTIFICADO MEDICO DE ESCENCIA
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-sm space-y-3">
@@ -746,11 +752,7 @@ export function FormCertificado({
                 max={31}
               />
               <span>del mes de</span>
-              <Input
-                className="w-32"
-                value={formData.mes}
-                readOnly
-              />
+              <Input className="w-32" value={formData.mes} readOnly />
               <span>del año</span>
               <Input
                 className="w-20"
@@ -769,14 +771,22 @@ export function FormCertificado({
                 readOnly
                 placeholder="Nombre del médico"
               />
-              <span>adscrito a la Dirección Municipal de Prevención, Control y Sanidad legalmente autorizado (a) para el ejercicio de la profesión con registro de la Dirección General de Profesiones</span>
+              <span>
+                adscrito a la Dirección Municipal de Prevención, Control y
+                Sanidad legalmente autorizado (a) para el ejercicio de la
+                profesión con registro de la Dirección General de Profesiones
+              </span>
               <Input
                 className="w-40"
                 value={formData.registro_profesiones}
-                onChange={(e) => handleInputChange("registro_profesiones", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("registro_profesiones", e.target.value)
+                }
                 placeholder="Registro"
               />
-              <span>y bajo protesta de conducirse de decir verdad, certifico que:</span>
+              <span>
+                y bajo protesta de conducirse de decir verdad, certifico que:
+              </span>
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 pt-4">
@@ -817,7 +827,9 @@ export function FormCertificado({
                   value={selectedCitizenOptionId}
                   onValueChange={(value) => {
                     setSelectedCitizenOptionId(value);
-                    const selected = citizenOptions.find((option) => option.id === value);
+                    const selected = citizenOptions.find(
+                      (option) => option.id === value,
+                    );
                     if (selected) {
                       applyCitizenToForm(selected);
                     }
@@ -829,7 +841,7 @@ export function FormCertificado({
                   <SelectContent>
                     {citizenOptions.map((option) => (
                       <SelectItem key={option.id} value={option.id}>
-                        {(option.nombreCompleto || "Sin nombre")}
+                        {option.nombreCompleto || "Sin nombre"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -853,7 +865,9 @@ export function FormCertificado({
       {/* DATOS DE IDENTIFICACIÓN DEL PACIENTE */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">DATOS DE IDENTIFICACIÓN DEL PACIENTE</CardTitle>
+          <CardTitle className="text-lg">
+            DATOS DE IDENTIFICACIÓN DEL PACIENTE
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-sm space-y-2">
@@ -949,13 +963,20 @@ export function FormCertificado({
           <div className="grid gap-3 text-sm">
             <div className="flex items-center gap-2 flex-wrap">
               <span>Estado de conciencia</span>
-              <Input
-                className="w-32"
+              <Select
                 value={formData.estado_conciencia}
-                onChange={(e) =>
-                  handleInputChange("estado_conciencia", e.target.value)
+                onValueChange={(value) =>
+                  handleInputChange("estado_conciencia", value)
                 }
-              />
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="conciente">Conciente</SelectItem>
+                  <SelectItem value="inconsiente">Inconsiente</SelectItem>
+                </SelectContent>
+              </Select>
               <span>Excitado</span>
               <Checkbox
                 id="excitado"
@@ -974,7 +995,9 @@ export function FormCertificado({
               <Input
                 className="w-32"
                 value={formData.conjuntivas}
-                onChange={(e) => handleInputChange("conjuntivas", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("conjuntivas", e.target.value)
+                }
               />
               <span>Pupilas</span>
               <Input
@@ -994,9 +1017,10 @@ export function FormCertificado({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="alcoholico">Alcohólico</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="acetona">Acetona</SelectItem>
-                  <SelectItem value="otro">Otro</SelectItem>
+                  <SelectItem value="No carateristico">
+                    No carateristico
+                  </SelectItem>
+                  <SelectItem value="acetonico">Acetonico</SelectItem>
                 </SelectContent>
               </Select>
               <span>Hipo</span>
@@ -1016,10 +1040,12 @@ export function FormCertificado({
                 }
               />
               <span>Vómito</span>
-              <Input
-                className="w-32"
-                value={formData.vomito}
-                onChange={(e) => handleInputChange("vomito", e.target.value)}
+              <Checkbox
+                id="vomito"
+                checked={formData.vomito === "si"}
+                onCheckedChange={(checked) =>
+                  handleInputChange("vomito", checked ? "si" : "no")
+                }
               />
               <span>Signo de romberg</span>
               <Input
@@ -1401,11 +1427,15 @@ export function FormCertificado({
               <Input
                 className="w-20"
                 value={formData.temperatura}
-                onChange={(e) => handleInputChange("temperatura", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("temperatura", e.target.value)
+                }
               />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span>Determinación de alcoholemia (en analizador de aire espirado)</span>
+              <span>
+                Determinación de alcoholemia (en analizador de aire espirado)
+              </span>
               <Input
                 className="w-32"
                 value={formData.determinacion_alcohol}
@@ -1434,7 +1464,8 @@ export function FormCertificado({
         <CardContent className="space-y-4">
           <div className="text-sm">
             <p className="mb-4">
-              Al ciudadano se le interrogó si padecía alguna enfermedad y si estaba bajo tratamiento médico a lo que respondió
+              Al ciudadano se le interrogó si padecía alguna enfermedad y si
+              estaba bajo tratamiento médico a lo que respondió
             </p>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -1483,7 +1514,10 @@ export function FormCertificado({
         <CardContent className="space-y-4">
           <div className="text-sm space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <span>Determinación de alcoholemia (analizador de aire de espirado) Resultado</span>
+              <span>
+                Determinación de alcoholemia (analizador de aire de espirado)
+                Resultado
+              </span>
               <Input
                 className="w-32"
                 value={formData.determinacion_alcohol1}
@@ -1519,7 +1553,9 @@ export function FormCertificado({
                   className="w-20"
                   type="number"
                   value={formData.auto_test}
-                  onChange={(e) => handleInputChange("auto_test", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("auto_test", e.target.value)
+                  }
                 />
               </div>
             </div>
@@ -1530,7 +1566,10 @@ export function FormCertificado({
       {/* EN BASE A LO ANTERIORMENTE EXPUESTO */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">EN BASE A LO ANTERIORMENTE EXPUESTO, EL CIUDADANO PRESENTA UN CUADRO CLÍNICO DE:</CardTitle>
+          <CardTitle className="text-lg">
+            EN BASE A LO ANTERIORMENTE EXPUESTO, EL CIUDADANO PRESENTA UN CUADRO
+            CLÍNICO DE:
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2">
@@ -1554,7 +1593,8 @@ export function FormCertificado({
               }
             />
             <Label htmlFor="estupefacientes" className="text-sm font-normal">
-              Estupefacientes, psicotrópicos u otras substancias tóxicas. Especifique:
+              Estupefacientes, psicotrópicos u otras substancias tóxicas.
+              Especifique:
             </Label>
             <Input
               className="flex-1 min-w-[200px]"
@@ -1577,7 +1617,10 @@ export function FormCertificado({
         <CardContent className="space-y-4">
           <div className="text-sm space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <span>En base a lo anteriormente expuesto el ciudadano presenta un cuadro clínico de</span>
+              <span>
+                En base a lo anteriormente expuesto el ciudadano presenta un
+                cuadro clínico de
+              </span>
               <Input
                 className="flex-1 min-w-[300px]"
                 value={formData.cuadro_clinico}
@@ -1595,7 +1638,10 @@ export function FormCertificado({
                 onChange={(e) => handleInputChange("el_cual", e.target.value)}
                 placeholder="Descripción"
               />
-              <span>perturba o impide su habilidad para conducir un vehículo de motor.</span>
+              <span>
+                perturba o impide su habilidad para conducir un vehículo de
+                motor.
+              </span>
             </div>
           </div>
         </CardContent>
@@ -1604,7 +1650,9 @@ export function FormCertificado({
       {/* DATOS DE IDENTIFICACIÓN DEL SOLICITANTE */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">DATOS DE IDENTIFICACIÓN DEL SOLICITANTE</CardTitle>
+          <CardTitle className="text-lg">
+            DATOS DE IDENTIFICACIÓN DEL SOLICITANTE
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-sm space-y-2">
@@ -1642,7 +1690,9 @@ export function FormCertificado({
               <Input
                 className="flex-1 min-w-[300px]"
                 value={formData.dependencia}
-                onChange={(e) => handleInputChange("dependencia", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("dependencia", e.target.value)
+                }
                 placeholder="Dependencia"
               />
               <span>No. de boleta de infracción</span>
@@ -1655,11 +1705,15 @@ export function FormCertificado({
               />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span>Nombre del Juez municipal que autorizó la certificación Lic.</span>
+              <span>
+                Nombre del Juez municipal que autorizó la certificación Lic.
+              </span>
               <Input
                 className="flex-1 min-w-[300px]"
                 value={formData.nombre_juez}
-                onChange={(e) => handleInputChange("nombre_juez", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("nombre_juez", e.target.value)
+                }
                 placeholder="Nombre del juez"
               />
             </div>
