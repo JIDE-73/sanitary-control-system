@@ -1,5 +1,6 @@
 "use client";
 import {
+  useEffect,
   useState,
   type ChangeEvent,
   type ChangeEventHandler,
@@ -9,10 +10,78 @@ import {
 } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/auth/auth-context";
+import { request } from "@/lib/request";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type SelectOption = {
   id: string;
   nombre: string;
+};
+
+type CatalogResponse = {
+  catalog?: SelectOption[];
+};
+
+type AfiliadoLookup = {
+  persona_id: string;
+  no_Afiliacion?: string;
+  lugar_procedencia?: string;
+  estado_civil?: string;
+  persona?: {
+    id?: string;
+    nombre?: string;
+    apellido_paterno?: string;
+    apellido_materno?: string;
+    fecha_nacimiento?: string;
+    telefono?: string;
+    direccion?: string;
+  };
+};
+
+type HistoriaClinicaRecord = {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  fecha_elaboracion?: string;
+  padecimiento_actual?: string | null;
+  app_medicos?: string | null;
+  app_alergicos?: string | null;
+  imp_diagnostica?: string | null;
+  pronostico?: string | null;
+  tratamiento?: string | null;
+  comentario?: string | null;
+  sv_fc?: string | null;
+  sv_ta?: string | null;
+  sv_fr?: string | null;
+  sv_peso?: string | null;
+  sv_temperatura?: string | null;
+  persona?: {
+    id?: string;
+    nombre?: string;
+    apellido_paterno?: string;
+    apellido_materno?: string;
+    curp?: string;
+    fecha_nacimiento?: string;
+    telefono?: string;
+    direccion?: string;
+  };
+  medico?: {
+    especialidad?: string;
+    cedula_profesional?: string;
+  };
+  estado_civil?: {
+    nombre?: string;
+  };
+  religion?: {
+    nombre?: string;
+  };
 };
 
 type FormChangeEvent = ChangeEvent<
@@ -97,11 +166,161 @@ const RESULTADO_ITS = [
   { id: "No realizada", nombre: "No realizada" },
 ];
 
+const CATALOG_ENDPOINTS = {
+  maritalStatus: "/sics/estado-civil/getAllMaritalStatusCatalog",
+  religions: "/sics/religiones/getAllReligionCatalog",
+  bloodGroups: "/sics/grupos-sanguineos/getAllbloodGroupCatalog",
+  immunizations: "/sics/inmunizaciones/getAllInmmunizactionCatalog",
+  childhoodIllnesses:
+    "/sics/enfermedades-infancia/getAllChildhoodIllnessCatalog",
+  constructionTypes: "/sics/tipos-construccion/getAllconstructionTypeCatalog",
+  contraceptiveMethods:
+    "/sics/metodos-anticonceptivos/getAllContraceptiveMethodCatalog",
+} as const;
+
+const normalizeText = (value?: string | null) =>
+  (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[_\s]+/g, "")
+    .trim();
+
+const findOptionIdByName = (catalog: SelectOption[], name?: string | null) => {
+  const normalized = normalizeText(name);
+  if (!normalized) return "";
+  const match = catalog.find(
+    (item) => normalizeText(item.nombre) === normalized,
+  );
+  return match?.id ?? "";
+};
+
+const toIsoDate = (value: string) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+const toNullableNumber = (value: string) => {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseBooleanFromText = (value: string) => {
+  const normalized = normalizeText(value);
+  return ["si", "sí", "true", "1", "propia"].includes(normalized);
+};
+
+const extractRecordsArray = (response: unknown): HistoriaClinicaRecord[] => {
+  if (!response || typeof response !== "object") {
+    return [];
+  }
+
+  const record = response as Record<string, unknown>;
+  if (Array.isArray(record.records)) {
+    return record.records as HistoriaClinicaRecord[];
+  }
+
+  if (record.records && typeof record.records === "object") {
+    const recordsObj = record.records as Record<string, unknown>;
+    const numericKeys = Object.keys(recordsObj).filter((key) =>
+      /^\d+$/.test(key),
+    );
+    if (numericKeys.length > 0) {
+      return numericKeys
+        .sort((a, b) => Number(a) - Number(b))
+        .map((key) => recordsObj[key])
+        .filter((item): item is HistoriaClinicaRecord =>
+          Boolean(item && typeof item === "object"),
+        );
+    }
+  }
+
+  return [];
+};
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+};
+
+const formatValue = (value?: string | null) => {
+  const text = (value ?? "").toString().trim();
+  return text || "No registrado";
+};
+
+const buildFullName = (record: HistoriaClinicaRecord) => {
+  return (
+    [
+      record.persona?.nombre,
+      record.persona?.apellido_paterno,
+      record.persona?.apellido_materno,
+    ]
+      .filter(Boolean)
+      .join(" ") || "-"
+  );
+};
+
+const toInputString = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+  return String(value);
+};
+
+const toDateInputValue = (value?: string | null) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toISOString().slice(0, 10);
+  }
+  return value.slice(0, 10);
+};
+
+const extractAffiliateArray = (response: unknown): AfiliadoLookup[] => {
+  if (Array.isArray(response)) {
+    return response as AfiliadoLookup[];
+  }
+
+  if (!response || typeof response !== "object") {
+    return [];
+  }
+
+  const record = response as Record<string, unknown>;
+
+  if (Array.isArray(record.data)) {
+    return record.data as AfiliadoLookup[];
+  }
+
+  const numericKeys = Object.keys(record).filter((key) => /^\d+$/.test(key));
+  if (numericKeys.length > 0) {
+    return numericKeys
+      .sort((a, b) => Number(a) - Number(b))
+      .map((key) => record[key])
+      .filter((item): item is AfiliadoLookup =>
+        Boolean(item && typeof item === "object"),
+      );
+  }
+
+  if ("persona_id" in record) {
+    return [record as AfiliadoLookup];
+  }
+
+  return [];
+};
+
 interface FInputProps {
   value: string;
   onChange: ChangeEventHandler<HTMLInputElement>;
   type?: string;
   placeholder?: string;
+  readOnly?: boolean;
+  disabled?: boolean;
+  className?: string;
 }
 
 function FInput({
@@ -109,6 +328,9 @@ function FInput({
   onChange,
   type = "text",
   placeholder = "",
+  readOnly = false,
+  disabled = false,
+  className,
 }: FInputProps) {
   return (
     <input
@@ -116,7 +338,12 @@ function FInput({
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+      readOnly={readOnly}
+      disabled={disabled}
+      className={cn(
+        "h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary disabled:cursor-not-allowed disabled:opacity-70",
+        className,
+      )}
     />
   );
 }
@@ -150,6 +377,8 @@ interface FSelectProps {
   onChange: ChangeEventHandler<HTMLSelectElement>;
   options: SelectOption[];
   placeholder?: string;
+  disabled?: boolean;
+  className?: string;
 }
 
 function FSelect({
@@ -157,12 +386,18 @@ function FSelect({
   onChange,
   options,
   placeholder = "Seleccionar...",
+  disabled = false,
+  className,
 }: FSelectProps) {
   return (
     <select
       value={value}
       onChange={onChange}
-      className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
+      disabled={disabled}
+      className={cn(
+        "h-10 w-full cursor-pointer rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-primary disabled:cursor-not-allowed disabled:opacity-70",
+        className,
+      )}
     >
       <option value="">{placeholder}</option>
       {options.map((o) => (
@@ -308,9 +543,67 @@ function SystemRow({ label, hint, value, onChange }: SystemRowProps) {
   );
 }
 
+function DetailItem({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
+  return (
+    <div className="space-y-1 rounded-md border border-border/70 bg-muted/30 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-sm text-foreground">{formatValue(value)}</p>
+    </div>
+  );
+}
+
 export default function HistoriaClinica() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [flowStep, setFlowStep] = useState<1 | 2>(1);
+  const [records, setRecords] = useState<HistoriaClinicaRecord[]>([]);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] =
+    useState<HistoriaClinicaRecord | null>(null);
+  const [editingRecord, setEditingRecord] =
+    useState<HistoriaClinicaRecord | null>(null);
+
   const [step, setStep] = useState(1);
   const [visited, setVisited] = useState<Set<number>>(new Set([1]));
+  const [saving, setSaving] = useState(false);
+  const [loadingCatalogs, setLoadingCatalogs] = useState(false);
+  const [searchingAfiliado, setSearchingAfiliado] = useState(false);
+
+  const [affiliateQuery, setAffiliateQuery] = useState("");
+  const [affiliateResults, setAffiliateResults] = useState<AfiliadoLookup[]>(
+    [],
+  );
+  const [selectedAffiliateId, setSelectedAffiliateId] = useState("");
+
+  const [maritalStatusCatalog, setMaritalStatusCatalog] = useState<
+    SelectOption[]
+  >([]);
+  const [religionCatalog, setReligionCatalog] = useState<SelectOption[]>([]);
+  const [bloodGroupCatalog, setBloodGroupCatalog] = useState<SelectOption[]>(
+    [],
+  );
+  const [immunizationCatalog, setImmunizationCatalog] = useState<
+    SelectOption[]
+  >([]);
+  const [childhoodIllnessCatalog, setChildhoodIllnessCatalog] = useState<
+    SelectOption[]
+  >([]);
+  const [constructionTypeCatalog, setConstructionTypeCatalog] = useState<
+    SelectOption[]
+  >([]);
+  const [contraceptiveMethodCatalog, setContraceptiveMethodCatalog] = useState<
+    SelectOption[]
+  >([]);
 
   // Step 1
   const [nombre, setNombre] = useState("");
@@ -442,16 +735,728 @@ export default function HistoriaClinica() {
   const [tratamiento, setTratamiento] = useState("");
   const [medico, setMedico] = useState("");
 
+  const selectedAffiliate = affiliateResults.find(
+    (item) => item.persona_id === selectedAffiliateId,
+  );
+
+  const medicoId = (() => {
+    const medico = user?.persona?.Medico;
+    if (!medico) return "";
+    if (Array.isArray(medico)) {
+      const first = medico[0] as { id?: string } | undefined;
+      return first?.id ?? "";
+    }
+    if (typeof medico === "object" && medico !== null) {
+      return String((medico as { id?: string }).id ?? "");
+    }
+    return "";
+  })();
+
+  const loadHistoriaRecords = async () => {
+    setLoadingRecords(true);
+    try {
+      const response = await request(
+        "/sics/record/getAllHistoriaClinica",
+        "GET",
+      );
+      const parsed = extractRecordsArray(response);
+      setRecords(parsed);
+    } catch (error) {
+      console.error("Error cargando expedientes clínicos", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar el listado de historias clínicas.",
+        variant: "destructive",
+      });
+      setRecords([]);
+    } finally {
+      setLoadingRecords(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistoriaRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const loadCatalogs = async () => {
+      setLoadingCatalogs(true);
+      try {
+        const [
+          maritalRes,
+          religionRes,
+          bloodRes,
+          immunizationRes,
+          childhoodRes,
+          constructionRes,
+          contraceptiveRes,
+        ] = await Promise.all([
+          request(CATALOG_ENDPOINTS.maritalStatus, "GET"),
+          request(CATALOG_ENDPOINTS.religions, "GET"),
+          request(CATALOG_ENDPOINTS.bloodGroups, "GET"),
+          request(CATALOG_ENDPOINTS.immunizations, "GET"),
+          request(CATALOG_ENDPOINTS.childhoodIllnesses, "GET"),
+          request(CATALOG_ENDPOINTS.constructionTypes, "GET"),
+          request(CATALOG_ENDPOINTS.contraceptiveMethods, "GET"),
+        ]);
+
+        setMaritalStatusCatalog((maritalRes as CatalogResponse).catalog ?? []);
+        setReligionCatalog((religionRes as CatalogResponse).catalog ?? []);
+        setBloodGroupCatalog((bloodRes as CatalogResponse).catalog ?? []);
+        setImmunizationCatalog(
+          (immunizationRes as CatalogResponse).catalog ?? [],
+        );
+        setChildhoodIllnessCatalog(
+          (childhoodRes as CatalogResponse).catalog ?? [],
+        );
+        setConstructionTypeCatalog(
+          (constructionRes as CatalogResponse).catalog ?? [],
+        );
+        setContraceptiveMethodCatalog(
+          (contraceptiveRes as CatalogResponse).catalog ?? [],
+        );
+      } catch (error) {
+        console.error("Error cargando catálogos de historia clínica", error);
+        toast({
+          title: "Error",
+          description:
+            "No se pudieron cargar todos los catálogos del formulario.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingCatalogs(false);
+      }
+    };
+
+    loadCatalogs();
+  }, [toast]);
+
+  useEffect(() => {
+    if (!selectedAffiliate) return;
+
+    const nombreCompleto = [
+      selectedAffiliate.persona?.nombre,
+      selectedAffiliate.persona?.apellido_paterno,
+      selectedAffiliate.persona?.apellido_materno,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    setNombre(nombreCompleto);
+    setDomicilio(selectedAffiliate.persona?.direccion ?? "");
+    setTelefono(selectedAffiliate.persona?.telefono ?? "");
+    setFechaNac(
+      selectedAffiliate.persona?.fecha_nacimiento?.slice(0, 10) ?? "",
+    );
+    setLugarNac(selectedAffiliate.lugar_procedencia ?? "");
+
+    const maritalId = findOptionIdByName(
+      maritalStatusCatalog,
+      selectedAffiliate.estado_civil,
+    );
+    if (maritalId) {
+      setEstadoCivil(maritalId);
+    }
+  }, [selectedAffiliate, maritalStatusCatalog]);
+
   const pct = Math.round((visited.size / STEPS.length) * 100);
   const goTo = (n: number) => {
     setVisited((v) => new Set([...v, n]));
     setStep(n);
   };
 
+  const handleSearchAffiliate = async () => {
+    const query = affiliateQuery.trim();
+    if (!query) {
+      toast({
+        title: "Dato faltante",
+        description: "Captura un dato para buscar afiliado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSearchingAfiliado(true);
+    try {
+      const response = await request(
+        `/sics/affiliates/getAffiliateById/${query}`,
+        "GET",
+      );
+
+      const afiliados = extractAffiliateArray(response).filter(
+        (item): item is AfiliadoLookup => Boolean(item?.persona_id),
+      );
+
+      setAffiliateResults(afiliados);
+      if (afiliados.length === 1) {
+        setSelectedAffiliateId(afiliados[0].persona_id);
+      } else {
+        setSelectedAffiliateId("");
+      }
+
+      if (!afiliados.length) {
+        toast({
+          title: "Sin resultados",
+          description: "No se encontró afiliado con ese criterio.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error buscando afiliado", error);
+      toast({
+        title: "Error",
+        description: "No se pudo consultar el afiliado.",
+        variant: "destructive",
+      });
+    } finally {
+      setSearchingAfiliado(false);
+    }
+  };
+
+  const handleSubmitHistoria = async () => {
+    const recordData = (editingRecord ?? {}) as Record<string, unknown>;
+    const targetPersonaId =
+      toInputString(recordData.persona_id) ||
+      selectedAffiliate?.persona_id ||
+      "";
+
+    if (!targetPersonaId) {
+      toast({
+        title: "Falta afiliado",
+        description: "Debes buscar y seleccionar un afiliado antes de guardar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const targetMedicoId = toInputString(recordData.medico_id) || medicoId;
+
+    if (!targetMedicoId) {
+      toast({
+        title: "Falta médico",
+        description: "No se encontró el médico asociado al usuario actual.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!estadoCivil || !religion) {
+      toast({
+        title: "Campos requeridos",
+        description: "Selecciona Estado civil y Religión para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const payload = {
+      persona_id: targetPersonaId,
+      medico_id: targetMedicoId,
+      estado_civil_id: estadoCivil,
+      religion_id: religion,
+      fecha_elaboracion: toIsoDate(fechaElab) ?? new Date().toISOString(),
+      ahf_neoplasticos: ahf.neoplasticos,
+      ahf_diabetes: ahf.diabetes,
+      ahf_inmunologicos: ahf.inmunologicos,
+      ahf_hipertension: ahf.hipertension,
+      ahf_neurologicos: ahf.neurologicos,
+      ahf_farmaco_depend: ahf.farmacoDep,
+      ahf_psiquiatricos: ahf.psiquiatricos,
+      ahf_cardiologicos: ahf.cardiologicos,
+      apnp_alimentacion: apnp.alimentacion,
+      apnp_tipo_construccion_id: apnp.casaTipo || null,
+      apnp_propia: parseBooleanFromText(apnp.propia),
+      apnp_no_cuartos: toNullableNumber(apnp.cuartos),
+      apnp_no_habitantes: toNullableNumber(apnp.habitantes),
+      apnp_servicios: apnp.servicios,
+      apnp_electricidad: apnp.electricidad,
+      apnp_gas: apnp.gas,
+      apnp_drenaje: apnp.drenaje,
+      apnp_agua: apnp.agua,
+      apnp_zoonosis: apnp.zoonosis,
+      apnp_inmunizacion_id: apnp.inmunizaciones || null,
+      apnp_tabaquismo: apnp.tabaquismo,
+      apnp_alcoholismo: apnp.alcoholismo,
+      apnp_adiccion_id: null,
+      app_enfermedad_infancia_id: app.infancia || null,
+      app_quirurgicos: app.quirurgicos,
+      app_medicos: app.medicos,
+      app_hospitalizaciones: app.hospitalizaciones,
+      app_transfusionales: app.transfusionales,
+      app_alergicos: app.alergicos,
+      ago_menarca: ago.menarca,
+      ago_ritmo: ago.ritmo,
+      ago_tipo: ago.tipo,
+      ago_telarca: ago.telarca,
+      ago_pubarca: ago.pubarca,
+      ago_ivsa: ago.ivsa,
+      ago_no_parejas: toNullableNumber(ago.parejas),
+      ago_gestas: toNullableNumber(ago.g),
+      ago_partos: toNullableNumber(ago.p),
+      ago_abortos: toNullableNumber(ago.a),
+      ago_cesareas: toNullableNumber(ago.c),
+      ago_hijos_vivos: toNullableNumber(ago.hijosVivos),
+      ago_partos_pretermino: toNullableNumber(ago.partosPre),
+      ago_macrosomias: toNullableNumber(ago.macrosomias),
+      ago_embarazos_multiples: toNullableNumber(ago.embarMultiples),
+      ago_fum: ago.fum || null,
+      ago_fpp: ago.fpp || null,
+      ago_lactorrea: ago.lactorrea,
+      ago_dispareunia: ago.dispareunia,
+      ago_metodo_anticonceptivo_id: ago.metodoAnticoncep || null,
+      ago_muertes_perinatales: toNullableNumber(ago.muertesPerinatal),
+      ago_ultimo_papanicolau: toIsoDate(ago.ultimoPap),
+      ...(ago.grupoP ? { ago_grupo_sanguineo_paciente_id: ago.grupoP } : {}),
+      ...(ago.grupoPar ? { ago_grupo_sanguineo_pareja_id: ago.grupoPar } : {}),
+      padecimiento_actual: padActual,
+      ias_digestivo: sis.digestivo,
+      ias_cardiovascular: sis.cardiovascular,
+      ias_respiratorio: sis.respiratorio,
+      ias_urinario: sis.urinario,
+      ias_genital: sis.genital,
+      ias_hematologico: sis.hematologico,
+      ias_endocrino: sis.endocrino,
+      ias_osteomuscular: sis.osteomuscular,
+      ias_nervioso: sis.nervioso,
+      ias_sensorial: sis.sensorial,
+      ias_psicosomatico: sis.psicosomatico,
+      diagnosticos_anteriores: diagAnt,
+      terapeutica_anterior: terapeutica,
+      sv_fc: sv.fc,
+      sv_ta: sv.ta,
+      sv_fr: sv.fr,
+      sv_peso: sv.peso,
+      sv_temperatura: sv.temp,
+      exploracion_general: expl.general,
+      exploracion_cabeza: expl.cabeza,
+      exploracion_cuello: expl.cuello,
+      exploracion_torax: expl.torax,
+      exploracion_abdomen: expl.abdomen,
+      exploracion_miembros: expl.miembros,
+      exploracion_genitales: expl.genitales,
+      imp_diagnostica: impDx,
+      pronostico,
+      tratamiento,
+      comentario,
+    };
+
+    setSaving(true);
+    try {
+      const endpoint = editingRecord
+        ? "/sics/record/updateHistoriaClinica"
+        : "/sics/record/createHistoriaClinica";
+      const method = editingRecord ? "PUT" : "POST";
+
+      const response = await request(endpoint, method, payload);
+
+      if (response?.status >= 200 && response?.status < 300) {
+        toast({
+          title: editingRecord
+            ? "Historia clínica actualizada"
+            : "Historia clínica guardada",
+          description: editingRecord
+            ? "La información se actualizó correctamente."
+            : "La información se guardó correctamente.",
+        });
+        await loadHistoriaRecords();
+        setFlowStep(1);
+        setStep(1);
+        setEditingRecord(null);
+      } else {
+        toast({
+          title: "No se pudo guardar",
+          description:
+            response?.message ??
+            "El servidor no aceptó la información enviada.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error al crear historia clínica", error);
+      toast({
+        title: "Error",
+        description: "Ocurrió un error al guardar la historia clínica.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openRecordDetail = (record: HistoriaClinicaRecord) => {
+    setSelectedRecord(record);
+    setDetailOpen(true);
+  };
+
+  const startEditRecord = (record: HistoriaClinicaRecord) => {
+    const data = record as Record<string, unknown>;
+
+    setEditingRecord(record);
+    setDetailOpen(false);
+    setFlowStep(2);
+    setStep(1);
+    setVisited(new Set([1]));
+
+    setNombre(buildFullName(record));
+    setDomicilio(record.persona?.direccion ?? "");
+    setFechaNac(toDateInputValue(record.persona?.fecha_nacimiento));
+    setLugarNac(toInputString(data.lugar_procedencia));
+    setEstadoCivil(toInputString(data.estado_civil_id));
+    setReligion(toInputString(data.religion_id));
+    setTelefono(record.persona?.telefono ?? "");
+    setFechaElab(toDateInputValue(record.fecha_elaboracion));
+
+    setAhf({
+      neoplasticos: toInputString(data.ahf_neoplasticos),
+      diabetes: toInputString(data.ahf_diabetes),
+      inmunologicos: toInputString(data.ahf_inmunologicos),
+      hipertension: toInputString(data.ahf_hipertension),
+      neurologicos: toInputString(data.ahf_neurologicos),
+      farmacoDep: toInputString(data.ahf_farmaco_depend),
+      psiquiatricos: toInputString(data.ahf_psiquiatricos),
+      cardiologicos: toInputString(data.ahf_cardiologicos),
+    });
+
+    setApnp({
+      alimentacion: toInputString(data.apnp_alimentacion),
+      casaTipo: toInputString(data.apnp_tipo_construccion_id),
+      propia: toInputString(data.apnp_propia),
+      cuartos: toInputString(data.apnp_no_cuartos),
+      habitantes: toInputString(data.apnp_no_habitantes),
+      servicios: toInputString(data.apnp_servicios),
+      electricidad: toInputString(data.apnp_electricidad),
+      gas: toInputString(data.apnp_gas),
+      drenaje: toInputString(data.apnp_drenaje),
+      agua: toInputString(data.apnp_agua),
+      zoonosis: toInputString(data.apnp_zoonosis),
+      inmunizaciones: toInputString(data.apnp_inmunizacion_id),
+      tabaquismo: toInputString(data.apnp_tabaquismo),
+      alcoholismo: toInputString(data.apnp_alcoholismo),
+      taxicomanias: toInputString(data.apnp_adiccion_id),
+    });
+
+    setApp({
+      infancia: toInputString(data.app_enfermedad_infancia_id),
+      quirurgicos: toInputString(data.app_quirurgicos),
+      medicos: toInputString(data.app_medicos),
+      hospitalizaciones: toInputString(data.app_hospitalizaciones),
+      transfusionales: toInputString(data.app_transfusionales),
+      alergicos: toInputString(data.app_alergicos),
+    });
+
+    setAgo({
+      menarca: toInputString(data.ago_menarca),
+      ritmo: toInputString(data.ago_ritmo),
+      tipo: toInputString(data.ago_tipo),
+      telarca: toInputString(data.ago_telarca),
+      pubarca: toInputString(data.ago_pubarca),
+      ivsa: toInputString(data.ago_ivsa),
+      parejas: toInputString(data.ago_no_parejas),
+      g: toInputString(data.ago_gestas),
+      p: toInputString(data.ago_partos),
+      a: toInputString(data.ago_abortos),
+      c: toInputString(data.ago_cesareas),
+      hijosVivos: toInputString(data.ago_hijos_vivos),
+      partosPre: toInputString(data.ago_partos_pretermino),
+      macrosomias: toInputString(data.ago_macrosomias),
+      embarMultiples: toInputString(data.ago_embarazos_multiples),
+      fum: toDateInputValue(toInputString(data.ago_fum)),
+      fpp: toDateInputValue(toInputString(data.ago_fpp)),
+      lactorrea: toInputString(data.ago_lactorrea),
+      dispareunia: toInputString(data.ago_dispareunia),
+      metodoAnticoncep: toInputString(data.ago_metodo_anticonceptivo_id),
+      muertesPerinatal: toInputString(data.ago_muertes_perinatales),
+      ultimoPap: toDateInputValue(toInputString(data.ago_ultimo_papanicolau)),
+      grupoP: toInputString(data.ago_grupo_sanguineo_paciente_id),
+      grupoPar: toInputString(data.ago_grupo_sanguineo_pareja_id),
+    });
+
+    setPadActual(toInputString(data.padecimiento_actual));
+    setSis({
+      digestivo: toInputString(data.ias_digestivo),
+      cardiovascular: toInputString(data.ias_cardiovascular),
+      respiratorio: toInputString(data.ias_respiratorio),
+      urinario: toInputString(data.ias_urinario),
+      genital: toInputString(data.ias_genital),
+      hematologico: toInputString(data.ias_hematologico),
+      endocrino: toInputString(data.ias_endocrino),
+      osteomuscular: toInputString(data.ias_osteomuscular),
+      nervioso: toInputString(data.ias_nervioso),
+      sensorial: toInputString(data.ias_sensorial),
+      psicosomatico: toInputString(data.ias_psicosomatico),
+    });
+
+    setDiagAnt(toInputString(data.diagnosticos_anteriores));
+    setTerapeutica(toInputString(data.terapeutica_anterior));
+    setSv({
+      fc: toInputString(data.sv_fc),
+      ta: toInputString(data.sv_ta),
+      fr: toInputString(data.sv_fr),
+      peso: toInputString(data.sv_peso),
+      temp: toInputString(data.sv_temperatura),
+    });
+    setExpl({
+      general: toInputString(data.exploracion_general),
+      cabeza: toInputString(data.exploracion_cabeza),
+      cuello: toInputString(data.exploracion_cuello),
+      torax: toInputString(data.exploracion_torax),
+      abdomen: toInputString(data.exploracion_abdomen),
+      miembros: toInputString(data.exploracion_miembros),
+      genitales: toInputString(data.exploracion_genitales),
+    });
+    setImpDx(toInputString(data.imp_diagnostica));
+    setPronostico(toInputString(data.pronostico));
+    setTratamiento(toInputString(data.tratamiento));
+    setComentario(toInputString(data.comentario));
+  };
+
+  if (flowStep === 1) {
+    return (
+      <MainLayout>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">
+                Historias Clínicas
+              </h1>
+              <p className="text-muted-foreground">
+                Listado de expedientes clínicos registrados
+                {records.length ? ` (${records.length})` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingRecord(null);
+                setFlowStep(2);
+              }}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Nueva Historia Clínica
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-225 text-sm">
+                <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3">Fecha</th>
+                    <th className="px-4 py-3">Afiliado</th>
+                    <th className="px-4 py-3">CURP</th>
+                    <th className="px-4 py-3">Estado Civil</th>
+                    <th className="px-4 py-3">Religión</th>
+                    <th className="px-4 py-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingRecords ? (
+                    <tr>
+                      <td
+                        className="px-4 py-8 text-center text-muted-foreground"
+                        colSpan={6}
+                      >
+                        Cargando expedientes...
+                      </td>
+                    </tr>
+                  ) : records.length === 0 ? (
+                    <tr>
+                      <td
+                        className="px-4 py-8 text-center text-muted-foreground"
+                        colSpan={6}
+                      >
+                        No hay historias clínicas registradas.
+                      </td>
+                    </tr>
+                  ) : (
+                    records.map((item) => (
+                      <tr
+                        key={item.id}
+                        className="border-b border-border/70 last:border-b-0"
+                      >
+                        <td className="px-4 py-3">
+                          {formatDateTime(
+                            item.fecha_elaboracion ?? item.createdAt,
+                          )}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          {buildFullName(item)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.persona?.curp ?? "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.estado_civil?.nombre ?? "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.religion?.nombre ?? "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openRecordDetail(item)}
+                              className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                            >
+                              Ver detalle
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startEditRecord(item)}
+                              className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                            >
+                              Editar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Detalle de Historia Clínica</DialogTitle>
+              </DialogHeader>
+
+              {selectedRecord && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-border bg-muted/20 p-4">
+                    <p className="text-lg font-semibold text-foreground">
+                      {buildFullName(selectedRecord)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      CURP: {selectedRecord.persona?.curp ?? "-"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Fecha elaboración:{" "}
+                      {formatDateTime(selectedRecord.fecha_elaboracion)}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <DetailItem
+                      label="Estado civil"
+                      value={selectedRecord.estado_civil?.nombre}
+                    />
+                    <DetailItem
+                      label="Religión"
+                      value={selectedRecord.religion?.nombre}
+                    />
+                    <DetailItem
+                      label="Fecha de nacimiento"
+                      value={formatDateTime(
+                        selectedRecord.persona?.fecha_nacimiento,
+                      )}
+                    />
+                    <DetailItem
+                      label="Teléfono"
+                      value={selectedRecord.persona?.telefono}
+                    />
+                    <DetailItem
+                      label="Dirección"
+                      value={selectedRecord.persona?.direccion}
+                    />
+                    <DetailItem
+                      label="Especialidad médico"
+                      value={selectedRecord.medico?.especialidad}
+                    />
+                    <DetailItem
+                      label="Cédula profesional"
+                      value={selectedRecord.medico?.cedula_profesional}
+                    />
+                    <DetailItem
+                      label="Padecimiento actual"
+                      value={selectedRecord.padecimiento_actual}
+                    />
+                    <DetailItem
+                      label="Antecedentes médicos"
+                      value={selectedRecord.app_medicos}
+                    />
+                    <DetailItem
+                      label="Alergias"
+                      value={selectedRecord.app_alergicos}
+                    />
+                    <DetailItem
+                      label="Impresión diagnóstica"
+                      value={selectedRecord.imp_diagnostica}
+                    />
+                    <DetailItem
+                      label="Pronóstico"
+                      value={selectedRecord.pronostico}
+                    />
+                    <DetailItem
+                      label="Tratamiento"
+                      value={selectedRecord.tratamiento}
+                    />
+                    <DetailItem
+                      label="Comentario"
+                      value={selectedRecord.comentario}
+                    />
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <p className="mb-3 text-sm font-semibold text-foreground">
+                      Signos vitales
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                      <DetailItem label="FC" value={selectedRecord.sv_fc} />
+                      <DetailItem label="TA" value={selectedRecord.sv_ta} />
+                      <DetailItem label="FR" value={selectedRecord.sv_fr} />
+                      <DetailItem label="Peso" value={selectedRecord.sv_peso} />
+                      <DetailItem
+                        label="Temperatura"
+                        value={selectedRecord.sv_temperatura}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground">
+                    <p>Creado: {formatDateTime(selectedRecord.createdAt)}</p>
+                    <p>
+                      Actualizado: {formatDateTime(selectedRecord.updatedAt)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => startEditRecord(selectedRecord)}
+                      className="mt-2 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                    >
+                      Editar este expediente
+                    </button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="rounded-xl bg-muted/35 p-2.5">
         <div className="mx-auto w-full max-w-7xl px-3 py-3 md:px-4">
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setFlowStep(1)}
+              className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              ← Volver al listado
+            </button>
+            {editingRecord && (
+              <span className="ml-3 inline-flex rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                Modo edicion activo
+              </span>
+            )}
+          </div>
+
           {/* Header */}
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
@@ -546,6 +1551,52 @@ export default function HistoriaClinica() {
           {/* ═══ STEP 1 ═══ */}
           {step === 1 && (
             <>
+              <SectionCard title="Vincular Afiliado" badge="Requerido">
+                <Grid cols={2} gap={12}>
+                  <Field
+                    label="Búsqueda de Afiliado"
+                    hint="Usa número de afiliación, CURP o nombre para consultar."
+                    span={2}
+                  >
+                    <div className="flex flex-col gap-2 md:flex-row">
+                      <FInput
+                        value={affiliateQuery}
+                        onChange={(e) => setAffiliateQuery(e.target.value)}
+                        placeholder="Ej. 26090002 o JIDL000712ZZZZZZZZ"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSearchAffiliate}
+                        disabled={searchingAfiliado}
+                        className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        {searchingAfiliado ? "Buscando..." : "Buscar"}
+                      </button>
+                    </div>
+                  </Field>
+
+                  {!!affiliateResults.length && (
+                    <Field label="Resultado de Afiliado" span={2}>
+                      <FSelect
+                        value={selectedAffiliateId}
+                        onChange={(e) => setSelectedAffiliateId(e.target.value)}
+                        options={affiliateResults.map((item) => ({
+                          id: item.persona_id,
+                          nombre: `${item.no_Afiliacion ?? "SIN-NUM"} - ${[
+                            item.persona?.nombre,
+                            item.persona?.apellido_paterno,
+                            item.persona?.apellido_materno,
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}`,
+                        }))}
+                        placeholder="Selecciona un afiliado"
+                      />
+                    </Field>
+                  )}
+                </Grid>
+              </SectionCard>
+
               <SectionCard title="Datos Personales">
                 <Grid cols={1} gap={12}>
                   <Field label="Nombre">
@@ -553,6 +1604,8 @@ export default function HistoriaClinica() {
                       value={nombre}
                       onChange={(e) => setNombre(e.target.value)}
                       placeholder="Nombre completo"
+                      readOnly={Boolean(selectedAffiliate)}
+                      className={selectedAffiliate ? "bg-muted/50" : undefined}
                     />
                   </Field>
                   <Field label="Domicilio">
@@ -560,6 +1613,8 @@ export default function HistoriaClinica() {
                       value={domicilio}
                       onChange={(e) => setDomicilio(e.target.value)}
                       placeholder="Calle, número, colonia, ciudad"
+                      readOnly={Boolean(selectedAffiliate)}
+                      className={selectedAffiliate ? "bg-muted/50" : undefined}
                     />
                   </Field>
                 </Grid>
@@ -570,6 +1625,8 @@ export default function HistoriaClinica() {
                       type="date"
                       value={fechaNac}
                       onChange={(e) => setFechaNac(e.target.value)}
+                      readOnly={Boolean(selectedAffiliate)}
+                      className={selectedAffiliate ? "bg-muted/50" : undefined}
                     />
                   </Field>
                   <Field label="Lugar de Nacimiento">
@@ -577,13 +1634,16 @@ export default function HistoriaClinica() {
                       value={lugarNac}
                       onChange={(e) => setLugarNac(e.target.value)}
                       placeholder="Ciudad, Estado"
+                      readOnly={Boolean(selectedAffiliate)}
+                      className={selectedAffiliate ? "bg-muted/50" : undefined}
                     />
                   </Field>
                   <Field label="Estado Civil">
                     <FSelect
                       value={estadoCivil}
                       onChange={(e) => setEstadoCivil(e.target.value)}
-                      options={CAT.estadosCiviles}
+                      options={maritalStatusCatalog}
+                      disabled={loadingCatalogs || Boolean(selectedAffiliate)}
                     />
                   </Field>
                   <Field label="Ocupación">
@@ -597,7 +1657,8 @@ export default function HistoriaClinica() {
                     <FSelect
                       value={religion}
                       onChange={(e) => setReligion(e.target.value)}
-                      options={CAT.religiones}
+                      options={religionCatalog}
+                      disabled={loadingCatalogs}
                     />
                   </Field>
                   <Field label="Teléfono">
@@ -606,6 +1667,8 @@ export default function HistoriaClinica() {
                       value={telefono}
                       onChange={(e) => setTelefono(e.target.value)}
                       placeholder="664-000-0000"
+                      readOnly={Boolean(selectedAffiliate)}
+                      className={selectedAffiliate ? "bg-muted/50" : undefined}
                     />
                   </Field>
                   <Field label="Fecha de Elaboración">
@@ -789,10 +1852,12 @@ export default function HistoriaClinica() {
                   />
                 </Field>
                 <Field label="Casa (tipo de construcción)" span={2}>
-                  <FInput
+                  <FSelect
                     value={apnp.casaTipo}
                     onChange={updApnp("casaTipo")}
-                    placeholder="Material, madera, mixta, lámina..."
+                    options={constructionTypeCatalog}
+                    placeholder="Seleccionar tipo de construcción"
+                    disabled={loadingCatalogs}
                   />
                 </Field>
                 <Field label="Propia">
@@ -861,10 +1926,12 @@ export default function HistoriaClinica() {
                   />
                 </Field>
                 <Field label="Inmunizaciones">
-                  <FInput
+                  <FSelect
                     value={apnp.inmunizaciones}
                     onChange={updApnp("inmunizaciones")}
-                    placeholder="Esquema de vacunación"
+                    options={immunizationCatalog}
+                    placeholder="Seleccionar inmunización"
+                    disabled={loadingCatalogs}
                   />
                 </Field>
                 <Field label="Tabaquismo">
@@ -897,10 +1964,12 @@ export default function HistoriaClinica() {
             <SectionCard title="Antecedentes Personales Patológicos (APP)">
               <Grid cols={2} gap={12}>
                 <Field label="Enfermedades de la infancia" span={2}>
-                  <FInput
+                  <FSelect
                     value={app.infancia}
                     onChange={updApp("infancia")}
-                    placeholder="Sarampión, varicela, parotiditis, rubéola..."
+                    options={childhoodIllnessCatalog}
+                    placeholder="Seleccionar enfermedad"
+                    disabled={loadingCatalogs}
                   />
                 </Field>
                 <Field label="Quirúrgicos">
@@ -1097,7 +2166,8 @@ export default function HistoriaClinica() {
                   <FSelect
                     value={ago.metodoAnticoncep}
                     onChange={updAgo("metodoAnticoncep")}
-                    options={CAT.metodosAnticonceptivos}
+                    options={contraceptiveMethodCatalog}
+                    disabled={loadingCatalogs}
                   />
                 </Field>
                 <Field label="Muertes perinatales">
@@ -1120,17 +2190,21 @@ export default function HistoriaClinica() {
                   />
                 </Field>
                 <Field label="Gpo ABO/Rh (paciente)">
-                  <FInput
+                  <FSelect
                     value={ago.grupoP}
                     onChange={updAgo("grupoP")}
-                    placeholder="Ej: O+"
+                    options={bloodGroupCatalog}
+                    placeholder="Seleccionar grupo sanguíneo"
+                    disabled={loadingCatalogs}
                   />
                 </Field>
                 <Field label="Gpo ABO/Rh (pareja)">
-                  <FInput
+                  <FSelect
                     value={ago.grupoPar}
                     onChange={updAgo("grupoPar")}
-                    placeholder="Ej: A+"
+                    options={bloodGroupCatalog}
+                    placeholder="Seleccionar grupo sanguíneo"
+                    disabled={loadingCatalogs}
                   />
                 </Field>
               </Grid>
@@ -1423,16 +2497,21 @@ export default function HistoriaClinica() {
 
             <button
               type="button"
-              onClick={() => (step < STEPS.length ? goTo(step + 1) : null)}
+              onClick={() =>
+                step < STEPS.length ? goTo(step + 1) : handleSubmitHistoria()
+              }
+              disabled={saving}
               className={cn(
-                "rounded-md px-6 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors",
+                "rounded-md px-6 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-70",
                 step === STEPS.length
                   ? "bg-emerald-700 hover:bg-emerald-600"
                   : "bg-primary hover:bg-primary/90",
               )}
             >
               {step === STEPS.length
-                ? "✓ Guardar Historia Clínica"
+                ? saving
+                  ? "Guardando..."
+                  : "✓ Guardar Historia Clínica"
                 : "Siguiente →"}
             </button>
           </div>
