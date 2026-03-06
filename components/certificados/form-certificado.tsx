@@ -1738,7 +1738,7 @@ export function FormCertificado({
                 }
                 placeholder="Nombre completo"
               />
-              <span>Identificación o núm. de placa</span>
+              <span>Identificación o núm. de matrícula</span>
               <Input
                 className="w-32"
                 value={formData.no_placa}
