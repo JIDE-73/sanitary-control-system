@@ -55,6 +55,10 @@ const navigation = [
         name: "Consentimiento de sangre",
         href: "/afiliados/consentimiento-sangre",
       },
+      {
+        name: "Consentimiento VIH/ITS",
+        href: "/afiliados/consentimiento-vih-its",
+      },
     ],
   },
   {
