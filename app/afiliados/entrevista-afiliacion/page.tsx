@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
 import { request } from "@/lib/request";
@@ -12,6 +12,19 @@ type YesNoValue = "" | "si" | "no";
 type AffiliateOption = {
   personaId: string;
   label: string;
+};
+
+type InterviewRecord = {
+  id: string;
+  persona_id: string;
+  fecha_elaboracion?: string;
+  Persona?: {
+    nombre?: string;
+    apellido_paterno?: string;
+    apellido_materno?: string;
+    curp?: string;
+  };
+  [key: string]: any;
 };
 
 type YesNoFieldProps = {
@@ -57,11 +70,54 @@ const text = (formData: FormData, name: string) =>
 const siNoText = (formData: FormData, name: string) =>
   checked(formData, name) ? "Si" : "No";
 
+const initialSiNoState: Record<string, YesNoValue> = {
+  quedarteTijuana: "",
+  fumas: "",
+  ingieresAlcohol: "",
+  utilizasDrogas: "",
+  atencionPsiquiatrica: "",
+  parejaActual: "",
+  primeraRelacionVoluntaria: "",
+  facilDecidirTsc: "",
+  sabeTuFamilia: "",
+  preferenciaCliente: "",
+  condonClientes: "",
+  experienciaDesagradable: "",
+  sinCondonUltimosSeisMeses: "",
+  riesgosExpones: "",
+  positivaHiv: "",
+};
+
+const yesNoApiToStateMap: Record<string, string> = {
+  quedarteTijuana: "piensas_quedarte_tijuana",
+  fumas: "fumas",
+  ingieresAlcohol: "ingieres_alcohol",
+  utilizasDrogas: "utiliza_drogas",
+  atencionPsiquiatrica: "recibio_atencion_psiquiatrica",
+  parejaActual: "tiene_pareja",
+  primeraRelacionVoluntaria: "tu_primera_relacion_sexual_fue_voluntaria",
+  facilDecidirTsc: "consideras_que_fue_facil_trabajar_TSC",
+  sabeTuFamilia: "sabe_tu_familia",
+  preferenciaCliente: "tienes_preferencia_por_algun_cliente",
+  condonClientes: "utilizas_condon_con_todos_los_clientes",
+  experienciaDesagradable: "has_tenido_experiencia_desagradable_cliente",
+  sinCondonUltimosSeisMeses:
+    "has_tenido_relaciones_sin_condon_ultimos_seis_meses",
+  riesgosExpones: "has_pensado_riesgos_expones",
+  positivaHiv: "has_pensado_podrias_salir_positiva_HIV",
+};
+
 export default function EntrevistaAfiliacionPage() {
   const { user } = useAuth();
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [view, setView] = useState<"table" | "form">("table");
+  const [editingInterviewId, setEditingInterviewId] = useState<string | null>(
+    null,
+  );
+  const [interviews, setInterviews] = useState<InterviewRecord[]>([]);
 
   const [affiliateQuery, setAffiliateQuery] = useState("");
   const [affiliateOptions, setAffiliateOptions] = useState<AffiliateOption[]>(
@@ -69,23 +125,8 @@ export default function EntrevistaAfiliacionPage() {
   );
   const [selectedPersonaId, setSelectedPersonaId] = useState("");
 
-  const [siNo, setSiNo] = useState<Record<string, YesNoValue>>({
-    quedarteTijuana: "",
-    fumas: "",
-    ingieresAlcohol: "",
-    utilizasDrogas: "",
-    atencionPsiquiatrica: "",
-    parejaActual: "",
-    primeraRelacionVoluntaria: "",
-    facilDecidirTsc: "",
-    sabeTuFamilia: "",
-    preferenciaCliente: "",
-    condonClientes: "",
-    experienciaDesagradable: "",
-    sinCondonUltimosSeisMeses: "",
-    riesgosExpones: "",
-    positivaHiv: "",
-  });
+  const [siNo, setSiNo] =
+    useState<Record<string, YesNoValue>>(initialSiNoState);
 
   const formRef = useRef<HTMLFormElement>(null);
   const step1Ref = useRef<HTMLFieldSetElement>(null);
@@ -95,6 +136,157 @@ export default function EntrevistaAfiliacionPage() {
   const setSiNoValue = (key: string, value: YesNoValue) => {
     setSiNo((prev) => ({ ...prev, [key]: value }));
   };
+
+  const resetFormState = () => {
+    setStep(1);
+    setEditingInterviewId(null);
+    setSiNo(initialSiNoState);
+    setAffiliateQuery("");
+    setAffiliateOptions([]);
+    setSelectedPersonaId("");
+    formRef.current?.reset();
+  };
+
+  const extractInterviewsArray = (response: any) => {
+    const candidate = Array.isArray(response?.interview)
+      ? response.interview
+      : (response?.interview ?? response?.data ?? response);
+
+    if (Array.isArray(candidate)) return candidate;
+    return [];
+  };
+
+  const fetchAllInterviews = async () => {
+    try {
+      setTableLoading(true);
+      const response = await request(
+        "/sics/interview/getAllAffiliationInterview",
+        "GET",
+      );
+
+      if (response.status < 200 || response.status >= 300) {
+        toast.error("No se pudieron obtener entrevistas", {
+          description: response?.message || "Respuesta inválida del servidor.",
+        });
+        return;
+      }
+
+      const rows = extractInterviewsArray(response);
+      setInterviews(rows);
+    } catch (error) {
+      console.error("Error obteniendo entrevistas", error);
+      toast.error("Error de red", {
+        description: "No se pudo consultar la lista de entrevistas.",
+      });
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  const toYesNo = (value: unknown): YesNoValue => {
+    if (value === true) return "si";
+    if (value === false) return "no";
+    return "";
+  };
+
+  const applyInterviewToForm = (interview: InterviewRecord) => {
+    if (!formRef.current) return;
+
+    const yesNoValues: Record<string, YesNoValue> = { ...initialSiNoState };
+    Object.entries(yesNoApiToStateMap).forEach(([stateKey, apiKey]) => {
+      yesNoValues[stateKey] = toYesNo(interview?.[apiKey]);
+    });
+    setSiNo(yesNoValues);
+
+    Object.entries(interview).forEach(([key, value]) => {
+      if (value === null || value === undefined) return;
+      if (typeof value === "object") return;
+
+      const target = formRef.current?.elements.namedItem(key);
+      if (!target) return;
+
+      const normalizedValue =
+        value === true || value === "Si" || value === "si" ? "on" : value;
+
+      if (target instanceof RadioNodeList) {
+        Array.from(target).forEach((node) => {
+          if (!(node instanceof HTMLInputElement)) return;
+          if (node.type === "checkbox") {
+            node.checked =
+              normalizedValue === "on" ||
+              normalizedValue === true ||
+              normalizedValue === "true";
+          } else {
+            node.value = String(value);
+          }
+        });
+        return;
+      }
+
+      if (target instanceof HTMLInputElement) {
+        if (target.type === "checkbox") {
+          target.checked =
+            normalizedValue === "on" ||
+            normalizedValue === true ||
+            normalizedValue === "true";
+        } else {
+          target.value = String(value);
+        }
+        return;
+      }
+
+      if (
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        target.value = String(value);
+      }
+    });
+  };
+
+  const openCreateForm = () => {
+    resetFormState();
+    setView("form");
+  };
+
+  const openEditForm = (interview: InterviewRecord) => {
+    setStep(1);
+    setEditingInterviewId(interview.id);
+    setSelectedPersonaId(String(interview.persona_id || ""));
+    setAffiliateOptions((prev) => {
+      const personaId = String(interview.persona_id || "").trim();
+      if (!personaId) return prev;
+
+      const exists = prev.some((option) => option.personaId === personaId);
+      if (exists) return prev;
+
+      const nombre = [
+        interview?.Persona?.nombre,
+        interview?.Persona?.apellido_paterno,
+        interview?.Persona?.apellido_materno,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      return [
+        {
+          personaId,
+          label: `${personaId} - ${nombre || "SIN_NOMBRE"}`,
+        },
+      ];
+    });
+    setView("form");
+
+    requestAnimationFrame(() => {
+      formRef.current?.reset();
+      applyInterviewToForm(interview);
+    });
+  };
+
+  useEffect(() => {
+    fetchAllInterviews();
+  }, []);
 
   const resolveMedicoId = () => {
     const fromSession = user?.persona?.Medico?.id;
@@ -242,6 +434,27 @@ export default function EntrevistaAfiliacionPage() {
 
   const prevStep = () => {
     setStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  const formatDate = (value?: string) => {
+    if (!value) return "-";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString("es-MX");
+  };
+
+  const personLabel = (interview: InterviewRecord) => {
+    const nombre = [
+      interview?.Persona?.nombre,
+      interview?.Persona?.apellido_paterno,
+      interview?.Persona?.apellido_materno,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    if (!nombre) return "Sin nombre";
+    return nombre;
   };
 
   const finishForm = async () => {
@@ -435,14 +648,22 @@ export default function EntrevistaAfiliacionPage() {
 
     try {
       setSaving(true);
-      const response = await request(
-        "/sics/interview/createAffiliationInterview",
-        "POST",
-        payload,
-      );
+      const endpoint = editingInterviewId
+        ? `/sics/interview/updateAffiliationInterview/${editingInterviewId}`
+        : "/sics/interview/createAffiliationInterview";
+      const method = editingInterviewId ? "PUT" : "POST";
+
+      const response = await request(endpoint, method, payload);
 
       if (response.status >= 200 && response.status < 300) {
-        toast.success("Entrevista guardada correctamente");
+        toast.success(
+          editingInterviewId
+            ? "Entrevista actualizada correctamente"
+            : "Entrevista guardada correctamente",
+        );
+        await fetchAllInterviews();
+        resetFormState();
+        setView("table");
         return;
       }
 
@@ -471,957 +692,1085 @@ export default function EntrevistaAfiliacionPage() {
           <p className="text-sm font-semibold">ENTREVISTA DE AFILIACION</p>
         </div>
 
-        <section className="rounded-lg border bg-card p-6 shadow-sm space-y-4">
-          <h2 className="text-lg font-semibold">Selección de afiliado</h2>
-          <p className="text-sm text-muted-foreground">
-            Busca en `/sics/affiliates/getAffiliateById/${"{parametro}"}` para
-            obtener `persona_id`.
-          </p>
-
-          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-            <input
-              className="h-10 w-full rounded-md border px-3"
-              placeholder="Número de afiliación, CURP o id"
-              value={affiliateQuery}
-              onChange={(e) => setAffiliateQuery(e.target.value)}
-            />
-            <Button type="button" onClick={searchAffiliates}>
-              Buscar afiliado
-            </Button>
-          </div>
-
-          <label className="block text-sm">
-            persona_id
-            <select
-              className="mt-1 h-10 w-full rounded-md border px-3"
-              value={selectedPersonaId}
-              onChange={(e) => setSelectedPersonaId(e.target.value)}
-              required
-            >
-              <option value="">Selecciona un afiliado</option>
-              {affiliateOptions.map((option) => (
-                <option key={option.personaId} value={option.personaId}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
-
-        <div className="flex items-center gap-2 text-sm">
-          <span
-            className={step === 1 ? "font-semibold" : "text-muted-foreground"}
-          >
-            Sección 1
-          </span>
-          <span>/</span>
-          <span
-            className={step === 2 ? "font-semibold" : "text-muted-foreground"}
-          >
-            Sección 2
-          </span>
-          <span>/</span>
-          <span
-            className={step === 3 ? "font-semibold" : "text-muted-foreground"}
-          >
-            Sección 3
-          </span>
-        </div>
-
-        <form ref={formRef} className="space-y-6">
-          <fieldset
-            ref={step1Ref}
-            className={`rounded-lg border bg-card p-6 shadow-sm space-y-4 ${
-              step === 1 ? "block" : "hidden"
-            }`}
-          >
-            <h2 className="text-lg font-semibold">DATOS PERSONALES</h2>
-
-            <label className="block text-sm">
-              Escolaridad PR___ S___ P___ U___ Otra____________________
-              <input
-                name="escolaridad"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              Otra
-              <input
-                name="otra"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              Nombre artistico
-              <input
-                name="nombre_artistico"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <h3 className="text-sm font-semibold underline">
-              Residencia en la Ciudad de Tijuana (Omitir en caso de ser
-              residente)
-            </h3>
-
-            <label className="block text-sm">
-              ¿Cuánto tiempo tienes en Tijuana?
-              <input
-                name="tiempo_tijuana"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <label className="text-sm">
-                Años___
-                <input
-                  name="anos"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm">
-                Meses___
-                <input
-                  name="meses"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm">
-                Días___
-                <input
-                  name="dias"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-            </div>
-
-            <YesNoField
-              label="¿Piensas quedarte en Tijuana?"
-              value={siNo.quedarteTijuana}
-              onChange={(value) => setSiNoValue("quedarteTijuana", value)}
-            />
-
-            <label className="block text-sm">
-              ¿Cuánto tiempo?
-              <input
-                name="cuanto_tiempo"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              ¿Por qué?
-              <input
-                name="por_que"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              ¿Por qué decidiste trabajar en Tijuana?
-              <input
-                name="por_que_decidiste_trabajar_tijuana"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <div className="space-y-2 text-sm">
-              <p>____Mejor paga ___Mayor trabajo ___Otro</p>
-              <div className="flex flex-wrap items-center gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    name="mejor_paga"
-                    type="checkbox"
-                    className="h-4 w-4"
-                  />
-                  Mejor paga
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    name="mayor_trabajo"
-                    type="checkbox"
-                    className="h-4 w-4"
-                  />
-                  Mayor trabajo
-                </label>
+        {view === "table" && (
+          <section className="rounded-lg border bg-card p-6 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Entrevistas registradas</h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={fetchAllInterviews}
+                  disabled={tableLoading}
+                >
+                  {tableLoading ? "Actualizando..." : "Actualizar"}
+                </Button>
+                <Button type="button" onClick={openCreateForm}>
+                  Nueva entrevista
+                </Button>
               </div>
             </div>
 
-            <label className="block text-sm">
-              Otro
-              <input
-                name="otro"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              ¿Cuál?
-              <input
-                name="cual"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <h3 className="text-base font-semibold">2. Toxicologia</h3>
-
-            <YesNoField
-              label="¿Fumas?"
-              value={siNo.fumas}
-              onChange={(value) => setSiNoValue("fumas", value)}
-            />
-            <label className="block text-sm">
-              ¿A qué edad empezaste?
-              <input
-                name="edad_empezo"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <YesNoField
-              label="¿Ingieres alcohol?"
-              value={siNo.ingieresAlcohol}
-              onChange={(value) => setSiNoValue("ingieresAlcohol", value)}
-            />
-            <label className="block text-sm">
-              ¿A qué edad empezaste?
-              <input
-                name="edad_empezo2"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <YesNoField
-              label="¿Utilizas drogas?"
-              value={siNo.utilizasDrogas}
-              onChange={(value) => setSiNoValue("utilizasDrogas", value)}
-            />
-
-            <label className="block text-sm">
-              ¿Cuáles?
-              <input
-                name="cuales"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              ¿Cuánto tiempo?
-              <input
-                name="cuanto_tiempo2"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <h3 className="text-base font-semibold">3.-Personalidad</h3>
-
-            <label className="block text-sm">
-              ¿Cómo disfrutas tu tiempo libre?
-              <input
-                name="como_disfrutas_tiempo_libre"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              Cualidades:
-              <input
-                name="cualidades"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              ¿Qué es lo más importante para ti en la vida?
-              <input
-                name="que_es_lo_importante_para_tu_vida"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              ¿Qué te causa alegría?
-              <input
-                name="que_te_causa_alegria"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <p className="text-sm">¿Has pensado o intentado suicidarte?</p>
-            <div className="grid gap-4 md:grid-cols-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input name="nunca" type="checkbox" className="h-4 w-4" />
-                Nunca____
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  name="alguna_veces"
-                  type="checkbox"
-                  className="h-4 w-4"
-                />
-                Algunas veces____
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  name="muy_a_menudo"
-                  type="checkbox"
-                  className="h-4 w-4"
-                />
-                Muy a Menudo____
-              </label>
+            <div className="overflow-x-auto rounded-md border">
+              <table className="min-w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Fecha</th>
+                    <th className="px-3 py-2 text-left font-medium">Persona</th>
+                    <th className="px-3 py-2 text-left font-medium">CURP</th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      persona_id
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {interviews.length ? (
+                    interviews.map((interview) => (
+                      <tr key={interview.id} className="border-t">
+                        <td className="px-3 py-2">
+                          {formatDate(interview.fecha_elaboracion)}
+                        </td>
+                        <td className="px-3 py-2">{personLabel(interview)}</td>
+                        <td className="px-3 py-2">
+                          {interview?.Persona?.curp || "-"}
+                        </td>
+                        <td className="px-3 py-2">{interview.persona_id}</td>
+                        <td className="px-3 py-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => openEditForm(interview)}
+                          >
+                            Editar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-3 py-6 text-center text-muted-foreground"
+                      >
+                        {tableLoading
+                          ? "Cargando entrevistas..."
+                          : "No hay entrevistas registradas."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
+          </section>
+        )}
 
-            <label className="block text-sm">
-              Edad __
-              <input
-                name="edad"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              Método
-              <input
-                name="metodo"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <YesNoField
-              label="Recibió atención psicológica o psiquiátrica"
-              value={siNo.atencionPsiquiatrica}
-              onChange={(value) => setSiNoValue("atencionPsiquiatrica", value)}
-            />
-
-            <label className="block text-sm">
-              Motivo:
-              <input
-                name="motivo"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <p className="text-sm">
-              Tomando todo en consideración, actualmente estoy:
-            </p>
-            <div className="space-y-2 text-sm">
-              <label className="flex items-center gap-2">
-                <input
-                  name="satisfecha_con_mi_vida"
-                  type="checkbox"
-                  className="h-4 w-4"
-                />
-                ___Satisfecha con mi vida
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  name="moderadamenteo_satisfecha_con_mi_vida"
-                  type="checkbox"
-                  className="h-4 w-4"
-                />
-                ___Moderadamente satisfecha con mi vida
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  name="insatisfecha_con_mi_vida"
-                  type="checkbox"
-                  className="h-4 w-4"
-                />
-                ___Insatisfecha con mi vida
-              </label>
-            </div>
-
-            <label className="block text-sm">
-              ¿Cuáles son tus metas?
-              <textarea
-                name="cuales_son_tus_metas"
-                required
-                className="mt-1 min-h-20 w-full rounded-md border px-3 py-2"
-              />
-            </label>
-          </fieldset>
-
-          <fieldset
-            ref={step2Ref}
-            className={`rounded-lg border bg-card p-6 shadow-sm space-y-4 ${
-              step === 2 ? "block" : "hidden"
-            }`}
-          >
-            <h3 className="text-base font-semibold">
-              4. Pareja (Omitir en caso de ser soltera) A partir de los 6 meses
-            </h3>
-
-            <YesNoField
-              label="¿Tienes pareja sentimental actualmente?"
-              value={siNo.parejaActual}
-              onChange={(value) => setSiNoValue("parejaActual", value)}
-            />
-
-            <label className="block text-sm">
-              ¿Cuánto tiempo tienen de relación?
-              <input
-                name="cuanto_tiempo_tiene_la_relacion"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <div className="space-y-2 text-sm">
-              <p>
-                ¿Tu relación con tu pareja es? Muy Buena ___ Buena ___
-                Regular___ Conflictiva ___ Muy conflictiva ___
+        {view === "form" && (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground">
+                {editingInterviewId
+                  ? "Editando entrevista existente"
+                  : "Creando nueva entrevista"}
               </p>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2">
-                  <input name="muy_buena" type="checkbox" className="h-4 w-4" />
-                  Muy Buena
-                </label>
-                <label className="flex items-center gap-2">
-                  <input name="buena" type="checkbox" className="h-4 w-4" />
-                  Buena
-                </label>
-                <label className="flex items-center gap-2">
-                  <input name="regular" type="checkbox" className="h-4 w-4" />
-                  Regular
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    name="conflictiva"
-                    type="checkbox"
-                    className="h-4 w-4"
-                  />
-                  Conflictiva
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    name="muy_conflictiva"
-                    type="checkbox"
-                    className="h-4 w-4"
-                  />
-                  Muy conflictiva
-                </label>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  resetFormState();
+                  setView("table");
+                }}
+                disabled={saving}
+              >
+                Volver a tabla
+              </Button>
+            </div>
+
+            <section className="rounded-lg border bg-card p-6 shadow-sm space-y-4">
+              <h2 className="text-lg font-semibold">Selección de afiliado</h2>
+              <p className="text-sm text-muted-foreground">
+                Busca afiliados por número de afiliación, CURP o nombre. Selecciona el afiliado
+              </p>
+
+              <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                <input
+                  className="h-10 w-full rounded-md border px-3"
+                  placeholder="Número de afiliación, CURP o id"
+                  value={affiliateQuery}
+                  onChange={(e) => setAffiliateQuery(e.target.value)}
+                />
+                <Button type="button" onClick={searchAffiliates}>
+                  Buscar afiliado
+                </Button>
               </div>
+
+              <label className="block text-sm">
+                persona_id
+                <select
+                  className="mt-1 h-10 w-full rounded-md border px-3"
+                  value={selectedPersonaId}
+                  onChange={(e) => setSelectedPersonaId(e.target.value)}
+                  required
+                >
+                  <option value="">Selecciona un afiliado</option>
+                  {affiliateOptions.map((option) => (
+                    <option key={option.personaId} value={option.personaId}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
+
+            <div className="flex items-center gap-2 text-sm">
+              <span
+                className={
+                  step === 1 ? "font-semibold" : "text-muted-foreground"
+                }
+              >
+                Sección 1
+              </span>
+              <span>/</span>
+              <span
+                className={
+                  step === 2 ? "font-semibold" : "text-muted-foreground"
+                }
+              >
+                Sección 2
+              </span>
+              <span>/</span>
+              <span
+                className={
+                  step === 3 ? "font-semibold" : "text-muted-foreground"
+                }
+              >
+                Sección 3
+              </span>
             </div>
 
-            <h3 className="text-base font-semibold">5. Vida sexual</h3>
+            <form ref={formRef} className="space-y-6">
+              <fieldset
+                ref={step1Ref}
+                className={`rounded-lg border bg-card p-6 shadow-sm space-y-4 ${
+                  step === 1 ? "block" : "hidden"
+                }`}
+              >
+                <h2 className="text-lg font-semibold">DATOS PERSONALES</h2>
 
-            <YesNoField
-              label="¿Tu primera relación sexual fue voluntaria?"
-              value={siNo.primeraRelacionVoluntaria}
-              onChange={(value) =>
-                setSiNoValue("primeraRelacionVoluntaria", value)
-              }
-            />
+                <label className="block text-sm">
+                  Escolaridad PR___ S___ P___ U___ Otra____________________
+                  <input
+                    name="escolaridad"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
 
-            <label className="block text-sm">
-              ¿A qué edad tuviste tu primera relación sexual? ________ Años
-              <input
-                name="a_que_edad_tuviste_sexo"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
+                <label className="block text-sm">
+                  Otra
+                  <input
+                    name="otra"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
 
-            <label className="block text-sm">
-              ¿Qué tipo de relación tenías con esta persona?
-              <input
-                name="que_tipo_relacion_tenias_con_esa_persona"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
+                <label className="block text-sm">
+                  Nombre artistico
+                  <input
+                    name="nombre_artistico"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
 
-            <h3 className="text-base font-semibold">
-              6. Trabajo sexo comercial (TSC)
-            </h3>
+                <h3 className="text-sm font-semibold underline">
+                  Residencia en la Ciudad de Tijuana (Omitir en caso de ser
+                  residente)
+                </h3>
 
-            <label className="block text-sm">
-              ¿Por qué decidiste trabajar como TSC?
-              <textarea
-                name="por_que_decidiste_trabajar_como_TSC"
-                required
-                className="mt-1 min-h-20 w-full rounded-md border px-3 py-2"
-              />
-            </label>
+                <label className="block text-sm">
+                  ¿Cuánto tiempo tienes en Tijuana?
+                  <input
+                    name="tiempo_tijuana"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
 
-            <label className="block text-sm">
-              ¿Alguna persona te informo o te influyo para que trabajaras en
-              TSC?
-              <input
-                name="alguna_persona_te_informo_o_influyo"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <label className="text-sm">
+                    Años___
+                    <input
+                      name="anos"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Meses___
+                    <input
+                      name="meses"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Días___
+                    <input
+                      name="dias"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                </div>
 
-            <YesNoField
-              label="¿Consideras que fue fácil decidirte a trabajar en TSC?"
-              value={siNo.facilDecidirTsc}
-              onChange={(value) => setSiNoValue("facilDecidirTsc", value)}
-            />
-
-            <label className="block text-sm">
-              ¿Por qué?
-              <input
-                name="por_que1"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              Si te ofrecieran un empleo fuera de TSC, ¿lo tomarías?
-              <input
-                name="si_te_ofrecieran_empleo_fuera_de_TSC"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <div className="grid gap-4 md:grid-cols-4">
-              <label className="text-sm">
-                Años
-                <input
-                  name="anos1"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
+                <YesNoField
+                  label="¿Piensas quedarte en Tijuana?"
+                  value={siNo.quedarteTijuana}
+                  onChange={(value) => setSiNoValue("quedarteTijuana", value)}
                 />
-              </label>
-              <label className="text-sm">
-                Meses
-                <input
-                  name="meses1"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
+
+                <label className="block text-sm">
+                  ¿Cuánto tiempo?
+                  <input
+                    name="cuanto_tiempo"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Por qué?
+                  <input
+                    name="por_que"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Por qué decidiste trabajar en Tijuana?
+                  <input
+                    name="por_que_decidiste_trabajar_tijuana"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <div className="space-y-2 text-sm">
+                  <p>____Mejor paga ___Mayor trabajo ___Otro</p>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        name="mejor_paga"
+                        type="checkbox"
+                        className="h-4 w-4"
+                      />
+                      Mejor paga
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        name="mayor_trabajo"
+                        type="checkbox"
+                        className="h-4 w-4"
+                      />
+                      Mayor trabajo
+                    </label>
+                  </div>
+                </div>
+
+                <label className="block text-sm">
+                  Otro
+                  <input
+                    name="otro"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Cuál?
+                  <input
+                    name="cual"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <h3 className="text-base font-semibold">2. Toxicologia</h3>
+
+                <YesNoField
+                  label="¿Fumas?"
+                  value={siNo.fumas}
+                  onChange={(value) => setSiNoValue("fumas", value)}
                 />
-              </label>
-              <label className="text-sm">
-                Semanas
-                <input
-                  name="semanas1"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
+                <label className="block text-sm">
+                  ¿A qué edad empezaste?
+                  <input
+                    name="edad_empezo"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <YesNoField
+                  label="¿Ingieres alcohol?"
+                  value={siNo.ingieresAlcohol}
+                  onChange={(value) => setSiNoValue("ingieresAlcohol", value)}
                 />
-              </label>
-              <label className="text-sm">
-                Días
-                <input
-                  name="dias1"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
+                <label className="block text-sm">
+                  ¿A qué edad empezaste?
+                  <input
+                    name="edad_empezo2"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <YesNoField
+                  label="¿Utilizas drogas?"
+                  value={siNo.utilizasDrogas}
+                  onChange={(value) => setSiNoValue("utilizasDrogas", value)}
                 />
-              </label>
+
+                <label className="block text-sm">
+                  ¿Cuáles?
+                  <input
+                    name="cuales"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Cuánto tiempo?
+                  <input
+                    name="cuanto_tiempo2"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <h3 className="text-base font-semibold">3.-Personalidad</h3>
+
+                <label className="block text-sm">
+                  ¿Cómo disfrutas tu tiempo libre?
+                  <input
+                    name="como_disfrutas_tiempo_libre"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  Cualidades:
+                  <input
+                    name="cualidades"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Qué es lo más importante para ti en la vida?
+                  <input
+                    name="que_es_lo_importante_para_tu_vida"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Qué te causa alegría?
+                  <input
+                    name="que_te_causa_alegria"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <p className="text-sm">¿Has pensado o intentado suicidarte?</p>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input name="nunca" type="checkbox" className="h-4 w-4" />
+                    Nunca____
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      name="alguna_veces"
+                      type="checkbox"
+                      className="h-4 w-4"
+                    />
+                    Algunas veces____
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      name="muy_a_menudo"
+                      type="checkbox"
+                      className="h-4 w-4"
+                    />
+                    Muy a Menudo____
+                  </label>
+                </div>
+
+                <label className="block text-sm">
+                  Edad __
+                  <input
+                    name="edad"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  Método
+                  <input
+                    name="metodo"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <YesNoField
+                  label="Recibió atención psicológica o psiquiátrica"
+                  value={siNo.atencionPsiquiatrica}
+                  onChange={(value) =>
+                    setSiNoValue("atencionPsiquiatrica", value)
+                  }
+                />
+
+                <label className="block text-sm">
+                  Motivo:
+                  <input
+                    name="motivo"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <p className="text-sm">
+                  Tomando todo en consideración, actualmente estoy:
+                </p>
+                <div className="space-y-2 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      name="satisfecha_con_mi_vida"
+                      type="checkbox"
+                      className="h-4 w-4"
+                    />
+                    ___Satisfecha con mi vida
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      name="moderadamenteo_satisfecha_con_mi_vida"
+                      type="checkbox"
+                      className="h-4 w-4"
+                    />
+                    ___Moderadamente satisfecha con mi vida
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      name="insatisfecha_con_mi_vida"
+                      type="checkbox"
+                      className="h-4 w-4"
+                    />
+                    ___Insatisfecha con mi vida
+                  </label>
+                </div>
+
+                <label className="block text-sm">
+                  ¿Cuáles son tus metas?
+                  <textarea
+                    name="cuales_son_tus_metas"
+                    required
+                    className="mt-1 min-h-20 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+              </fieldset>
+
+              <fieldset
+                ref={step2Ref}
+                className={`rounded-lg border bg-card p-6 shadow-sm space-y-4 ${
+                  step === 2 ? "block" : "hidden"
+                }`}
+              >
+                <h3 className="text-base font-semibold">
+                  4. Pareja (Omitir en caso de ser soltera) A partir de los 6
+                  meses
+                </h3>
+
+                <YesNoField
+                  label="¿Tienes pareja sentimental actualmente?"
+                  value={siNo.parejaActual}
+                  onChange={(value) => setSiNoValue("parejaActual", value)}
+                />
+
+                <label className="block text-sm">
+                  ¿Cuánto tiempo tienen de relación?
+                  <input
+                    name="cuanto_tiempo_tiene_la_relacion"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <div className="space-y-2 text-sm">
+                  <p>
+                    ¿Tu relación con tu pareja es? Muy Buena ___ Buena ___
+                    Regular___ Conflictiva ___ Muy conflictiva ___
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        name="muy_buena"
+                        type="checkbox"
+                        className="h-4 w-4"
+                      />
+                      Muy Buena
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input name="buena" type="checkbox" className="h-4 w-4" />
+                      Buena
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        name="regular"
+                        type="checkbox"
+                        className="h-4 w-4"
+                      />
+                      Regular
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        name="conflictiva"
+                        type="checkbox"
+                        className="h-4 w-4"
+                      />
+                      Conflictiva
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        name="muy_conflictiva"
+                        type="checkbox"
+                        className="h-4 w-4"
+                      />
+                      Muy conflictiva
+                    </label>
+                  </div>
+                </div>
+
+                <h3 className="text-base font-semibold">5. Vida sexual</h3>
+
+                <YesNoField
+                  label="¿Tu primera relación sexual fue voluntaria?"
+                  value={siNo.primeraRelacionVoluntaria}
+                  onChange={(value) =>
+                    setSiNoValue("primeraRelacionVoluntaria", value)
+                  }
+                />
+
+                <label className="block text-sm">
+                  ¿A qué edad tuviste tu primera relación sexual? ________ Años
+                  <input
+                    name="a_que_edad_tuviste_sexo"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Qué tipo de relación tenías con esta persona?
+                  <input
+                    name="que_tipo_relacion_tenias_con_esa_persona"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <h3 className="text-base font-semibold">
+                  6. Trabajo sexo comercial (TSC)
+                </h3>
+
+                <label className="block text-sm">
+                  ¿Por qué decidiste trabajar como TSC?
+                  <textarea
+                    name="por_que_decidiste_trabajar_como_TSC"
+                    required
+                    className="mt-1 min-h-20 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Alguna persona te informo o te influyo para que trabajaras en
+                  TSC?
+                  <input
+                    name="alguna_persona_te_informo_o_influyo"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <YesNoField
+                  label="¿Consideras que fue fácil decidirte a trabajar en TSC?"
+                  value={siNo.facilDecidirTsc}
+                  onChange={(value) => setSiNoValue("facilDecidirTsc", value)}
+                />
+
+                <label className="block text-sm">
+                  ¿Por qué?
+                  <input
+                    name="por_que1"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  Si te ofrecieran un empleo fuera de TSC, ¿lo tomarías?
+                  <input
+                    name="si_te_ofrecieran_empleo_fuera_de_TSC"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <div className="grid gap-4 md:grid-cols-4">
+                  <label className="text-sm">
+                    Años
+                    <input
+                      name="anos1"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Meses
+                    <input
+                      name="meses1"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Semanas
+                    <input
+                      name="semanas1"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Días
+                    <input
+                      name="dias1"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                </div>
+
+                <YesNoField
+                  label="¿Sabe tu familia?"
+                  value={siNo.sabeTuFamilia}
+                  onChange={(value) => setSiNoValue("sabeTuFamilia", value)}
+                />
+
+                <label className="block text-sm">
+                  ¿Quiénes?
+                  <input
+                    name="quienes"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <p className="text-sm">
+                  En tu trabajo ¿qué actividad desarrollas?
+                </p>
+                <div className="grid gap-3 md:grid-cols-5 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      name="bailarina"
+                      type="checkbox"
+                      className="h-4 w-4"
+                    />{" "}
+                    Bailarina
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input name="edecan" type="checkbox" className="h-4 w-4" />{" "}
+                    Edecán
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input name="cuartos" type="checkbox" className="h-4 w-4" />{" "}
+                    Cuartos
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input name="fichas" type="checkbox" className="h-4 w-4" />{" "}
+                    Fichas
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input name="mesera" type="checkbox" className="h-4 w-4" />{" "}
+                    Mesera
+                  </label>
+                </div>
+
+                <p className="text-sm">¿A qué actividades sexuales accedes?</p>
+                <div className="grid gap-3 md:grid-cols-3 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input name="vaginal" type="checkbox" className="h-4 w-4" />{" "}
+                    Vaginal
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input name="anal" type="checkbox" className="h-4 w-4" />{" "}
+                    Anal
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input name="oral" type="checkbox" className="h-4 w-4" />{" "}
+                    Oral
+                  </label>
+                </div>
+
+                <label className="block text-sm">
+                  ¿Cuántos clientes tienes por día?
+                  <input
+                    name="clientes_por_dia"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Cuántas fichas realizas por día?
+                  <input
+                    name="cuantas_fichas_realizas_por_dia"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <div className="grid gap-4 md:grid-cols-5">
+                  <label className="text-sm">
+                    Bailarina
+                    <input
+                      name="bailarina1"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Edecán
+                    <input
+                      name="edecan1"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Cuartos
+                    <input
+                      name="cuartos1"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Fichas
+                    <input
+                      name="fichas1"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Mesera
+                    <input
+                      name="mesera1"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                </div>
+
+                <label className="block text-sm">
+                  ¿Cuántos días a la semana trabajas?
+                  <input
+                    name="cuantos_dias_semana_trabajas"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <YesNoField
+                  label="¿Tienes alguna preferencia por algún tipo de cliente?"
+                  value={siNo.preferenciaCliente}
+                  onChange={(value) =>
+                    setSiNoValue("preferenciaCliente", value)
+                  }
+                />
+
+                <label className="block text-sm">
+                  ¿Qué tipo?
+                  <input
+                    name="que_tipo"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <YesNoField
+                  label="¿Utilizas condón con todos los clientes?"
+                  value={siNo.condonClientes}
+                  onChange={(value) => setSiNoValue("condonClientes", value)}
+                />
+
+                <label className="block text-sm">
+                  Alguna veces____
+                  <input
+                    name="alguna_veces1"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+              </fieldset>
+
+              <fieldset
+                ref={step3Ref}
+                className={`rounded-lg border bg-card p-6 shadow-sm space-y-4 ${
+                  step === 3 ? "block" : "hidden"
+                }`}
+              >
+                <YesNoField
+                  label="¿Has tenido alguna experiencia desagradable con algún cliente?"
+                  value={siNo.experienciaDesagradable}
+                  onChange={(value) =>
+                    setSiNoValue("experienciaDesagradable", value)
+                  }
+                />
+
+                <label className="block text-sm">
+                  ¿Qué tipo?
+                  <input
+                    name="que_tipo2"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <YesNoField
+                  label="¿Has tenido relaciones sexuales sin condón en los ultimos seis meses?"
+                  value={siNo.sinCondonUltimosSeisMeses}
+                  onChange={(value) =>
+                    setSiNoValue("sinCondonUltimosSeisMeses", value)
+                  }
+                />
+
+                <label className="block text-sm">
+                  ¿Con quién?
+                  <input
+                    name="con_quien"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Tienes información acerca de las ITS? Bastante___ Regular___
+                  Poca___ Nada___
+                  <input
+                    name="tienes_informacion_acerca_ITS"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  ¿Tienes información acerca del VIH-SIDA? Bastante___
+                  Regular___ Poca___ Nada___
+                  <input
+                    name="tienes_informacion_acerca_VIHSIDA"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <YesNoField
+                  label="¿Has pensado en los riesgos a los que te expones?"
+                  value={siNo.riesgosExpones}
+                  onChange={(value) => setSiNoValue("riesgosExpones", value)}
+                />
+
+                <YesNoField
+                  label="¿Has pensado que podrías salir positiva en la prueba de HIV?"
+                  value={siNo.positivaHiv}
+                  onChange={(value) => setSiNoValue("positivaHiv", value)}
+                />
+
+                <label className="block text-sm">
+                  ¿Tomarías el tratamiento antirretroviral en caso de un
+                  resultado positivo? Sí ___ No ___ Tal vez ___
+                  <input
+                    name="tomarias_tratamiento_atirretrovital"
+                    required
+                    className="mt-1 h-10 w-full rounded-md border px-3"
+                    type="text"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  En caso de emergencia me puedes mencionar alguna persona de tu
+                  confianza (nombre, parentesco y teléfono)
+                  <textarea
+                    name="en_caso_emergencia_mecionar_persona"
+                    required
+                    className="mt-1 min-h-24 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  Senales Particulares
+                  <textarea
+                    name="senas_particulares"
+                    required
+                    className="mt-1 min-h-24 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <label className="text-sm">
+                    Estatura
+                    <input
+                      name="estatura"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Cabello
+                    <input
+                      name="cabello"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Ojos
+                    <input
+                      name="ojos"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    Tez
+                    <input
+                      name="tez"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                  <label className="text-sm md:col-span-2">
+                    Complexión
+                    <input
+                      name="complexion"
+                      required
+                      className="mt-1 h-10 w-full rounded-md border px-3"
+                      type="text"
+                    />
+                  </label>
+                </div>
+
+                <label className="block text-sm">
+                  Notas:
+                  <textarea
+                    name="notas"
+                    required
+                    className="mt-1 min-h-24 w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+              </fieldset>
+            </form>
+
+            <div className="flex items-center justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={prevStep}
+                disabled={step === 1 || saving}
+              >
+                Anterior
+              </Button>
+
+              {step < 3 ? (
+                <Button type="button" onClick={nextStep} disabled={saving}>
+                  Siguiente sección
+                </Button>
+              ) : (
+                <Button type="button" onClick={finishForm} disabled={saving}>
+                  {saving
+                    ? "Guardando..."
+                    : editingInterviewId
+                      ? "Actualizar entrevista"
+                      : "Finalizar entrevista"}
+                </Button>
+              )}
             </div>
-
-            <YesNoField
-              label="¿Sabe tu familia?"
-              value={siNo.sabeTuFamilia}
-              onChange={(value) => setSiNoValue("sabeTuFamilia", value)}
-            />
-
-            <label className="block text-sm">
-              ¿Quiénes?
-              <input
-                name="quienes"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <p className="text-sm">En tu trabajo ¿qué actividad desarrollas?</p>
-            <div className="grid gap-3 md:grid-cols-5 text-sm">
-              <label className="flex items-center gap-2">
-                <input name="bailarina" type="checkbox" className="h-4 w-4" />{" "}
-                Bailarina
-              </label>
-              <label className="flex items-center gap-2">
-                <input name="edecan" type="checkbox" className="h-4 w-4" />{" "}
-                Edecán
-              </label>
-              <label className="flex items-center gap-2">
-                <input name="cuartos" type="checkbox" className="h-4 w-4" />{" "}
-                Cuartos
-              </label>
-              <label className="flex items-center gap-2">
-                <input name="fichas" type="checkbox" className="h-4 w-4" />{" "}
-                Fichas
-              </label>
-              <label className="flex items-center gap-2">
-                <input name="mesera" type="checkbox" className="h-4 w-4" />{" "}
-                Mesera
-              </label>
-            </div>
-
-            <p className="text-sm">¿A qué actividades sexuales accedes?</p>
-            <div className="grid gap-3 md:grid-cols-3 text-sm">
-              <label className="flex items-center gap-2">
-                <input name="vaginal" type="checkbox" className="h-4 w-4" />{" "}
-                Vaginal
-              </label>
-              <label className="flex items-center gap-2">
-                <input name="anal" type="checkbox" className="h-4 w-4" /> Anal
-              </label>
-              <label className="flex items-center gap-2">
-                <input name="oral" type="checkbox" className="h-4 w-4" /> Oral
-              </label>
-            </div>
-
-            <label className="block text-sm">
-              ¿Cuántos clientes tienes por día?
-              <input
-                name="clientes_por_dia"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              ¿Cuántas fichas realizas por día?
-              <input
-                name="cuantas_fichas_realizas_por_dia"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <div className="grid gap-4 md:grid-cols-5">
-              <label className="text-sm">
-                Bailarina
-                <input
-                  name="bailarina1"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm">
-                Edecán
-                <input
-                  name="edecan1"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm">
-                Cuartos
-                <input
-                  name="cuartos1"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm">
-                Fichas
-                <input
-                  name="fichas1"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm">
-                Mesera
-                <input
-                  name="mesera1"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-            </div>
-
-            <label className="block text-sm">
-              ¿Cuántos días a la semana trabajas?
-              <input
-                name="cuantos_dias_semana_trabajas"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <YesNoField
-              label="¿Tienes alguna preferencia por algún tipo de cliente?"
-              value={siNo.preferenciaCliente}
-              onChange={(value) => setSiNoValue("preferenciaCliente", value)}
-            />
-
-            <label className="block text-sm">
-              ¿Qué tipo?
-              <input
-                name="que_tipo"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <YesNoField
-              label="¿Utilizas condón con todos los clientes?"
-              value={siNo.condonClientes}
-              onChange={(value) => setSiNoValue("condonClientes", value)}
-            />
-
-            <label className="block text-sm">
-              Alguna veces____
-              <input
-                name="alguna_veces1"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-          </fieldset>
-
-          <fieldset
-            ref={step3Ref}
-            className={`rounded-lg border bg-card p-6 shadow-sm space-y-4 ${
-              step === 3 ? "block" : "hidden"
-            }`}
-          >
-            <YesNoField
-              label="¿Has tenido alguna experiencia desagradable con algún cliente?"
-              value={siNo.experienciaDesagradable}
-              onChange={(value) =>
-                setSiNoValue("experienciaDesagradable", value)
-              }
-            />
-
-            <label className="block text-sm">
-              ¿Qué tipo?
-              <input
-                name="que_tipo2"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <YesNoField
-              label="¿Has tenido relaciones sexuales sin condón en los ultimos seis meses?"
-              value={siNo.sinCondonUltimosSeisMeses}
-              onChange={(value) =>
-                setSiNoValue("sinCondonUltimosSeisMeses", value)
-              }
-            />
-
-            <label className="block text-sm">
-              ¿Con quién?
-              <input
-                name="con_quien"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              ¿Tienes información acerca de las ITS? Bastante___ Regular___
-              Poca___ Nada___
-              <input
-                name="tienes_informacion_acerca_ITS"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              ¿Tienes información acerca del VIH-SIDA? Bastante___ Regular___
-              Poca___ Nada___
-              <input
-                name="tienes_informacion_acerca_VIHSIDA"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <YesNoField
-              label="¿Has pensado en los riesgos a los que te expones?"
-              value={siNo.riesgosExpones}
-              onChange={(value) => setSiNoValue("riesgosExpones", value)}
-            />
-
-            <YesNoField
-              label="¿Has pensado que podrías salir positiva en la prueba de HIV?"
-              value={siNo.positivaHiv}
-              onChange={(value) => setSiNoValue("positivaHiv", value)}
-            />
-
-            <label className="block text-sm">
-              ¿Tomarías el tratamiento antirretroviral en caso de un resultado
-              positivo? Sí ___ No ___ Tal vez ___
-              <input
-                name="tomarias_tratamiento_atirretrovital"
-                required
-                className="mt-1 h-10 w-full rounded-md border px-3"
-                type="text"
-              />
-            </label>
-
-            <label className="block text-sm">
-              En caso de emergencia me puedes mencionar alguna persona de tu
-              confianza (nombre, parentesco y teléfono)
-              <textarea
-                name="en_caso_emergencia_mecionar_persona"
-                required
-                className="mt-1 min-h-24 w-full rounded-md border px-3 py-2"
-              />
-            </label>
-
-            <label className="block text-sm">
-              Senales Particulares
-              <textarea
-                name="senas_particulares"
-                required
-                className="mt-1 min-h-24 w-full rounded-md border px-3 py-2"
-              />
-            </label>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <label className="text-sm">
-                Estatura
-                <input
-                  name="estatura"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm">
-                Cabello
-                <input
-                  name="cabello"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm">
-                Ojos
-                <input
-                  name="ojos"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm">
-                Tez
-                <input
-                  name="tez"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-              <label className="text-sm md:col-span-2">
-                Complexión
-                <input
-                  name="complexion"
-                  required
-                  className="mt-1 h-10 w-full rounded-md border px-3"
-                  type="text"
-                />
-              </label>
-            </div>
-
-            <label className="block text-sm">
-              Notas:
-              <textarea
-                name="notas"
-                required
-                className="mt-1 min-h-24 w-full rounded-md border px-3 py-2"
-              />
-            </label>
-          </fieldset>
-        </form>
-
-        <div className="flex items-center justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={prevStep}
-            disabled={step === 1 || saving}
-          >
-            Anterior
-          </Button>
-
-          {step < 3 ? (
-            <Button type="button" onClick={nextStep} disabled={saving}>
-              Siguiente sección
-            </Button>
-          ) : (
-            <Button type="button" onClick={finishForm} disabled={saving}>
-              {saving ? "Guardando..." : "Finalizar entrevista"}
-            </Button>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </MainLayout>
   );
