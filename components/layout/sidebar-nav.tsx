@@ -51,6 +51,10 @@ const navigation = [
         name: "Entrevista de afiliacion",
         href: "/afiliados/entrevista-afiliacion",
       },
+      {
+        name: "Consentimiento de sangre",
+        href: "/afiliados/consentimiento-sangre",
+      },
     ],
   },
   {
