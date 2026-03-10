@@ -47,6 +47,10 @@ const navigation = [
       { name: "Buscar Afiliado", href: "/afiliados" },
       { name: "Nuevo Afiliado", href: "/afiliados/nuevo" },
       { name: "Historial Clinico", href: "/afiliados/historial-clinico" },
+      {
+        name: "Entrevista de afiliacion",
+        href: "/afiliados/entrevista-afiliacion",
+      },
     ],
   },
   {
