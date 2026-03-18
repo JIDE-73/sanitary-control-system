@@ -42,6 +42,7 @@ type ExamCatalogItem = {
 type ExamenFormData = {
   afiliadoId: string;
   examenId?: string;
+  tipoExamen?: string; // ✅ nombre del examen para el backend
   fechaOrden?: string;
   fechaProximoExamen?: string;
   dilucionVDRL?: "positivo" | "negativo" | "pendiente";
@@ -51,10 +52,10 @@ type ExamenFormData = {
 const normalizeAfiliado = (item: any): AfiliadoResultado => {
   const persona = item?.persona ?? {};
   const nombre = `${persona.nombre ?? ""} ${persona.apellido_paterno ?? ""} ${
-    persona.apellido_materno ?? ""
+      persona.apellido_materno ?? ""
   }`
-    .replace(/\s+/g, " ")
-    .trim();
+      .replace(/\s+/g, " ")
+      .trim();
 
   return {
     personaId: item?.persona_id ?? persona?.id ?? "",
@@ -67,8 +68,8 @@ const normalizeAfiliado = (item: any): AfiliadoResultado => {
 
 const extractArray = (response: any) => {
   const candidate = Array.isArray(response?.data)
-    ? response.data
-    : response?.data ?? response;
+      ? response.data
+      : response?.data ?? response;
 
   if (Array.isArray(candidate)) return candidate;
 
@@ -76,16 +77,16 @@ const extractArray = (response: any) => {
     const numericKeys = Object.keys(candidate).filter((k) => /^\d+$/.test(k));
     if (numericKeys.length) {
       return numericKeys
-        .sort((a, b) => Number(a) - Number(b))
-        .map((k) => (candidate as any)[k])
-        .filter(Boolean);
+          .sort((a, b) => Number(a) - Number(b))
+          .map((k) => (candidate as any)[k])
+          .filter(Boolean);
     }
 
     if (
-      "persona" in candidate ||
-      "persona_id" in candidate ||
-      "no_Afiliacion" in candidate ||
-      "no_afiliacion" in candidate
+        "persona" in candidate ||
+        "persona_id" in candidate ||
+        "no_Afiliacion" in candidate ||
+        "no_afiliacion" in candidate
     ) {
       return [candidate];
     }
@@ -99,16 +100,16 @@ const extractArray = (response: any) => {
 
 const normalizeExam = (item: any): ExamCatalogItem => ({
   id:
-    item?.id ??
-    item?.examenId ??
-    item?.examId ??
-    item?.examen_id ??
-    crypto.randomUUID(),
+      item?.id ??
+      item?.examenId ??
+      item?.examId ??
+      item?.examen_id ??
+      crypto.randomUUID(),
   nombre:
-    item?.nombre ??
-    item?.nombre_examen ??
-    item?.descripcion ??
-    "Examen sin nombre",
+      item?.nombre ??
+      item?.nombre_examen ??
+      item?.descripcion ??
+      "Examen sin nombre",
 });
 
 export function FormExamen({ onSubmit, submitting = false }: FormExamenProps) {
@@ -119,7 +120,7 @@ export function FormExamen({ onSubmit, submitting = false }: FormExamenProps) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAfiliado, setSelectedAfiliado] =
-    useState<AfiliadoResultado | null>(null);
+      useState<AfiliadoResultado | null>(null);
   const [searchResults, setSearchResults] = useState<AfiliadoResultado[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [exams, setExams] = useState<ExamCatalogItem[]>([]);
@@ -159,8 +160,8 @@ export function FormExamen({ onSubmit, submitting = false }: FormExamenProps) {
     setLoadingSearch(true);
     try {
       const response = await request(
-        `/sics/affiliates/getAffiliateById/${encodeURIComponent(term)}`,
-        "GET"
+          `/sics/affiliates/getAffiliateById/${encodeURIComponent(term)}`,
+          "GET"
       );
       const data = extractArray(response);
       const normalizados = data.map(normalizeAfiliado);
@@ -204,7 +205,7 @@ export function FormExamen({ onSubmit, submitting = false }: FormExamenProps) {
   useEffect(() => {
     if (afiliadoIdParam && searchResults.length) {
       const encontrado = searchResults.find(
-        (a) => a.personaId === afiliadoIdParam
+          (a) => a.personaId === afiliadoIdParam
       );
       if (encontrado) {
         setSelectedAfiliado(encontrado);
@@ -254,7 +255,15 @@ export function FormExamen({ onSubmit, submitting = false }: FormExamenProps) {
     if (!formData.dilucionVDRL) {
       toast({
         title: "Selecciona el resultado de dilución",
-        description: "Indica si la dilución VDRL es positiva o negativa.",
+        description: "Indica si la dilución VDRL es positiva, negativa o pendiente.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!formData.fechaProximoExamen) {
+      toast({
+        title: "Seleccionar fecha proximo examen",
+        description: "Seleccione la fecha del proximo examen",
         variant: "destructive",
       });
       return;
@@ -264,203 +273,211 @@ export function FormExamen({ onSubmit, submitting = false }: FormExamenProps) {
   };
 
   const examPlaceholder = loadingExams
-    ? "Cargando exámenes..."
-    : !exams.length
-    ? "Sin exámenes disponibles"
-    : "Seleccionar examen";
+      ? "Cargando exámenes..."
+      : !exams.length
+          ? "Sin exámenes disponibles"
+          : "Seleccionar examen";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Búsqueda de Afiliado */}
-      {!selectedAfiliado && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Search className="h-5 w-5 text-primary" />
-              Buscar Afiliado
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Buscar por CURP, número de afiliado o nombre..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) =>
-                  e.key === "Enter" && (e.preventDefault(), handleSearch())
-                }
-              />
-              <Button
-                type="button"
-                onClick={() => handleSearch()}
-                disabled={loadingSearch}
-              >
-                {loadingSearch ? "Buscando..." : "Buscar"}
-              </Button>
-            </div>
-            {searchResults.length > 0 && (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {searchResults.map((afiliado) => (
-                  <div
-                    key={afiliado.personaId}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted cursor-pointer"
-                    onClick={() => handleSelectAfiliado(afiliado)}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Búsqueda de Afiliado */}
+        {!selectedAfiliado && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Search className="h-5 w-5 text-primary" />
+                  Buscar Afiliado
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                      placeholder="Buscar por CURP, número de afiliado o nombre..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) =>
+                          e.key === "Enter" && (e.preventDefault(), handleSearch())
+                      }
+                  />
+                  <Button
+                      type="button"
+                      onClick={() => handleSearch()}
+                      disabled={loadingSearch}
                   >
-                    <div>
-                      <p className="font-medium">{afiliado.nombreCompleto}</p>
-                      <p className="text-sm text-muted-foreground font-mono">
-                        {afiliado.curp}
-                      </p>
-                      {afiliado.numeroAfiliacion ? (
-                        <p className="text-xs text-muted-foreground">
-                          Afiliación: {afiliado.numeroAfiliacion}
-                        </p>
-                      ) : null}
+                    {loadingSearch ? "Buscando..." : "Buscar"}
+                  </Button>
+                </div>
+                {searchResults.length > 0 && (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {searchResults.map((afiliado) => (
+                          <div
+                              key={afiliado.personaId}
+                              className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted cursor-pointer"
+                              onClick={() => handleSelectAfiliado(afiliado)}
+                          >
+                            <div>
+                              <p className="font-medium">{afiliado.nombreCompleto}</p>
+                              <p className="text-sm text-muted-foreground font-mono">
+                                {afiliado.curp}
+                              </p>
+                              {afiliado.numeroAfiliacion ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    Afiliación: {afiliado.numeroAfiliacion}
+                                  </p>
+                              ) : null}
+                            </div>
+                            <Button type="button" size="sm">
+                              Seleccionar
+                            </Button>
+                          </div>
+                      ))}
                     </div>
-                    <Button type="button" size="sm">
-                      Seleccionar
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                )}
+              </CardContent>
+            </Card>
+        )}
 
-      {/* Datos del Afiliado */}
-      {selectedAfiliado && (
+        {/* Datos del Afiliado */}
+        {selectedAfiliado && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <User className="h-5 w-5 text-primary" />
+                  Datos del Afiliado
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Nombre</p>
+                      <p className="font-medium">
+                        {selectedAfiliado.nombreCompleto}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">CURP</p>
+                      <p className="font-mono font-medium">
+                        {selectedAfiliado.curp}
+                      </p>
+                    </div>
+                    {selectedAfiliado.genero ? (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Género</p>
+                          <p className="font-medium capitalize">
+                            {selectedAfiliado.genero}
+                          </p>
+                        </div>
+                    ) : null}
+                  </div>
+                  <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSelectedAfiliado(null)}
+                  >
+                    Cambiar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+        )}
+
+        {/* Datos del Examen */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <User className="h-5 w-5 text-primary" />
-              Datos del Afiliado
+              <TestTube className="h-5 w-5 text-primary" />
+              Datos del Examen
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Nombre</p>
-                  <p className="font-medium">
-                    {selectedAfiliado.nombreCompleto}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">CURP</p>
-                  <p className="font-mono font-medium">
-                    {selectedAfiliado.curp}
-                  </p>
-                </div>
-                {selectedAfiliado.genero ? (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Género</p>
-                    <p className="font-medium capitalize">
-                      {selectedAfiliado.genero}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSelectedAfiliado(null)}
+          <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="examenId">Examen *</Label>
+              <Select
+                  value={formData.examenId || ""}
+                  onValueChange={(value) => {
+                    // ✅ Guarda el UUID en examenId y el nombre en tipoExamen
+                    const exam = exams.find((e) => e.id === value);
+                    setFormData((prev) => ({
+                      ...prev,
+                      examenId: value,
+                      tipoExamen: exam?.nombre ?? "",
+                    }));
+                  }}
+                  disabled={loadingExams || !exams.length}
               >
-                Cambiar
-              </Button>
+                <SelectTrigger>
+                  <SelectValue placeholder={examPlaceholder} />
+                </SelectTrigger>
+                <SelectContent>
+                  {exams.map((exam) => (
+                      <SelectItem key={exam.id} value={exam.id}>
+                        {exam.nombre}
+                      </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fechaOrden">Fecha de Orden *</Label>
+              <Input
+                  id="fechaOrden"
+                  type="date"
+                  value={formData.fechaOrden || ""}
+                  onChange={(e) => handleChange("fechaOrden", e.target.value)}
+                  required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fechaProximoExamen">Fecha Próximo Examen</Label>
+              <Input
+                  id="fechaProximoExamen"
+                  type="date"
+                  value={formData.fechaProximoExamen || ""}
+                  onChange={(e) =>
+                      handleChange("fechaProximoExamen", e.target.value)
+                  }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dilucionVDRL">Dilución VDRL *</Label>
+              <Select
+                  value={formData.dilucionVDRL || ""}
+                  onValueChange={(value) => handleChange("dilucionVDRL", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar resultado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="positivo">Positivo</SelectItem>
+                  <SelectItem value="negativo">Negativo</SelectItem>
+                  <SelectItem value="pendiente">Pendiente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 lg:col-span-2">
+              <Label htmlFor="observaciones">Observaciones</Label>
+              <Textarea
+                  id="observaciones"
+                  value={formData.observaciones || ""}
+                  onChange={(e) => handleChange("observaciones", e.target.value)}
+                  placeholder="Indicaciones especiales para el laboratorio..."
+                  rows={2}
+              />
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Datos del Examen */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <TestTube className="h-5 w-5 text-primary" />
-            Datos del Examen
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="examenId">Examen *</Label>
-            <Select
-              value={formData.examenId || ""}
-              onValueChange={(value) => handleChange("examenId", value)}
-              disabled={loadingExams || !exams.length}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={examPlaceholder} />
-              </SelectTrigger>
-              <SelectContent>
-                {exams.map((exam) => (
-                  <SelectItem key={exam.id} value={exam.id}>
-                    {exam.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="fechaOrden">Fecha de Orden *</Label>
-            <Input
-              id="fechaOrden"
-              type="date"
-              value={formData.fechaOrden || ""}
-              onChange={(e) => handleChange("fechaOrden", e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="fechaProximoExamen">Fecha Próximo Examen</Label>
-            <Input
-              id="fechaProximoExamen"
-              type="date"
-              value={formData.fechaProximoExamen || ""}
-              onChange={(e) =>
-                handleChange("fechaProximoExamen", e.target.value)
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="dilucionVDRL">Dilución VDRL *</Label>
-            <Select
-              value={formData.dilucionVDRL || ""}
-              onValueChange={(value) => handleChange("dilucionVDRL", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar resultado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="positivo">Positivo</SelectItem>
-                <SelectItem value="negativo">Negativo</SelectItem>
-                <SelectItem value="pendiente">Pendiente</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2 lg:col-span-2">
-            <Label htmlFor="observaciones">Observaciones</Label>
-            <Textarea
-              id="observaciones"
-              value={formData.observaciones || ""}
-              onChange={(e) => handleChange("observaciones", e.target.value)}
-              placeholder="Indicaciones especiales para el laboratorio..."
-              rows={2}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex justify-end gap-4">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Cancelar
-        </Button>
-        <Button type="submit" disabled={!selectedAfiliado || submitting}>
-          <Save className="mr-2 h-4 w-4" />
-          {submitting ? "Guardando..." : "Ordenar Examen"}
-        </Button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-4">
+          <Button type="button" variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={!selectedAfiliado || submitting}>
+            <Save className="mr-2 h-4 w-4" />
+            {submitting ? "Guardando..." : "Ordenar Examen"}
+          </Button>
+        </div>
+      </form>
   );
 }

@@ -33,9 +33,10 @@ function NuevoExamenContent() {
       const fechaProximoISO = data.fechaProximoExamen
         ? new Date(`${data.fechaProximoExamen}T00:00:00.000Z`).toISOString()
         : undefined;
+      console.log("DATA COMPLETA:", JSON.stringify(data, null, 2));
 
       const payload = {
-        examen: (data.examenId ?? data.tipoExamen) as string,
+        examen: data.tipoExamen as string,
         fecha_orden: fechaOrdenISO,
         ...(fechaProximoISO && {
           fecha_proximo_examen: fechaProximoISO,

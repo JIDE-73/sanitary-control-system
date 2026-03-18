@@ -1,4 +1,5 @@
 const baseUrl = `${process.env.NEXT_PUBLIC_URL}`;
+console.log("Base URL:", baseUrl);
 
 // Función helper para obtener el token
 const getToken = (): string | null => {
@@ -19,7 +20,7 @@ const request = async (url: string, method: string, body?: any) => {
   if (hasJsonBody) {
     headers["Content-Type"] = "application/json";
   }
-  
+
   // Agregar el token si está disponible (excepto para el login)
   if (token && !url.includes("/admin/users/login")) {
     headers["Authorization"] = `Bearer ${token}`;
