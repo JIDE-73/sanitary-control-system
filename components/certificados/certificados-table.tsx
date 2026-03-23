@@ -527,8 +527,8 @@ export function CertificadosTable() {
 
       // ── Reemplaza estas rutas con las URLs/paths reales de tus logos ──────────
       const [logoTijuanaB64, logoDmsB64] = await Promise.all([
-        loadImgBase64("/assets/logo-tijuana.png"),   // logo XXIV Ayuntamiento Tijuana
-        loadImgBase64("/assets/logo-dms.png"),        // logo DMS Dirección Municipal de Salud
+        loadImgBase64("/Logo_XXVAyto_Horizontal.png"),   // logo XXIV Ayuntamiento Tijuana
+        loadImgBase64("/logo-dms.png"),        // logo DMS Dirección Municipal de Salud
       ]);
 
       const logoTijuanaTag = logoTijuanaB64
