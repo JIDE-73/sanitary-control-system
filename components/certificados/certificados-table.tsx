@@ -469,8 +469,6 @@ export function CertificadosTable() {
    * un HTML idéntico al diseño aprobado, convertido a PDF con
    * html2canvas + jsPDF (una sola página, tamaño carta).
    *
-   * Dependencias:
-   *   npm install jspdf html2canvas qrcode
    */
 
   const handleDownloadPdf = async (certificate: AlcoholCertificate) => {
