@@ -464,695 +464,560 @@ export function CertificadosTable() {
     setOpen(true);
   };
 
+  /**
+   * Genera el PDF del Certificado Médico de Esencia renderizando
+   * un HTML idéntico al diseño aprobado, convertido a PDF con
+   * html2canvas + jsPDF (una sola página, tamaño carta).
+   *
+   * Dependencias:
+   *   npm install jspdf html2canvas qrcode
+   */
+
   const handleDownloadPdf = async (certificate: AlcoholCertificate) => {
     setDownloadingId(certificate.id ?? null);
+
     try {
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ unit: "mm", format: "letter" });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const marginX = 12;
-      const marginY = 12;
-      const contentBottom = pageHeight - marginY;
-      const logoDataUrl = await loadLogoDataUrl();
-      const baseFont = "helvetica";
-      
+      const { jsPDF }   = await import("jspdf");
+      const html2canvas = (await import("html2canvas")).default;
+
+      // ── helpers ───────────────────────────────────────────────────────────────
       const safe = (value: any, fallback = "") => {
         if (value === null || value === undefined || value === "") return fallback;
         return `${value}`.trim();
       };
-      
-      const checkboxMark = (checked: boolean | undefined) =>
-        checked === undefined || checked === null ? "N/D" : checked ? "SI" : "NO";
-      
-      const boolLabel = (value?: boolean) =>
-        value === undefined || value === null ? "" : value ? "Sí" : "No";
 
-      const patientName = getPatientName(certificate);
+      const cb = (checked: boolean | undefined) =>
+          `<b>${checked === undefined || checked === null ? "N/D" : checked ? "SI" : "NO"}</b>`;
+
+      const val = (value: any, fallback = "______") =>
+          `<u><b>${safe(value, fallback)}</b></u>`;
+
+      const patientName   = getPatientName(certificate);
       const patientGender = getPatientGender(certificate);
-      const patientAge = getPatientAge(certificate);
-      
-      // Obtener datos del médico
-      const medicoNombreCompleto = getDoctorName(certificate);
-      const registroProfesiones = safe(
-        certificate.Medico?.cedula_profesional || certificate.cedula_perito
-      );
-      
-      // Parsear fecha y hora
-      const date = certificate.fecha_expedicion
-        ? new Date(certificate.fecha_expedicion)
-        : new Date();
-      const horas = date.getHours().toString().padStart(2, "0");
-      const minutos = date.getMinutes().toString().padStart(2, "0");
-      const dia = date.getDate().toString();
-      const meses = [
-        "enero", "febrero", "marzo", "abril", "mayo", "junio",
-        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
-      ];
-      const mes = meses[date.getMonth()];
-      const ano = date.getFullYear().toString();
+      const patientAge    = getPatientAge(certificate);
+      const medicoNombre  = getDoctorName(certificate);
+      const cedula        = safe(certificate.Medico?.cedula_profesional || certificate.cedula_perito);
 
-      let y = marginY;
-      let currentPage = 1;
-      const maxPagesForQR = 2;
-      
-      // Generar QR code con el token del certificado (si existe)
-      let qrDataUrl: string | null = null;
+      const date    = certificate.fecha_expedicion ? new Date(certificate.fecha_expedicion) : new Date();
+      const horas   = date.getHours().toString().padStart(2, "0");
+      const minutos = date.getMinutes().toString().padStart(2, "0");
+      const dia     = date.getDate().toString();
+      const meses   = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto",
+        "septiembre","octubre","noviembre","diciembre"];
+      const mes     = meses[date.getMonth()];
+      const ano     = date.getFullYear().toString();
+      const folio   = safe(certificate.folio || certificate.id, "Sin folio");
+
+      // ── Logos ─────────────────────────────────────────────────────────────────
+      // Carga los logos como base64. Ajusta las rutas a donde tengas los archivos.
+      const loadImgBase64 = (src: string): Promise<string> =>
+          new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+              const c = document.createElement("canvas");
+              c.width = img.naturalWidth;
+              c.height = img.naturalHeight;
+              c.getContext("2d")!.drawImage(img, 0, 0);
+              resolve(c.toDataURL("image/png"));
+            };
+            img.onerror = () => resolve(""); // si no carga, omite el logo
+            img.src = src;
+          });
+
+      // ── Reemplaza estas rutas con las URLs/paths reales de tus logos ──────────
+      const [logoTijuanaB64, logoDmsB64] = await Promise.all([
+        loadImgBase64("/assets/logo-tijuana.png"),   // logo XXIV Ayuntamiento Tijuana
+        loadImgBase64("/assets/logo-dms.png"),        // logo DMS Dirección Municipal de Salud
+      ]);
+
+      const logoTijuanaTag = logoTijuanaB64
+          ? `<img src="${logoTijuanaB64}" class="logo-left" alt="Tijuana"/>`
+          : `<div class="logo-ph-text">XXIV Ayuntamiento<br/>Tijuana 2021-2024</div>`;
+
+      const logoDmsTag = logoDmsB64
+          ? `<img src="${logoDmsB64}" class="logo-right" alt="DMS"/>`
+          : `<div class="logo-ph-text" style="text-align:right">DMS<br/>Dirección Municipal<br/>de Salud</div>`;
+
+      // ── QR opcional ──────────────────────────────────────────────────────────
+      let qrImg = "";
       const token = certificate.certificadoJWT?.[0]?.token;
       if (token) {
         try {
-          const validationUrl = `${validationBaseUrl}/validate-certificate/${token}`;
-          qrDataUrl = await QRCode.toDataURL(validationUrl, {
-            width: 200,
-            margin: 1,
-          });
-        } catch (qrError) {
-          console.warn("No se pudo generar el QR code", qrError);
-        }
-      }
-
-      // Función para agregar QR en la esquina inferior derecha
-      const addQRToPage = (pageNumber: number) => {
-        if (!qrDataUrl || pageNumber > maxPagesForQR) return;
-        
-        doc.setPage(pageNumber);
-        const qrSize = 15; // mm - pequeño
-        const qrX = pageWidth - marginX - qrSize;
-        const qrY = pageHeight - marginY - qrSize;
-        
-        // Agregar el QR en la esquina inferior derecha
-        doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
-      };
-      
-      const ensureSpace = (height = 10) => {
-        if (y + height > contentBottom) {
-          doc.addPage();
-          currentPage++;
-          y = marginY;
-          doc.setFont(baseFont, "normal");
-          doc.setFontSize(9);
-        }
-      };
-
-      // Función simplificada para escribir texto mixto (normal + negrita)
-      const writeMixedText = (
-        parts: Array<{ text: string; bold?: boolean }>,
-        x: number = marginX,
-        currentY: number = y,
-        maxWidth: number = pageWidth - marginX * 2
-      ): number => {
-        let currentX = x;
-        let lineY = currentY;
-        const lineHeight = 4.5;
-        
-        parts.forEach((part, index) => {
-          const isBold = part.bold === true;
-          doc.setFont(baseFont, isBold ? "bold" : "normal");
-          doc.setFontSize(9);
-          
-          const textLines = doc.splitTextToSize(part.text, maxWidth - (currentX - x));
-          
-          textLines.forEach((line: string, lineIndex: number) => {
-            if (lineIndex > 0 || (index > 0 && currentX > x && currentX + doc.getTextWidth(line) > x + maxWidth)) {
-              currentX = x;
-              lineY += lineHeight;
-              ensureSpace(lineHeight);
-            }
-            
-            doc.text(line, currentX, lineY);
-            currentX += doc.getTextWidth(line);
-            
-            // Agregar espacio entre partes si no es la última
-            if (index < parts.length - 1 && lineIndex === textLines.length - 1) {
-              const spaceWidth = doc.getTextWidth(" ");
-              if (currentX + spaceWidth <= x + maxWidth) {
-                doc.text(" ", currentX, lineY);
-                currentX += spaceWidth;
-              }
-            }
-          });
-        });
-        
-        return lineY + lineHeight - currentY;
-      };
-
-      const writeLabelValue = (label: string, value: string, width = 52) => {
-        ensureSpace(6);
-        doc.setFont(baseFont, "bold");
-        doc.setFontSize(9);
-        doc.text(label, marginX, y);
-        doc.setFont(baseFont, "normal");
-        const valueLines = doc.splitTextToSize(
-          value,
-          pageWidth - marginX * 2 - width
-        );
-        doc.text(valueLines, marginX + width, y);
-        y += Math.max(5, valueLines.length * 4.5);
-      };
-
-      const writeTwoColumnRows = (
-        rows: Array<{
-          left: { label: string; value: string };
-          right?: { label: string; value: string };
-        }>
-      ) => {
-        const gap = 6;
-        const sectionWidth = pageWidth - marginX * 2;
-        const columnWidth = (sectionWidth - gap) / 2;
-        const labelWidth = 40;
-        const lineHeight = 4.5;
-
-        const getFieldHeight = (field: { label: string; value: string }) => {
-          const valueLines = doc.splitTextToSize(
-            field.value,
-            Math.max(12, columnWidth - labelWidth - 1)
+          const QRCode = (await import("qrcode")).default;
+          const url = await QRCode.toDataURL(
+              `${validationBaseUrl}/validate-certificate/${token}`,
+              { width: 120, margin: 1 }
           );
-          const lines = Math.max(1, valueLines.length);
-          return Math.max(5, lines * lineHeight);
-        };
-
-        const drawField = (
-          x: number,
-          field: { label: string; value: string },
-          currentY: number
-        ) => {
-          doc.setFont(baseFont, "bold");
-          doc.setFontSize(9);
-          doc.text(field.label, x, currentY);
-          doc.setFont(baseFont, "normal");
-          const valueLines = doc.splitTextToSize(
-            field.value,
-            Math.max(12, columnWidth - labelWidth - 1)
-          );
-          doc.text(valueLines, x + labelWidth, currentY);
-        };
-
-        rows.forEach((row) => {
-          const leftHeight = getFieldHeight(row.left);
-          const rightHeight = row.right ? getFieldHeight(row.right) : 0;
-          const rowHeight = Math.max(leftHeight, rightHeight);
-          ensureSpace(rowHeight + 1);
-
-          drawField(marginX, row.left, y);
-          if (row.right) {
-            drawField(marginX + columnWidth + gap, row.right, y);
-          }
-          y += rowHeight;
-        });
-      };
-
-      const drawSectionHeader = (title: string) => {
-        ensureSpace(12);
-        const headerTop = y - 4;
-        const headerHeight = 7;
-        const headerWidth = pageWidth - marginX * 2;
-
-        doc.setFillColor(245, 247, 250);
-        doc.setDrawColor(220, 225, 230);
-        doc.rect(marginX, headerTop, headerWidth, headerHeight, "FD");
-
-        doc.setFont(baseFont, "bold");
-        doc.setFontSize(10);
-        doc.text(title, marginX + 2, y + 0.8);
-        y += 8;
-        doc.setFont(baseFont, "normal");
-        doc.setFontSize(9);
-      };
-
-      const drawSingleLineFittedText = (
-        text: string,
-        x: number,
-        yPos: number,
-        maxWidth: number,
-        options?: { minFontSize?: number; maxFontSize?: number; bold?: boolean }
-      ) => {
-        const minFontSize = options?.minFontSize ?? 6.5;
-        const maxFontSize = options?.maxFontSize ?? 9;
-        const fontStyle = options?.bold ? "bold" : "normal";
-        let fontSize = maxFontSize;
-
-        doc.setFont(baseFont, fontStyle);
-        doc.setFontSize(fontSize);
-        while (fontSize > minFontSize && doc.getTextWidth(text) > maxWidth) {
-          fontSize -= 0.25;
-          doc.setFontSize(fontSize);
-        }
-
-        doc.text(text, x, yPos);
-        doc.setFont(baseFont, "normal");
-        doc.setFontSize(9);
-      };
-
-      // Logo, Folio y Vigencia en el encabezado
-      const logoWidth = 50;
-      const logoHeight = 12;
-      const rightSideX = pageWidth - marginX;
-      
-      if (logoDataUrl) {
-        doc.addImage(logoDataUrl, "PNG", marginX, y, logoWidth, logoHeight);
-      }
-      
-      // Folio, Vigencia y Fecha de expiración a la derecha
-      const folioText = certificate.folio || certificate.id || "Sin folio";
-      const vigenciaDias = getVigenciaCertificado();
-      const vigenciaText = `Vigencia: ${vigenciaDias} días`;
-      const fechaExpiracion = calcularFechaExpiracion(vigenciaDias);
-      const expiracionText = fechaExpiracion ? `Expira: ${fechaExpiracion}` : null;
-      
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text(folioText, rightSideX, y + 4, { align: "right" });
-      
-      doc.setFont(baseFont, "normal");
-      doc.setFontSize(9);
-      doc.text(vigenciaText, rightSideX, y + 8, { align: "right" });
-      
-      if (expiracionText) {
-        doc.text(expiracionText, rightSideX, y + 12, { align: "right" });
-      }
-      
-      y += 18;
-
-      // Resumen para mejorar lectura inicial del documento
-      drawSectionHeader("CERTIFICADO");
-      const resumenFecha = `${dia}/${String(date.getMonth() + 1).padStart(2, "0")}/${ano} ${horas}:${minutos}`;
-      y += writeMixedText([
-        { text: "Folio: " },
-        { text: folioText, bold: true },
-        { text: "  |  Fecha de emisión: " },
-        { text: resumenFecha, bold: true },
-      ], marginX, y) + 2;
-
-      // Encabezado del certificado
-      ensureSpace(12);
-      
-      // Texto del encabezado con valores en negrita
-      const ciudadValor = safe((certificate as any).ciudad, "Tijuana, B.C.");
-      const medicoNombreValor = medicoNombreCompleto || "__________________________";
-      const registroValor = registroProfesiones || "______________________";
-      
-      y += writeMixedText([
-        { text: "En la ciudad de " },
-        { text: ciudadValor, bold: true },
-        { text: `, Siendo las ` },
-        { text: horas, bold: true },
-        { text: ` hrs. ` },
-        { text: minutos, bold: true },
-        { text: ` min. del día ` },
-        { text: dia, bold: true },
-        { text: ` del mes de ` },
-        { text: mes, bold: true },
-        { text: ` del año ` },
-        { text: ano, bold: true },
-        { text: ` el suscrito médico:` },
-      ], marginX, y) + 2;
-
-      ensureSpace(6);
-      drawSingleLineFittedText(
-        medicoNombreValor,
-        marginX + 4,
-        y,
-        pageWidth - (marginX * 2 + 4),
-        { bold: true, minFontSize: 6.5, maxFontSize: 9 }
-      );
-      y += 5.5;
-
-      y += writeMixedText([
-        { text: `adscrito a la Dirección Municipal de Prevención, Control y Sanidad legalmente autorizado (a) para el ejercicio de la profesión con registro de la Dirección General de Profesiones ` },
-        { text: registroValor, bold: true },
-        { text: ` y bajo protesta de conducirse de decir verdad, certifico que:` }
-      ], marginX, y) + 5;
-
-      // DATOS DE IDENTIFICACIÓN DEL PACIENTE
-      drawSectionHeader("DATOS DE IDENTIFICACIÓN DEL PACIENTE");
-      
-      // Nombre se id. con de años de edad
-      const identificaCon = safe(certificate.identifica_con);
-      const edadText = patientAge ? `${patientAge}` : "";
-      const nombreValor = patientName || "__________________________";
-      const identificaValor = identificaCon || "__________________";
-      const edadValor = edadText || "____";
-      
-      y += writeMixedText([
-        { text: "Nombre " },
-        { text: nombreValor, bold: true },
-        { text: " se id. con " },
-        { text: identificaValor, bold: true },
-        { text: " de " },
-        { text: edadValor, bold: true },
-        { text: " años de edad" }
-      ], marginX, y) + 3;
-      
-      // de sexo de nacionalidad con residencia nacional o extranjera
-      const generoText = safe(patientGender, "");
-      const nacionalidadText = safe(certificate.nacionalidad, "");
-      const residenciaNacional = checkboxMark(certificate.residencia_nacional);
-      const extranjera = checkboxMark(certificate.extranjera);
-      const generoValor = generoText || "__________________";
-      const nacionalidadValor = nacionalidadText || "__________________";
-      
-      y += writeMixedText([
-        { text: "de sexo " },
-        { text: generoValor, bold: true },
-        { text: " de nacionalidad " },
-        { text: nacionalidadValor, bold: true },
-        { text: " con residencia nacional " },
-        { text: residenciaNacional, bold: true },
-        { text: " o extranjera " },
-        { text: extranjera, bold: true }
-      ], marginX, y) + 3;
-      
-      // con domicilio
-      const direccionText = safe(certificate.direccion || certificate.Persona?.direccion, "");
-      const direccionValor = direccionText || "_____________________________________________________________________________________________";
-      
-      y += writeMixedText([
-        { text: "con domicilio " },
-        { text: direccionValor, bold: true }
-      ], marginX, y) + 5;
-
-      // EXPLORACIÓN FÍSICA
-      drawSectionHeader("EXPLORACIÓN FÍSICA");
-      writeTwoColumnRows([
-        {
-          left: { label: "Estado conciencia", value: safe(certificate.estado_conciencia, "Sin dato") },
-          right: { label: "Excitado", value: checkboxMark(certificate.excitado) },
-        },
-        {
-          left: { label: "Facies", value: safe(certificate.facies, "Sin dato") },
-          right: { label: "Conjuntivas", value: safe(certificate.conjuntivas, "Sin dato") },
-        },
-        {
-          left: { label: "Pupilas", value: safe(certificate.pupilas, "Sin dato") },
-          right: { label: "Aliento", value: safe(certificate.aliento, "Sin dato") },
-        },
-        {
-          left: { label: "Hipo", value: checkboxMark(certificate.hipo) },
-          right: { label: "Náuseas", value: checkboxMark(certificate.nauseas) },
-        },
-        {
-          left: {
-            label: "Vómito",
-            value: checkboxMark(
-              certificate.vomito === "sí" ||
-                certificate.vomito === "Sí" ||
-                certificate.vomito === "SI"
-            ),
-          },
-          right: { label: "Signo Romberg", value: safe(certificate.signo_romberg, "Sin dato") },
-        },
-        {
-          left: { label: "Trastabillea/Cae", value: `${checkboxMark(certificate.trastabillea)} / ${checkboxMark(certificate.cae)}` },
-          right: { label: "Eq. marcha", value: safe(certificate.equilibrio_marcha, "Sin dato") },
-        },
-        {
-          left: { label: "T/C (marcha)", value: `${checkboxMark(certificate.trastabillea1)} / ${checkboxMark(certificate.cae1)}` },
-          right: { label: "Prueba tándem", value: safe(certificate.prueba_tandem, "Sin dato") },
-        },
-        {
-          left: { label: "T/C (tándem)", value: `${checkboxMark(certificate.trastabillea2)} / ${checkboxMark(certificate.cae2)}` },
-          right: { label: "Eq. vertical", value: safe(certificate.equilibrio_vertical, "Sin dato") },
-        },
-        {
-          left: { label: "T/C (vertical)", value: `${checkboxMark(certificate.trastabillea3)} / ${checkboxMark(certificate.cae3)}` },
-          right: { label: "Gira sobre eje", value: checkboxMark(certificate.gira_sobre_eje) },
-        },
-        {
-          left: { label: "T/C (giro)", value: `${checkboxMark(certificate.trastabillea4)} / ${checkboxMark(certificate.cae4)}` },
-          right: { label: "Levantar objetos", value: safe(certificate.levantar_objetos, "Sin dato") },
-        },
-        {
-          left: { label: "T/C (objetos)", value: `${checkboxMark(certificate.trastabillea5)} / ${checkboxMark(certificate.cae5)}` },
-          right: { label: "Talón-rodilla", value: checkboxMark(certificate.prueba_talon_rodilla) },
-        },
-        {
-          left: { label: "T/C (talón)", value: `${checkboxMark(certificate.trastabillea6)} / ${checkboxMark(certificate.cae6)}` },
-        },
-      ]);
-      y += 2;
-
-      // PRUEBA DE COORDINACIÓN DIGITAL CON AMBAS MANOS
-      drawSectionHeader("PRUEBA DE COORDINACIÓN DIGITAL CON AMBAS MANOS");
-
-      doc.setFont(baseFont, "normal");
-      doc.setFontSize(9);
-      
-      // DEDO - DEDO
-      doc.setFont(baseFont, "bold");
-      doc.text("DEDO - DEDO", marginX, y);
-      y += 5;
-      writeTwoColumnRows([
-        {
-          left: { label: "Mano derecha", value: `${checkboxMark(certificate.mano_derecha)} / ${checkboxMark(certificate.falla)}` },
-          right: { label: "Mano izquierda", value: `${checkboxMark(certificate.mano_izquierda)} / ${checkboxMark(certificate.falla1)}` },
-        },
-      ]);
-
-      // DEDO - NARIZ
-      doc.setFont(baseFont, "bold");
-      doc.text("DEDO - NARIZ", marginX, y);
-      y += 5;
-      writeTwoColumnRows([
-        {
-          left: { label: "Mano derecha", value: `${checkboxMark(certificate.dedo_nariz_mano_derecha)} / ${checkboxMark(certificate.falla2)}` },
-          right: { label: "Mano izquierda", value: `${checkboxMark(certificate.dedo_nariz_mano_izquierda)} / ${checkboxMark(certificate.falla3)}` },
-        },
-      ]);
-      y += 2;
-      
-      // CARACTERÍSTICAS DEL HABLA
-      drawSectionHeader("CARACTERÍSTICAS DEL HABLA");
-      
-      writeTwoColumnRows([
-        {
-          left: { label: "Normal", value: checkboxMark(certificate.normal) },
-          right: { label: "Disartria", value: checkboxMark(certificate.disartria) },
-        },
-        {
-          left: { label: "Inteligible", value: checkboxMark(certificate.ininteligible) },
-          right: { label: "Verborrea", value: checkboxMark(certificate.verborrea) },
-        },
-      ]);
-      
-      // Signos vitales
-      ensureSpace(20);
-      writeTwoColumnRows([
-        {
-          left: { label: "Pulso", value: `${safe(certificate.signos_vitales, "Sin dato")} /min` },
-          right: { label: "Frec. respiratoria", value: `${safe(certificate.frecuencia_respiratoria, "Sin dato")} resp/min` },
-        },
-        {
-          left: {
-            label: "Tensión arterial",
-            value: `${safe(certificate.tension_arterial, "Sin dato")} / ${safe(
-              certificate.tension_arterial1,
-              "Sin dato"
-            )} mmHg`,
-          },
-          right: { label: "Temperatura", value: safe(certificate.temperatura, "Sin dato") },
-        },
-      ]);
-      writeLabelValue(
-        "Determinación alcoholemia",
-        `${safe(certificate.determinacion_alcohol, "Sin dato")} | Br. AC: ${checkboxMark(
-          certificate.BR_AC
-        )}`
-      );
-
-      // OBSERVACIONES
-      drawSectionHeader("OBSERVACIONES");
-      
-      doc.setFont(baseFont, "normal");
-      doc.setFontSize(9);
-      doc.text(
-        "Al ciudadano se le interrogó si padecía alguna enfermedad y si estaba bajo tratamiento médico a lo que respondió",
-        marginX,
-        y,
-        { maxWidth: pageWidth - marginX * 2 }
-      );
-      y += 5;
-      y += writeMixedText([
-        { text: "SÍ " },
-        { text: checkboxMark(certificate.si), bold: true },
-        { text: "  NO " },
-        { text: checkboxMark(certificate.no), bold: true }
-      ], marginX, y) + 3;
-      if (safe(certificate.observacion)) {
-        y += writeMixedText([
-          { text: "Observación: " },
-          { text: safe(certificate.observacion), bold: true }
-        ], marginX, y) + 3;
-      }
-      y += 5;
-
-      // PRUEBAS DE RESULTADO DE ALCOHOLÍMETRO
-      drawSectionHeader("PRUEBAS DE RESULTADO DE ALCOHOLÍMETRO");
-      
-      y += writeMixedText([
-        { text: "Determinación de alcoholemia (analizador de aire de espirado) Resultado " },
-        { text: safe(certificate.determinacion_alcohol1, "____________"), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "BAC " },
-        { text: checkboxMark(certificate.BAC), bold: true },
-        { text: "  Br. AC " },
-        { text: checkboxMark(certificate.BR_AC), bold: true },
-        { text: "  Auto Test # " },
-        { text: safe(certificate.auto_test, "____________"), bold: true }
-      ], marginX, y) + 5;
-
-      // EN BASE A LO ANTERIORMENTE EXPUESTO
-      drawSectionHeader("DIAGNÓSTICO");
-      doc.setFont(baseFont, "bold");
-      doc.setFontSize(10);
-      doc.text(
-        "EN BASE A LO ANTERIORMENTE EXPUESTO, EL CIUDADANO PRESENTA UN CUADRO CLÍNICO DE:",
-        marginX,
-        y,
-        { maxWidth: pageWidth - marginX * 2 }
-      );
-        y += 6;
-      
-      y += writeMixedText([
-        { text: checkboxMark(certificate.estado_ebriedad), bold: true },
-        { text: " Estado de Ebriedad" }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: checkboxMark(certificate.estupefacientes), bold: true },
-        { text: " Estupefacientes, psicotrópicos u otras substancias tóxicas. Especifique: " },
-        { text: safe(certificate.estupefacientes_texto, "_________________________________"), bold: true }
-      ], marginX, y) + 5;
-
-      // DIAGNÓSTICO Y CONCLUSIONES
-      drawSectionHeader("DIAGNÓSTICO Y CONCLUSIONES");
-
-      y += writeMixedText([
-        { text: "En base a lo anteriormente expuesto el ciudadano presenta un cuadro clínico de " },
-        { text: safe(certificate.cuadro_clinico, "______________________________"), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "el cual " },
-        { text: safe(certificate.el_cual, "______________________________"), bold: true },
-        { text: " perturba o impide su habilidad para conducir un vehículo de motor." }
-      ], marginX, y) + 5;
-
-      // DATOS DE IDENTIFICACIÓN DEL SOLICITANTE
-      drawSectionHeader("DATOS DE IDENTIFICACIÓN DEL SOLICITANTE");
-
-      y += writeMixedText([
-        { text: "Nombre del solicitante " },
-        { text: safe(certificate.nombre_solicitante, "______________________________________________"), bold: true },
-        { text: " Identificación o núm. de placa " },
-        { text: safe(certificate.no_placa, "____________"), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Departamento y sección a la que pertenece " },
-        { text: safe(certificate.departamento, "_________________________________________________________________"), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Dependencia que requiere la certificación " },
-        { text: safe(certificate.dependencia, "___________________________________"), bold: true },
-        { text: " No. de boleta de infracción " },
-        { text: safe(certificate.no_boleta, "____________"), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Nombre del Juez municipal que autorizó la certificación Lic. " },
-        { text: safe(certificate.nombre_juez, "________________________________________________"), bold: true }
-      ], marginX, y) + 5;
-
-      // DATOS COMPLEMENTARIOS
-      drawSectionHeader("DATOS COMPLEMENTARIOS");
-      
-      y += writeMixedText([
-        { text: "El ciudadano en cuestión era conductor de un vehículo " },
-        { text: safe(certificate.vehiculo, "______________________________"), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Marca " },
-        { text: safe(certificate.marca, "____________________"), bold: true },
-        { text: "  Modelo " },
-        { text: safe(certificate.modelo, "____________________"), bold: true }
-      ], marginX, y) + 3;
-      
-      y += writeMixedText([
-        { text: "Placas " },
-        { text: safe(certificate.placas, "____________________"), bold: true },
-        { text: "  Nacionales o de frontera " },
-        { text: safe(certificate.nacionales_o_frontera, "____________________"), bold: true },
-        { text: "  Extranjeras " },
-        { text: checkboxMark(certificate.extranjeras), bold: true }
-      ], marginX, y);
-
-      // Campos de firma al final
-      const signatureBlockHeight = 20;
-      const signatureBottomPadding = 8;
-      const signatureStartY =
-        pageHeight - marginY - signatureBottomPadding - signatureBlockHeight;
-
-      if (y > signatureStartY) {
-        doc.addPage();
-        currentPage++;
-        y = marginY;
+          qrImg = `<img src="${url}" style="width:18mm;height:18mm;" alt="QR"/>`;
+        } catch { /* opcional */ }
       }
 
-      y = signatureStartY;
-      
-      // Calcular posiciones X para los 3 campos de firma
-      const availableWidth = pageWidth - marginX * 2;
-      const columnWidth = availableWidth / 3;
-      const column1X = marginX;
-      const column2X = marginX + columnWidth;
-      const column3X = marginX + columnWidth * 2;
-      
-      // Línea para firmas (ancladas casi al final de la hoja)
-      const lineY = y;
-      doc.setLineWidth(0.1);
-      doc.line(column1X, lineY, column1X + columnWidth - 10, lineY);
-      doc.line(column2X, lineY, column2X + columnWidth - 10, lineY);
-      doc.line(column3X, lineY, column3X + columnWidth - 10, lineY);
-      
-      y += 8;
-      
-      // Títulos de los campos de firma
-      doc.setFont(baseFont, "normal");
-      doc.setFontSize(9);
-      
-      // Juez municipal (izquierda)
-      doc.text("Juez municipal", column1X, y, { align: "left" });
-      
-      // Atentamente (centro)
-      doc.text("Atentamente", column2X, y, { align: "left" });
-      
-      // Conductor (derecha)
-      doc.text("Conductor", column3X, y, { align: "left" });
-      
-      y += 5;
+      // ── HTML ──────────────────────────────────────────────────────────────────
+      const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 7.2pt;
+  color: #111;
+  background: #fff;
+}
+.page {
+  width: 215.9mm;
+  min-height: 279.4mm;
+  padding: 7mm 11mm 6mm 11mm;
+  background: #fff;
+  position: relative;
+}
 
-      // Agregar QR a las primeras 2 páginas (si existen)
-      const totalPages = doc.internal.pages.length - 1;
-      for (let pageNum = 1; pageNum <= Math.min(totalPages, maxPagesForQR); pageNum++) {
-        addQRToPage(pageNum);
+/* ── header ── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2mm;
+}
+.logo-ph {
+  width: 36mm; height: 14mm;
+  display: flex; align-items: center;
+}
+.logo-left {
+  height: 14mm;
+  width: auto;
+  max-width: 42mm;
+  object-fit: contain;
+  object-position: left center;
+  display: block;
+}
+.logo-right {
+  height: 14mm;
+  width: auto;
+  max-width: 36mm;
+  object-fit: contain;
+  object-position: right center;
+  display: block;
+}
+.logo-ph-text {
+  font-size: 6pt;
+  color: #555;
+  line-height: 1.4;
+}
+
+/* ── title ── */
+.title-bar {
+  background: #7b1a22;
+  color: #fff;
+  text-align: center;
+  padding: 2.2mm 0 1.8mm;
+  font-size: 11.5pt;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  margin-bottom: 2.5mm;
+}
+
+/* ── folio ── */
+.folio-row {
+  text-align: right;
+  font-size: 8pt;
+  font-weight: bold;
+  margin-bottom: 2mm;
+}
+
+/* ── section titles ── */
+.sec {
+  color: #7b1a22;
+  font-weight: bold;
+  font-size: 7pt;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin: 2mm 0 1mm;
+}
+
+/* ── paragraph rows ── */
+.prow {
+  line-height: 1.95;
+  margin-bottom: 0.4mm;
+  word-break: break-word;
+}
+
+/* ── exploración física: table layout ── */
+.exp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 6.5pt;
+  table-layout: fixed;
+  margin-bottom: 1.2mm;
+}
+.exp-table td {
+  vertical-align: top;
+  padding: 0.6mm 1mm 0.2mm 0;
+  line-height: 1.75;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+/*
+  10 columns (label|value pairs × 5):
+  Col1-lbl  Col1-val  Col2-lbl  Col2-val  Col3-lbl  Col3-val  Col4-lbl  Col4-val  Col5-lbl  Col5-val
+  Widths tuned so all fit in ~193mm (page - margins):
+*/
+.exp-table col.c1l { width: 12%; }
+.exp-table col.c1v { width: 10%; }
+.exp-table col.c2l { width: 9%;  }
+.exp-table col.c2v { width: 6%;  }
+.exp-table col.c3l { width: 6%;  }
+.exp-table col.c3v { width: 10%; }
+.exp-table col.c4l { width: 12%; }
+.exp-table col.c4v { width: 11%; }
+.exp-table col.c5l { width: 9%;  }
+.exp-table col.c5v { width: 15%; }
+.lbl { color: #333; }
+.tval { font-weight: bold; text-decoration: underline; text-underline-offset: 1px; }
+
+/* ── coordinación digital ── */
+.coord-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 6.8pt;
+  table-layout: fixed;
+  margin-bottom: 0.8mm;
+}
+.coord-table td {
+  vertical-align: top;
+  padding: 0 1mm 0 0;
+  line-height: 1.85;
+  width: 50%;
+}
+
+/* ── signos vitales ── */
+.sv { font-size: 7pt; line-height: 1.95; margin-bottom: 0.4mm; }
+
+/* ── firmas ── */
+.sig-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6mm;
+}
+.sig-table td {
+  text-align: center;
+  font-size: 7pt;
+  padding: 0 4mm;
+  width: 33.33%;
+}
+.sig-line {
+  border-top: 0.8px solid #333;
+  display: block;
+  margin: 8mm 3mm 1.5mm;
+}
+
+/* ── qr ── */
+.qr-wrap {
+  position: absolute;
+  bottom: 7mm;
+  right: 11mm;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-ph">${logoTijuanaTag}</div>
+    <div class="logo-ph" style="justify-content:flex-end">${logoDmsTag}</div>
+  </div>
+
+  <!-- BARRA DE TÍTULO -->
+  <div class="title-bar">CERTIFICADO MÉDICO DE ESENCIA</div>
+
+  <!-- FOLIO -->
+  <div class="folio-row">Folio:&nbsp;<u><b>${folio}</b></u></div>
+
+  <!-- PÁRRAFO INTRO -->
+  <div class="prow">
+    En la ciudad de Tijuana, B.C. Siendo las ${val(horas,"__")} hrs. ${val(minutos,"__")} min.
+    del día ${val(dia,"__")} del mes de ${val(mes,"____________")} del año ${val(ano,"____")}
+    el suscrito médico ${val(medicoNombre,"______________________________________")}
+    adscrito a la Dirección Municipal de Salud legalmente autorizada para el ejercicio de la profesión
+    con registro de la Dirección General de profesionales ${val(cedula,"______________________")}
+    y bajo protesta de conducirse con verdad, certifico que:
+  </div>
+
+  <!-- ══ DATOS PACIENTE ══ -->
+  <div class="sec">Datos de Identificación del Paciente</div>
+
+  <div class="prow">
+    Nombre ${val(patientName,"________________________________")}
+    &nbsp;se id. con ${val(certificate.identifica_con,"__________")}
+    &nbsp;de ${val(patientAge,"__")} años de edad
+  </div>
+  <div class="prow">
+    de sexo ${val(patientGender,"__________")}
+    &nbsp;de nacionalidad ${val(certificate.nacionalidad,"______________")}
+    &nbsp;con residencia nacional ${cb(certificate.residencia_nacional)}
+    &nbsp;o extranjera ${cb(certificate.extranjera)}
+  </div>
+  <div class="prow">
+    con domicilio ${val(
+          certificate.direccion || certificate.Persona?.direccion,
+          "____________________________________________________________________________"
+      )}
+  </div>
+
+  <!-- ══ EXPLORACIÓN FÍSICA ══ -->
+  <div class="sec">Exploración Física</div>
+
+  <table class="exp-table">
+    <colgroup>
+      <col class="c1l"/><col class="c1v"/>
+      <col class="c2l"/><col class="c2v"/>
+      <col class="c3l"/><col class="c3v"/>
+      <col class="c4l"/><col class="c4v"/>
+      <col class="c5l"/><col class="c5v"/>
+    </colgroup>
+    <tr>
+      <td class="lbl">Estado de conciencia</td>
+      <td><span class="tval">${safe(certificate.estado_conciencia,"______")}</span></td>
+      <td class="lbl">Excitado</td>
+      <td>${cb(certificate.excitado)}</td>
+      <td class="lbl">Facies</td>
+      <td><span class="tval">${safe(certificate.facies,"______")}</span></td>
+      <td class="lbl">Conjuntivas</td>
+      <td><span class="tval">${safe(certificate.conjuntivas,"______")}</span></td>
+      <td class="lbl">Pupilas</td>
+      <td><span class="tval">${safe(certificate.pupilas,"______")}</span></td>
+    </tr>
+    <tr>
+      <td class="lbl">Aliento</td>
+      <td><span class="tval">${safe(certificate.aliento,"______")}</span></td>
+      <td class="lbl">Náuseas</td>
+      <td>${cb(certificate.nauseas)}</td>
+      <td class="lbl">Vómito</td>
+      <td><span class="tval">${safe(certificate.vomito,"______")}</span></td>
+      <td class="lbl">Signo de Romberg</td>
+      <td><span class="tval">${safe(certificate.signo_romberg,"______")}</span></td>
+      <td class="lbl">Trastabillea</td>
+      <td>${cb(certificate.trastabillea3)}&nbsp;<span class="lbl">Cae</span>&nbsp;${cb(certificate.cae3)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Hipo</td>
+      <td>${cb(certificate.hipo)}</td>
+      <td class="lbl">Trastabillea</td>
+      <td>${cb(certificate.trastabillea)}</td>
+      <td class="lbl">Cae</td>
+      <td>${cb(certificate.cae)}</td>
+      <td class="lbl">Prueba de tándem</td>
+      <td><span class="tval">${safe(certificate.prueba_tandem,"______")}</span></td>
+      <td class="lbl">Trastabillea</td>
+      <td>${cb(certificate.trastabillea4)}&nbsp;<span class="lbl">Cae</span>&nbsp;${cb(certificate.cae4)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Equilibrio a la marcha</td>
+      <td><span class="tval">${safe(certificate.equilibrio_marcha,"______")}</span></td>
+      <td class="lbl">Trastabillea</td>
+      <td>${cb(certificate.trastabillea1)}</td>
+      <td class="lbl">Cae</td>
+      <td>${cb(certificate.cae1)}</td>
+      <td class="lbl">Gira sobre su eje</td>
+      <td>${cb(certificate.gira_sobre_eje)}</td>
+      <td class="lbl">Trastabillea</td>
+      <td>${cb(certificate.trastabillea5)}&nbsp;<span class="lbl">Cae</span>&nbsp;${cb(certificate.cae5)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Equilibrio vertical de reposo</td>
+      <td><span class="tval">${safe(certificate.equilibrio_vertical,"______")}</span></td>
+      <td class="lbl">Trastabillea</td>
+      <td>${cb(certificate.trastabillea2)}</td>
+      <td class="lbl">Cae</td>
+      <td>${cb(certificate.cae2)}</td>
+      <td class="lbl">Prueba talón rodilla</td>
+      <td>${cb(certificate.prueba_talon_rodilla)}</td>
+      <td class="lbl">Trastabillea</td>
+      <td>${cb(certificate.trastabillea6)}&nbsp;<span class="lbl">Cae</span>&nbsp;${cb(certificate.cae6)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">Levantar objetos del piso</td>
+      <td colspan="9"><span class="tval">${safe(certificate.levantar_objetos,"______")}</span></td>
+    </tr>
+  </table>
+
+  <!-- ══ COORDINACIÓN DIGITAL ══ -->
+  <div class="sec">Prueba de Coordinación Digital con Ambas Manos</div>
+
+  <table class="coord-table">
+    <tr>
+      <td>
+        DEDO-DEDO: Mano derecha: mov. Controlado&nbsp;${cb(certificate.mano_derecha)}&nbsp;falla&nbsp;${cb(certificate.falla)}
+      </td>
+      <td>
+        dedo-nariz: mano derecha: mov. controlado&nbsp;${cb(certificate.dedo_nariz_mano_derecha)}&nbsp;falla&nbsp;${cb(certificate.falla2)}
+      </td>
+    </tr>
+    <tr>
+      <td>
+        Mano izquierda: mov. controlado&nbsp;${cb(certificate.mano_izquierda)}&nbsp;falla&nbsp;${cb(certificate.falla1)}
+      </td>
+      <td>
+        dedo-nariz: mano izquierda: mov. controlado&nbsp;${cb(certificate.dedo_nariz_mano_izquierda)}&nbsp;falla&nbsp;${cb(certificate.falla3)}
+      </td>
+    </tr>
+  </table>
+
+  <div class="prow">
+    Características del habla:&nbsp;Normal&nbsp;${cb(certificate.normal)}
+    &nbsp;&nbsp;Disartria&nbsp;${cb(certificate.disartria)}
+    &nbsp;&nbsp;ininteligible&nbsp;${cb(certificate.ininteligible)}
+    &nbsp;&nbsp;Verborrea&nbsp;${cb(certificate.verborrea)}
+  </div>
+
+  <div class="sv">
+    Signos vitales: pulso&nbsp;${val(certificate.signos_vitales)}&nbsp;/min.
+    &nbsp;Frecuencia respiratoria&nbsp;${val(certificate.frecuencia_respiratoria)}&nbsp;resp/min,
+    &nbsp;Tensión Arterial&nbsp;${val(certificate.tension_arterial)}&nbsp;/&nbsp;${val(certificate.tension_arterial1)}&nbsp;mm de hg
+    &nbsp;Temperatura&nbsp;${val(certificate.temperatura)}
+  </div>
+  <div class="prow">
+    Determinación de alcoholemia (en analizador de aire espirado)&nbsp;${val(certificate.determinacion_alcohol)}&nbsp;&nbsp;Br. AC
+  </div>
+
+  <!-- ══ OBSERVACIONES ══ -->
+  <div class="sec">Observaciones</div>
+
+  <div class="prow">
+    Al ciudadano se le interrogó si padecía alguna enfermedad y si estaba bajo tratamiento médico
+    a lo que respondió&nbsp;&nbsp;SI&nbsp;${cb(certificate.si)}&nbsp;&nbsp;&nbsp;NO&nbsp;${cb(certificate.no)}
+  </div>
+  ${safe(certificate.observacion)
+          ? `<div class="prow">Observación:&nbsp;${val(certificate.observacion)}</div>`
+          : `<div class="prow"><u style="min-width:160mm;display:inline-block">&nbsp;</u></div>`
       }
 
-      const fileName = certificate.folio || certificate.id || "sin-folio";
+  <!-- ══ DIAGNÓSTICO Y CONCLUSIONES ══ -->
+  <div class="sec">Diagnóstico y Conclusiones</div>
+
+  <div class="prow">
+    En base a lo anteriormente expuesto el ciudadano presenta un cuadro clínico de
+    &nbsp;${val(certificate.cuadro_clinico,"________________________________")}
+  </div>
+  <div class="prow">
+    ${val(certificate.el_cual,"__________________")}
+    &nbsp;el cual&nbsp;<u style="min-width:42mm;display:inline-block">&nbsp;</u>
+    &nbsp;perturba o impide su habilidad para conducir un vehículo de motor.
+  </div>
+
+  <!-- ══ DATOS SOLICITANTE ══ -->
+  <div class="sec">Datos de Identificación del Solicitante</div>
+
+  <div class="prow">
+    Nombre del solicitante:&nbsp;${val(certificate.nombre_solicitante,"__________________________________")}
+    &nbsp;&nbsp;Identificación o núm. De placa&nbsp;${val(certificate.no_placa)}
+  </div>
+  <div class="prow">
+    Departamento y sección a la que pertenece:&nbsp;${val(certificate.departamento,"______________________________________________________________")}
+  </div>
+  <div class="prow">
+    Dependencia que requiere la certificación:&nbsp;${val(certificate.dependencia,"____________________________")}
+    &nbsp;&nbsp;No. De boleta de infracción&nbsp;${val(certificate.no_boleta)}
+  </div>
+  <div class="prow">
+    Nombre del Juez municipal que autorizó la certificación Lic.&nbsp;${val(certificate.nombre_juez,"______________________________________________")}
+  </div>
+
+  <!-- ══ DATOS COMPLEMENTARIOS ══ -->
+  <div class="sec">Datos Complementarios</div>
+
+  <div class="prow">
+    El ciudadano en cuestión era conductor de un vehículo&nbsp;${val(certificate.vehiculo,"____________________")}
+    &nbsp;&nbsp;Marca&nbsp;${val(certificate.marca,"________________")}
+    &nbsp;&nbsp;Modelo&nbsp;${val(certificate.modelo,"________________")}
+  </div>
+  <div class="prow">
+    Placas&nbsp;${val(certificate.placas,"____________________")}
+    &nbsp;&nbsp;Nacionales o de frontera&nbsp;${val(certificate.nacionales_o_frontera,"____________________")}
+    &nbsp;&nbsp;Extranjeras&nbsp;${cb(certificate.extranjeras)}
+  </div>
+
+  <!-- ══ FIRMAS ══ -->
+  <table class="sig-table">
+    <tr>
+      <td><span class="sig-line"></span>JUEZ MUNICIPAL</td>
+      <td><span class="sig-line"></span>ATENTAMENTE</td>
+      <td><span class="sig-line"></span>SOLICITANTE</td>
+    </tr>
+  </table>
+
+  ${qrImg ? `<div class="qr-wrap">${qrImg}</div>` : ""}
+
+</div>
+</body>
+</html>`;
+
+      // ── Renderizar en iframe oculto ───────────────────────────────────────────
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText =
+          "position:fixed;left:-9999px;top:0;width:816px;height:1200px;border:none;visibility:hidden;";
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument!;
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+
+      // Esperar fonts + layout
+      await new Promise<void>((resolve) => {
+        iframe.onload = () => resolve();
+        setTimeout(resolve, 1000);
+      });
+
+      const pageEl = iframeDoc.querySelector(".page") as HTMLElement;
+
+      // Ajustar iframe al alto real del contenido renderizado
+      const realHeight = pageEl.scrollHeight;
+      iframe.style.height = `${realHeight + 20}px`;
+
+      // ── html2canvas → jsPDF ──────────────────────────────────────────────────
+      const canvas = await html2canvas(pageEl, {
+        // @ts-ignore
+        scale: 2.5,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        windowWidth: 816,
+        windowHeight: realHeight + 20,
+        width: pageEl.scrollWidth,
+        height: pageEl.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      document.body.removeChild(iframe);
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.97);
+      const doc     = new jsPDF({ unit: "mm", format: "letter", orientation: "portrait" });
+      const pw      = doc.internal.pageSize.getWidth();
+      const ph      = doc.internal.pageSize.getHeight();
+
+      // Escalar para que quepa en una sola página manteniendo proporciones
+      const canvasAspect = canvas.height / canvas.width;
+      const imgW = pw;
+      const imgH = Math.min(ph, pw * canvasAspect);
+
+      doc.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
+
+      const fileName = safe(certificate.folio || certificate.id, "sin-folio");
       doc.save(`certificado-${fileName}.pdf`);
-      
-      // Registrar la generación del reporte
+
+      // Registrar reporte
       try {
         await request("/sics/reports/createCountReport", "POST", {
           total: 1,
           nombre_reporte: "Certificado de Alcoholimetría",
         });
-      } catch (reportError) {
-        console.warn("No se pudo registrar el reporte", reportError);
-      }
+      } catch { /* no bloquea */ }
+
     } catch (err) {
       console.error("No se pudo generar el PDF del certificado", err);
     } finally {
