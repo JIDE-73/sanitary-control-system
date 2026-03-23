@@ -595,6 +595,7 @@ export function FormNotaMedicaALM({
             <Label htmlFor="noOficial">Número de oficial</Label>
             <Input
               id="noOficial"
+              type="number"
               value={formData.noOficial}
               onChange={(e) => handleChange("noOficial", e.target.value)}
               placeholder="Número de oficial"
@@ -604,6 +605,7 @@ export function FormNotaMedicaALM({
             <Label htmlFor="noUnidad">Número de unidad</Label>
             <Input
               id="noUnidad"
+              type="number"
               value={formData.noUnidad}
               onChange={(e) => handleChange("noUnidad", e.target.value)}
               placeholder="Número de unidad"
